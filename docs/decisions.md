@@ -1,5 +1,7 @@
 # Design decisions
 
+*English | [日本語](./decisions.ja.md)*
+
 This document records the choices that shape kanabun, and — just as
 importantly — the alternatives that were weighed and set aside. It captures the
 outcome of the initial product/design interview.
@@ -68,6 +70,40 @@ is used purely for the developer experience (test runner, and later the
 bundler/dev-server) and is confined to a thin CLI/dev layer that never
 contaminates the core.
 
+### 5. Zero dependencies — at runtime *and* in development
+
+The "zero dependency" stance extends past the shipped bundle to the dev
+environment itself:
+
+- **Runtime:** zero. The core imports nothing.
+- **Development:** a single, type-only dependency — `@types/bun` — is permitted
+  as a deliberate exception (it supplies the `bun:test` / Bun type surface). A
+  hand-written ambient shim was prototyped to reach literally zero, but
+  `@types/bun` was chosen instead: accurate, maintained types beat a shim that
+  must be extended every time a new test matcher is used.
+- **TypeScript** is the project's sanctioned tool (per the founding charter,
+  "Bun and TypeScript only"), fetched on demand via `bunx tsc` rather than
+  vendored into `package.json`.
+- **CI infrastructure** (GitHub Actions like `actions/checkout`,
+  `oven-sh/setup-bun`) is not part of the project's dependency graph and is out
+  of scope for this rule.
+
+The net effect: `bun install` pulls only `@types/bun`, and nothing reaches the
+browser but standard JS.
+
+## Conventions & tooling
+
+- **Test files** are named `*.spec.ts`.
+- **Package manager / runner** is Bun. Use `bun test`, `bun run typecheck`
+  (`bunx tsc --noEmit`), not npm/yarn equivalents.
+- **Coverage** is measured by Bun's built-in `--coverage` (text + lcov), with a
+  0.9 threshold configured in `bunfig.toml`. The core currently sits at 100%.
+- **CI** (`.github/workflows/ci.yml`) runs typecheck, tests, and coverage on
+  every push and pull request.
+- **Adding any dependency** is a red flag to be justified explicitly — the
+  `skeptical-reviewer` agent (`.claude/agents/`) checks for this before a task
+  is reported complete.
+
 ## Reactive core semantics (Phase 1)
 
 The propagation algorithm is the push–pull "coloring" scheme (à la
@@ -88,9 +124,9 @@ effects) are deferred to the component model in a later phase.
 ## Roadmap (abridged)
 
 - **Phase 0 — scaffold:** Bun project, workspace split (`core` vs future
-  `cli`), `bun test`. ✅
+  `cli`), `bun test`, CI + coverage. ✅
 - **Phase 1 — signals core:** `signal` / `computed` / `effect`, batching,
-  cleanup; glitch-free + leak-free, fully unit-tested. ✅
+  cleanup; glitch-free + leak-free, fully unit-tested (100% coverage). ✅
 - **Phase 2 — JSX runtime + render:** `jsx`/`jsxs`/`Fragment`, `render`; a
   working counter.
 - **Phase 3 — control flow & lists:** `<Show>`, `<For>` with keyed updates;

@@ -13,7 +13,8 @@
     "noImplicitReturns": true,
     "noFallthroughCasesInSwitch": true,
 
-    // Tooling ergonomics.
+    // Tooling ergonomics. @types/bun is our single dev-time (type-only)
+    // dependency; it provides the `bun:test` and Bun runtime type surface.
     "types": ["bun"],
     "verbatimModuleSyntax": true,
     "isolatedModules": true,

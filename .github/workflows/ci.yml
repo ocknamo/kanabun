@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Cancel superseded runs on the same ref to save CI minutes.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Typecheck, test & coverage
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # The only toolchain kanabun needs is Bun. No npm dependency install
+      # step is required because the project has zero dependencies.
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.3.11"
+
+      # Verifies the lockfile is in sync; installs nothing (zero deps).
+      - name: Install (zero dependencies)
+        run: bun install --frozen-lockfile
+
+      # TypeScript is fetched on demand by bunx — it is the project's sanctioned
+      # tool, not a committed dependency.
+      - name: Typecheck
+        run: bunx tsc --noEmit
+
+      - name: Test with coverage
+        run: bun test --coverage --coverage-reporter=text --coverage-reporter=lcov
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-lcov
+          path: coverage/lcov.info
+          if-no-files-found: warn

@@ -1,13 +1,18 @@
 # kanabun
 
+[![CI](https://github.com/ocknamo/kanabun/actions/workflows/ci.yml/badge.svg)](https://github.com/ocknamo/kanabun/actions/workflows/ci.yml)
+
+*English | [日本語](./README.ja.md)*
+
 > A Svelte-flavoured frontend framework built on **Bun + TypeScript**, with
 > **zero runtime dependencies**.
 
 The pitch: the "change a variable and the UI just follows" feeling of Svelte,
 but compiled down to plain browser JS so your users' app carries no framework
-runtime baggage. The only things kanabun itself leans on are Bun (for the dev
+runtime baggage. The only tools kanabun itself leans on are Bun (for the dev
 experience) and TypeScript (for types) — nothing ships to the browser except
-standard JS.
+standard JS, and the development setup stays minimal too (one type-only dev
+dependency; see [below](#dependencies--minimal-by-design)).
 
 **Status:** early. Phase 1 (the reactive core) is implemented and tested.
 
@@ -21,8 +26,8 @@ algorithm — you update only what changed. By leaning on **JSX** for templates
 handed entirely to TypeScript, so there's no custom DSL, no LSP to build. That
 keeps kanabun's own compiler small and its core dependency-free.
 
-See [`docs/decisions.md`](docs/decisions.md) for the design rationale and the
-trade-offs that were considered and rejected.
+See [`docs/decisions.md`](docs/decisions.md) ([日本語](docs/decisions.ja.md)) for
+the design rationale and the trade-offs that were considered and rejected.
 
 ---
 
@@ -83,25 +88,44 @@ editor understand every line with zero custom tooling.
 
 ## Development
 
-Requires [Bun](https://bun.com/).
+Requires only [Bun](https://bun.com/).
 
 ```sh
-bun install
-bun test            # run the test suite
-bun run typecheck   # tsc --noEmit across the workspace
+bun install            # installs only @types/bun (type defs); nothing ships
+bun test               # run the test suite
+bun run test:coverage  # run with coverage (text + lcov)
+bun run typecheck      # bunx tsc --noEmit (TypeScript fetched on demand)
 ```
+
+CI runs typecheck, tests, and coverage on every push and PR
+(see [`.github/workflows/ci.yml`](.github/workflows/ci.yml)).
+
+### Dependencies — minimal by design
+
+- **Runtime: zero.** `@kanabun/core` ships standard JS only; nothing is added
+  to your app's bundle.
+- **Development: one, type-only.** The single dev dependency is
+  [`@types/bun`](https://www.npmjs.com/package/@types/bun), which provides the
+  `bun:test` and Bun type surface. It is types, never shipped.
+- **TypeScript** (the project's sanctioned tool) is fetched on demand by
+  `bunx tsc` rather than vendored.
+- CI infrastructure (GitHub Actions such as `actions/checkout` and
+  `oven-sh/setup-bun`) is not part of the project's dependency graph.
 
 ### Layout
 
 ```
 packages/
-  core/        @kanabun/core — runtime-independent reactive core (this is done)
+  core/        @kanabun/core — runtime-independent reactive core (done)
     src/
-    test/
+    test/      *.spec.ts
+docs/          design docs (English + 日本語)
 ```
 
 The `core` package never touches Bun- or Node-specific APIs; runtime-specific
 code will live in a thin CLI/dev layer added in a later phase.
+
+Tests are named `*.spec.ts`.
 
 ---
 
