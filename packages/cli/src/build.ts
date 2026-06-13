@@ -5,6 +5,7 @@
  * dependency). Nothing here leaks into `@kanabun/core`.
  */
 import { resolve } from "node:path";
+import { errorMessages } from "./errors";
 
 export interface BuildOptions {
   /** Entry file (e.g. `src/main.tsx`) or an HTML entry. */
@@ -44,10 +45,6 @@ export async function build(options: BuildOptions): Promise<BuildResult> {
       logs: result.logs.map(String),
     };
   } catch (error) {
-    return {
-      success: false,
-      outputs: [],
-      logs: [error instanceof Error ? error.message : String(error)],
-    };
+    return { success: false, outputs: [], logs: errorMessages(error) };
   }
 }

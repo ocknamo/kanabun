@@ -25,8 +25,8 @@ export function templateFiles(name: string): Record<string, string> {
           private: true,
           type: "module",
           scripts: {
-            dev: "kanabun dev src/main.tsx",
-            build: "kanabun build src/main.tsx",
+            dev: "kanabun dev",
+            build: "kanabun build",
           },
           dependencies: { "@kanabun/core": "^0.0.0" },
           devDependencies: { "@kanabun/cli": "^0.0.0", "@types/bun": "latest" },

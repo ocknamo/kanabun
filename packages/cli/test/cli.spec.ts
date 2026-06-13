@@ -109,6 +109,12 @@ describe("run", () => {
     }
   });
 
+  test("dev rejects an invalid --port", async () => {
+    await expect(
+      run(["dev", resolve(root, "examples/counter/index.html"), "--port", "abc"]),
+    ).rejects.toThrow(/invalid --port/);
+  });
+
   test("dev returns a stoppable server", async () => {
     const original = console.log;
     console.log = () => {};

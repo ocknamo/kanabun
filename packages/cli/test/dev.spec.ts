@@ -1,29 +1,34 @@
 import { describe, expect, test, beforeAll, afterAll, afterEach } from "bun:test";
 import { createDevHandler, dev, type DevServer } from "../src/dev";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 let fixture: string;
+let site: string; // the served root, nested so a sibling "secret" is outside it
 let htmlPath: string;
 
 beforeAll(async () => {
   fixture = await mkdtemp(join(tmpdir(), "kanabun-dev-"));
-  htmlPath = join(fixture, "index.html");
+  site = join(fixture, "site");
+  await mkdir(site, { recursive: true });
+  htmlPath = join(site, "index.html");
   await writeFile(
     htmlPath,
     `<!doctype html><html><body><div id="app"></div><script type="module" src="./main.tsx"></script></body></html>`,
   );
-  await writeFile(join(fixture, "main.tsx"), `export const greeting = "hello";`);
-  await writeFile(join(fixture, "styles.css"), `body { color: red; }`);
-  await writeFile(join(fixture, "notes.txt"), `just text`);
+  await writeFile(join(site, "main.tsx"), `export const greeting = "hello";`);
+  await writeFile(join(site, "styles.css"), `body { color: red; }`);
+  await writeFile(join(site, "notes.txt"), `just text`);
+  // A secret OUTSIDE the served root, to test path-traversal containment.
+  await writeFile(join(fixture, "secret.txt"), `TOPSECRET`);
 });
 afterAll(async () => {
   await rm(fixture, { recursive: true, force: true });
 });
 
 describe("createDevHandler", () => {
-  const handler = () => createDevHandler({ htmlPath, root: fixture });
+  const handler = () => createDevHandler({ htmlPath, root: site });
 
   test("serves the HTML entry with the live-reload snippet injected", async () => {
     const res = await handler()(new Request("http://localhost/"));
@@ -65,6 +70,14 @@ describe("createDevHandler", () => {
     const res = await handler()(new Request("http://localhost/nope.png"));
     expect(res.status).toBe(404);
   });
+
+  test("rejects path traversal (encoded ../) without leaking files", async () => {
+    const res = await handler()(
+      new Request("http://localhost/..%2fsecret.txt"),
+    );
+    expect(res.status).toBe(404);
+    expect(await res.text()).not.toContain("TOPSECRET");
+  });
 });
 
 describe("dev server", () => {
@@ -101,7 +114,7 @@ describe("dev server", () => {
     const reload = new Promise<string>((resolve) => {
       ws.onmessage = (e) => resolve(String(e.data));
     });
-    await writeFile(join(fixture, "main.tsx"), `export const greeting = "changed";`);
+    await writeFile(join(site, "main.tsx"), `export const greeting = "changed";`);
     const message = await Promise.race([
       reload,
       new Promise<string>((_, reject) =>

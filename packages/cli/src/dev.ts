@@ -7,8 +7,9 @@
  * APIs are confined to this CLI layer.
  */
 import { watch } from "node:fs";
-import { dirname, extname, join, resolve } from "node:path";
+import { dirname, extname, join, resolve, sep } from "node:path";
 import type { ServerWebSocket } from "bun";
+import { errorMessages } from "./errors";
 
 const LIVE_RELOAD_PATH = "/__kanabun_livereload";
 const MODULE_RE = /\.(tsx|ts|jsx|js)$/;
@@ -45,7 +46,8 @@ export interface DevHandlerOptions {
 export function createDevHandler(
   options: DevHandlerOptions,
 ): (req: Request) => Promise<Response> {
-  const { htmlPath, root } = options;
+  const { htmlPath } = options;
+  const root = resolve(options.root);
   return async (req: Request): Promise<Response> => {
     const pathname = decodeURIComponent(new URL(req.url).pathname);
 
@@ -60,6 +62,12 @@ export function createDevHandler(
     }
 
     const filePath = join(root, pathname);
+    // Reject path traversal: `..` (incl. `%2e%2e%2f`, which `decodeURIComponent`
+    // turns back into `../`) must not escape the served root.
+    const resolved = resolve(filePath);
+    if (resolved !== root && !resolved.startsWith(root + sep)) {
+      return new Response("Not found", { status: 404 });
+    }
 
     if (MODULE_RE.test(pathname)) {
       const errorScript = (message: string): Response =>
@@ -73,7 +81,7 @@ export function createDevHandler(
         const js = await result.outputs[0]!.text();
         return new Response(js, { headers: { "content-type": CONTENT_TYPES[".js"]! } });
       } catch (error) {
-        return errorScript(error instanceof Error ? error.message : String(error));
+        return errorScript(errorMessages(error).join("\n"));
       }
     }
 

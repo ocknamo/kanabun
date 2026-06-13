@@ -119,7 +119,13 @@ export async function run(argv: string[]): Promise<DevServer | undefined> {
     }
     case "dev": {
       const entry = positionals[0] ?? "index.html";
-      const port = typeof flags.port === "string" ? Number(flags.port) : 3000;
+      let port = 3000;
+      if (typeof flags.port === "string") {
+        port = Number(flags.port);
+        if (!Number.isInteger(port) || port < 0) {
+          throw new Error(`kanabun: invalid --port \`${flags.port}\`.`);
+        }
+      }
       const server = dev({ entry, port });
       console.log(`kanabun dev running at ${server.url}`);
       return server;

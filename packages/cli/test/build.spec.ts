@@ -46,4 +46,17 @@ describe("build", () => {
       await rm(dir, { recursive: true, force: true });
     }
   });
+
+  test("surfaces the real diagnostic for an unresolved import (not just 'Bundle failed')", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "kanabun-build-unres-"));
+    try {
+      const entry = join(dir, "m.tsx");
+      await writeFile(entry, `import "totally-not-a-real-pkg-xyz";\nexport const x = 1;\n`);
+      const result = await build({ entry, outdir: join(dir, "dist") });
+      expect(result.success).toBe(false);
+      expect(result.logs.join("\n")).toMatch(/resolve|totally-not-a-real-pkg-xyz/i);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
 });

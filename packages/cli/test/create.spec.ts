@@ -31,7 +31,8 @@ describe("create", () => {
     const pkg = JSON.parse(await readFile(join(projectDir, "package.json"), "utf8"));
     expect(pkg.name).toBe("myapp");
     expect(pkg.dependencies["@kanabun/core"]).toBeDefined();
-    expect(pkg.scripts.dev).toContain("kanabun dev");
+    expect(pkg.scripts.dev).toBe("kanabun dev"); // defaults to the HTML entry
+    expect(pkg.scripts.build).toBe("kanabun build");
 
     const main = await readFile(join(projectDir, "src/main.tsx"), "utf8");
     expect(main).toContain("@kanabun/core");
