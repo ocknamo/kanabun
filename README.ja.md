@@ -135,6 +135,13 @@ render(() => <Counter />, document.getElementById("app")!);
 </For>
 ```
 
+### コンポーネント補助
+
+- `onMount(fn)` — 初回描画の後(次のマイクロタスク)に一度だけ実行。
+- `onCleanup(fn)` — 現在のスコープの後始末。
+- `mergeProps(...objs)` / `splitProps(props, [...keys])` — リアクティビティ(転送 getter)を
+  保ったまま props を結合/分割。
+
 動かせる例:[`examples/counter/`](examples/counter/) と
 [`examples/todomvc/`](examples/todomvc/)(`bun examples/<name>/index.html` で起動 ──
 Bun 1.3+ の HTML エントリ dev サーバーを利用)。
@@ -176,6 +183,7 @@ packages/
       reactive.ts         signals: signal/computed/effect/batch/createRoot
       dom.ts              render + 細粒度の DOM バインド + keyed 差分
       control-flow.ts     <Show>, <For>, mapArray(keyed)
+      props.ts            mergeProps / splitProps
       jsx-runtime.ts      jsx/jsxs/Fragment + JSX 型名前空間
       jsx-dev-runtime.ts  dev トランスフォームの入口
     test/      *.spec.ts(+ dom-mock.ts: 小さなテスト専用 DOM)

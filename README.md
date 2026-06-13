@@ -142,6 +142,13 @@ disposed when it leaves.
 </For>
 ```
 
+### Component helpers
+
+- `onMount(fn)` — run once after the initial render (next microtask).
+- `onCleanup(fn)` — teardown for the current scope.
+- `mergeProps(...objs)` / `splitProps(props, [...keys])` — combine/divide props
+  while preserving reactivity (forwarding getters).
+
 Runnable examples: [`examples/counter/`](examples/counter/) and
 [`examples/todomvc/`](examples/todomvc/) — serve either with
 `bun examples/<name>/index.html` (uses Bun 1.3+ HTML-entry dev server).
@@ -183,6 +190,7 @@ packages/
       reactive.ts         signals: signal/computed/effect/batch/createRoot
       dom.ts              render + fine-grained DOM bindings + keyed reconcile
       control-flow.ts     <Show>, <For>, mapArray (keyed)
+      props.ts            mergeProps / splitProps
       jsx-runtime.ts      jsx/jsxs/Fragment + JSX type namespace
       jsx-dev-runtime.ts  dev transform entry
     test/      *.spec.ts (+ dom-mock.ts, a tiny test-only DOM)

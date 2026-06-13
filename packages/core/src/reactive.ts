@@ -452,3 +452,26 @@ export function createRoot<T>(fn: (dispose: () => void) => T): T {
     listener = prevListener;
   }
 }
+
+/**
+ * Schedule `fn` to run once after the current synchronous render completes (on
+ * the next microtask) — e.g. to measure laid-out DOM. It runs within the
+ * calling owner, so `onCleanup` registered inside it is honoured, and its reads
+ * are untracked. Skipped if the owner is disposed before the microtask fires.
+ */
+export function onMount(fn: () => void): void {
+  const owner = currentOwner;
+  queueMicrotask(() => {
+    if (owner !== null && owner.color === DISPOSED) return;
+    const prevOwner = currentOwner;
+    const prevListener = listener;
+    currentOwner = owner;
+    listener = null;
+    try {
+      fn();
+    } finally {
+      currentOwner = prevOwner;
+      listener = prevListener;
+    }
+  });
+}

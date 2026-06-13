@@ -175,7 +175,8 @@ JSX トランスフォームをエンドツーエンドで検証します。
   `createRoot`。細粒度のリアクティブ DOM、動くカウンター(カバレッジ 100%)。✅
 - **Phase 3 — 制御構文とリスト:** `<Show>`、`<For>`(keyed 更新、2層の
   `mapArray` + `reconcileNodes`)。TodoMVC が動く(カバレッジ 100%)。✅
-- **Phase 4 — コンポーネントモデルと DX:** リアクティブ props、context、ライフサイクル、
-  バインド、スコープド CSS。
+- **Phase 4 — コンポーネントモデルと DX:** リアクティブ props・children・バインド・`ref`
+  は Phase 2〜3 で動作済み。`onMount` と `mergeProps` / `splitProps` を追加。
+  ⏳ 残り: `context` とスコープド CSS(どちらも設計判断が必要 ── 下記)。
 - **Phase 5 — Bun 連携:** `create` / `dev` / `build` CLI、HMR(最初は全リロード)。
 - **Phase 6 — 堅牢化(任意):** SSR/ハイドレーション、ルーター、状態保持 HMR など。

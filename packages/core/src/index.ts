@@ -12,9 +12,13 @@ export {
   batch,
   untrack,
   onCleanup,
+  onMount,
   createRoot,
 } from "./reactive";
 export type { Accessor, Signal, SignalOptions, Disposer } from "./reactive";
+
+// Component prop helpers.
+export { mergeProps, splitProps } from "./props";
 
 // DOM runtime (render + the low-level helpers the JSX runtime builds on).
 export { render, createElement, insert, reconcileNodes } from "./dom";

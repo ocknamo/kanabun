@@ -197,8 +197,10 @@ are pinned by tests, so the trade-off is explicit rather than accidental.
   `createRoot`; fine-grained reactive DOM, a working counter (100% coverage). ✅
 - **Phase 3 — control flow & lists:** `<Show>`, `<For>` with keyed updates
   (two-layer `mapArray` + `reconcileNodes`); TodoMVC runs (100% coverage). ✅
-- **Phase 4 — component model & DX:** reactive props, context, lifecycle,
-  bindings, scoped CSS.
+- **Phase 4 — component model & DX:** reactive props, children, bindings, and
+  `ref` already work from Phases 2–3; added `onMount` and `mergeProps` /
+  `splitProps`. ⏳ Remaining: `context` and scoped CSS (both need a design
+  call — see below).
 - **Phase 5 — Bun integration:** `create` / `dev` / `build` CLI; HMR (full
   reload first).
 - **Phase 6 — hardening (optional):** SSR/hydration, router, stateful HMR, etc.
