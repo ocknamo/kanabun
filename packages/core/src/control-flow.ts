@@ -86,6 +86,13 @@ export interface ShowProps {
  * Conditional rendering. Shows `children` while `when()` is truthy, otherwise
  * `fallback`. The boolean is memoized, so children are not swapped while the
  * condition merely changes among truthy values.
+ *
+ * Children disposal follows the framework's "functions are lazy" convention:
+ *   - `<Show ...><Child/></Show>` — the child element is created once and only
+ *     detached while hidden; its reactive scope stays live (keeps computing).
+ *   - `<Show ...>{() => <Child/>}</Show>` — children wrapped in a function are
+ *     created lazily, so hiding disposes the child's reactive scope and showing
+ *     recreates it. Prefer this for expensive or self-contained subtrees.
  */
 export function Show(props: ShowProps): () => JSXChild {
   const condition = computed(() => !!props.when());

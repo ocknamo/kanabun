@@ -94,6 +94,17 @@ describe("reactivity convention", () => {
     expect(serialize(node)).toBe('<button type="button">count is 1</button>');
   });
 
+  test("a reactive text child reuses the same Text node across updates", () => {
+    const count = signal(0);
+    const span = el(jsx("span", { children: count }));
+    const text = span.firstChild!;
+    expect(text.nodeType).toBe(3);
+    expect(text.data).toBe("0");
+    count.set(1);
+    expect(span.firstChild).toBe(text); // same Text node, mutated in place
+    expect(text.data).toBe("1");
+  });
+
   test("a called accessor {count()} is static (read once)", () => {
     const count = signal(0);
     const node = el(jsx("span", { children: count() }));

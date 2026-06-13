@@ -72,6 +72,62 @@ describe("<Show>", () => {
     );
     expect(serialize(container)).toBe("<div></div>");
   });
+
+  test("eager children stay live while hidden (element child)", () => {
+    // A plain element child is created once; hiding detaches it but its
+    // reactive scope is NOT disposed — it keeps recomputing while hidden.
+    const when = signal(true);
+    const value = signal(0);
+    let runs = 0;
+    const container = createContainer();
+    render(
+      () =>
+        jsx(Show, {
+          when: () => when(),
+          children: jsx("span", {
+            children: () => {
+              runs++;
+              return value();
+            },
+          }),
+        }),
+      asEl(container),
+    );
+    expect(runs).toBe(1);
+    when.set(false); // hide
+    value.set(1); // hidden child still reacts
+    expect(runs).toBe(2);
+  });
+
+  test("function children are disposed while hidden and recreated when shown", () => {
+    // Wrapping children in a function defers creation, so hiding disposes the
+    // child's reactive scope (and showing recreates it) — Solid-like semantics.
+    const when = signal(true);
+    const value = signal(0);
+    let runs = 0;
+    const container = createContainer();
+    render(
+      () =>
+        jsx(Show, {
+          when: () => when(),
+          children: () =>
+            jsx("span", {
+              children: () => {
+                runs++;
+                return value();
+              },
+            }),
+        }),
+      asEl(container),
+    );
+    expect(runs).toBe(1);
+    when.set(false); // hide → child scope disposed
+    value.set(1); // hidden child must NOT recompute
+    expect(runs).toBe(1);
+    when.set(true); // show → recreated, reads value() === 1
+    expect(runs).toBe(2);
+    expect(serialize(container)).toBe("<div><span>1</span></div>");
+  });
 });
 
 describe("<For>", () => {

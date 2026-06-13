@@ -144,7 +144,7 @@ disposed when it leaves.
 
 Runnable examples: [`examples/counter/`](examples/counter/) and
 [`examples/todomvc/`](examples/todomvc/) — serve either with
-`bun examples/<name>/index.html`.
+`bun examples/<name>/index.html` (uses Bun 1.3+ HTML-entry dev server).
 
 ---
 

@@ -116,9 +116,13 @@ export class MockNode {
     set.add(fn);
   }
 
-  /** Test helper: synchronously dispatch an event to this node's listeners. */
-  dispatch(type: string): MockEvent {
+  /**
+   * Test helper: synchronously dispatch an event to this node's listeners.
+   * `init` is merged onto the event (e.g. `{ key: "Enter" }`).
+   */
+  dispatch(type: string, init?: Record<string, unknown>): MockEvent {
     const event = new MockEvent(type);
+    if (init) Object.assign(event, init);
     event.target = this;
     for (const fn of this.listeners.get(type) ?? []) fn(event);
     return event;

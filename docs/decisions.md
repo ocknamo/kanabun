@@ -180,6 +180,13 @@ ride the exact same insertion path as any other reactive child — no special
 casing in the renderer. `<Show>` memoizes its condition to a boolean so children
 aren't swapped while the condition merely changes among truthy values.
 
+`<Show>` disposal follows the "functions are lazy" convention rather than a
+compiler: a plain element child (`<Show><Child/></Show>`) is created once and
+only *detached* while hidden — its reactivity stays live — whereas a function
+child (`<Show>{() => <Child/>}</Show>`) is created lazily, so hiding disposes
+the child's scope (via the owner tree) and showing recreates it. Both behaviours
+are pinned by tests, so the trade-off is explicit rather than accidental.
+
 ## Roadmap (abridged)
 
 - **Phase 0 — scaffold:** Bun project, workspace split (`core` vs future

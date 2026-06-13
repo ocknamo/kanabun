@@ -136,7 +136,8 @@ render(() => <Counter />, document.getElementById("app")!);
 ```
 
 動かせる例:[`examples/counter/`](examples/counter/) と
-[`examples/todomvc/`](examples/todomvc/)(`bun examples/<name>/index.html` で起動)。
+[`examples/todomvc/`](examples/todomvc/)(`bun examples/<name>/index.html` で起動 ──
+Bun 1.3+ の HTML エントリ dev サーバーを利用)。
 
 ---
 
