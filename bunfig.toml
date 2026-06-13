@@ -8,6 +8,8 @@ coverageReporter = ["text", "lcov"]
 coverageDir = "coverage"
 # Exclude the *.spec.ts files themselves from the coverage denominator.
 coverageSkipTestFiles = true
+# Test-only helpers (e.g. the DOM mock) are not product code.
+coveragePathIgnorePatterns = ["**/test/**"]
 # Fail the run if coverage drops below this fraction (checked whenever
 # coverage is collected). The core is meant to stay fully covered.
 coverageThreshold = 0.9

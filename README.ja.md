@@ -13,7 +13,8 @@
 TypeScript(型のため)だけで、ブラウザに出るのは標準 JS のみ。開発環境も最小限に
 保っています(型専用の dev 依存が1つだけ。[下記参照](#依存はあえて最小限))。
 
-**状態:** 初期段階。Phase 1(リアクティブコア)を実装・テスト済み。
+**状態:** 初期段階。Phase 1(リアクティブコア)と Phase 2(JSX ランタイム + `render`)
+を実装・テスト済み。リアクティブなカウンターがエンドツーエンドで動きます。
 
 ---
 
@@ -76,8 +77,50 @@ dispose(); // effect を停止
 
 `count()` の呼び出しこそが依存を記録する瞬間 ── 装飾ではなく**購読そのもの**です。
 これは SolidJS のモデルです。おかげでリアクティビティに**コンパイラが不要**になり
-(Svelte の素の `count++` 魔法は原理的にコンパイラを要する)、コアは約 350 行の
-標準 JS に収まり、`tsc` とエディタが独自ツールなしで全行を理解できます。
+(Svelte の素の `count++` 魔法は原理的にコンパイラを要する)、コアは小さく保たれ、
+`tsc` とエディタが独自ツールなしで全行を理解できます。
+
+---
+
+## 描画(JSX)
+
+テンプレートは JSX/TSX です。TypeScript が kanabun 自身の JSX ランタイム
+(`jsxImportSource: "@kanabun/core"`)に対して型チェックするので、DSL も LSP も不要。
+**仮想 DOM も差分計算もありません**。`jsx(...)` が実 DOM を即時生成し、リアクティブな
+箇所だけを細粒度の effect で接続します。
+
+```tsx
+import { signal, render } from "@kanabun/core";
+
+function Counter() {
+  const count = signal(0);
+  return (
+    <button type="button" onClick={() => count.update((n) => n + 1)}>
+      count is {count}
+    </button>
+  );
+}
+
+render(() => <Counter />, document.getElementById("app")!);
+```
+
+コンポーネントは**一度だけ**実行されます(再実行しない)。リアクティビティは式ごとです。
+
+### 反応式の規約
+
+コンパイラがないので、何がリアクティブかは明示します。**関数で渡した子・属性が
+リアクティブ**です。
+
+```tsx
+<span>{count}</span>             // リアクティブ(アクセサは関数)
+<span>{() => count() * 2}</span> // リアクティブ(thunk)
+<span>{count()}</span>           // 静的 ── 構築時に一度読むだけ
+<div class={() => cls()} />      // リアクティブな属性
+<button onClick={handler} />     // on* は常にイベント、リアクティブにはならない
+```
+
+動かせる例は [`examples/counter/`](examples/counter/) にあります
+(`bun examples/counter/index.html` で起動)。
 
 ---
 
@@ -111,16 +154,24 @@ CI は push / PR ごとに型チェック・テスト・カバレッジを実行
 
 ```
 packages/
-  core/        @kanabun/core — ランタイム非依存のリアクティブコア(完了)
+  core/        @kanabun/core — リアクティブコア + DOM/JSX ランタイム
     src/
-    test/      *.spec.ts
+      reactive.ts         signals: signal/computed/effect/batch/createRoot
+      dom.ts              render + 細粒度の DOM バインド
+      jsx-runtime.ts      jsx/jsxs/Fragment + JSX 型名前空間
+      jsx-dev-runtime.ts  dev トランスフォームの入口
+    test/      *.spec.ts(+ dom-mock.ts: 小さなテスト専用 DOM)
+examples/
+  counter/     動かせるリアクティブなカウンター
 docs/          設計ドキュメント(English + 日本語)
 ```
 
-`core` パッケージは Bun / Node 固有 API を一切触りません。ランタイム固有のコードは
-将来のフェーズで追加する薄い CLI / dev 層に閉じ込めます。
+`core` パッケージは標準 JS / Web API のみを使い(DOM は Web API)、Bun / Node 固有
+API は一切触りません。ランタイム固有のコードは将来のフェーズで追加する薄い CLI / dev
+層に閉じ込めます。
 
-テストファイル名は `*.spec.ts` です。
+テストファイル名は `*.spec.ts`。レンダラはリポジトリ内の小さな DOM モックでテストする
+ので、jsdom / happy-dom 依存は不要です。
 
 ---
 

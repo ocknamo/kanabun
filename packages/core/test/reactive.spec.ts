@@ -1,5 +1,13 @@
 import { describe, expect, test, mock } from "bun:test";
-import { signal, computed, effect, batch, untrack, onCleanup } from "../src/index";
+import {
+  signal,
+  computed,
+  effect,
+  batch,
+  untrack,
+  onCleanup,
+  createRoot,
+} from "../src/index";
 
 describe("signal", () => {
   test("reads and writes", () => {
@@ -372,5 +380,79 @@ describe("safety", () => {
     expect(mirror()).toBe(0);
     src.set(5);
     expect(mirror()).toBe(5);
+  });
+});
+
+describe("ownership / createRoot", () => {
+  test("dispose tears down effects created inside the root", () => {
+    const count = signal(0);
+    const runs = mock(() => {
+      count();
+    });
+    let dispose!: () => void;
+    createRoot((d) => {
+      dispose = d;
+      effect(runs);
+    });
+    expect(runs).toHaveBeenCalledTimes(1);
+    count.set(1);
+    expect(runs).toHaveBeenCalledTimes(2);
+    dispose();
+    count.set(2);
+    expect(runs).toHaveBeenCalledTimes(2); // disposed with the root
+  });
+
+  test("nested effects are disposed when the parent re-runs", () => {
+    const outer = signal(0);
+    const inner = signal(0);
+    const innerRuns = mock(() => {
+      inner();
+    });
+    createRoot(() => {
+      effect(() => {
+        outer(); // re-runs the parent, which must dispose the previous child
+        effect(innerRuns);
+      });
+    });
+    expect(innerRuns).toHaveBeenCalledTimes(1);
+
+    // The child effect from the first parent run is live.
+    inner.set(1);
+    expect(innerRuns).toHaveBeenCalledTimes(2);
+
+    // Re-run the parent: the old child is disposed and a fresh one created.
+    outer.set(1);
+    expect(innerRuns).toHaveBeenCalledTimes(3);
+
+    // Only ONE child is now subscribed (the old one was disposed, no leak).
+    inner.set(2);
+    expect(innerRuns).toHaveBeenCalledTimes(4);
+  });
+
+  test("onCleanup inside a root runs on dispose", () => {
+    const cleaned: string[] = [];
+    let dispose!: () => void;
+    createRoot((d) => {
+      dispose = d;
+      onCleanup(() => cleaned.push("root"));
+    });
+    expect(cleaned).toEqual([]);
+    dispose();
+    expect(cleaned).toEqual(["root"]);
+  });
+
+  test("createRoot returns the callback result and does not track reads", () => {
+    const s = signal(1);
+    const runs = mock(() => {});
+    const value = createRoot(() => {
+      // This read must not subscribe the root to s.
+      const v = s();
+      effect(runs); // unrelated effect, just to have something owned
+      return v * 10;
+    });
+    expect(value).toBe(10);
+    runs.mockClear();
+    s.set(2); // root isn't tracking s → nothing re-runs
+    expect(runs).toHaveBeenCalledTimes(0);
   });
 });

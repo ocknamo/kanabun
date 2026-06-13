@@ -22,14 +22,22 @@
     "forceConsistentCasingInFileNames": true,
     "esModuleInterop": true,
 
-    // JSX is wired up now (Phase 0) so .tsx files type-check against our own
-    // runtime once it lands in Phase 2. `tsc` only resolves jsxImportSource
-    // when a .tsx file exists, so this is inert until then.
+    // JSX uses the automatic runtime against our own jsxImportSource, so TSX
+    // type-checks and editor-completes via TypeScript with no LSP of our own.
     "jsx": "react-jsx",
     "jsxImportSource": "@kanabun/core",
+
+    // Resolve the package by name to its source within the monorepo (used by
+    // examples and honoured by Bun's bundler too). External consumers use the
+    // package.json "exports" map instead. (No baseUrl needed under "bundler".)
+    "paths": {
+      "@kanabun/core": ["./packages/core/src/index.ts"],
+      "@kanabun/core/jsx-runtime": ["./packages/core/src/jsx-runtime.ts"],
+      "@kanabun/core/jsx-dev-runtime": ["./packages/core/src/jsx-dev-runtime.ts"]
+    },
 
     // We type-check only; Bun handles execution and (later) bundling.
     "noEmit": true
   },
-  "include": ["packages/*/src", "packages/*/test"]
+  "include": ["packages/*/src", "packages/*/test", "examples"]
 }

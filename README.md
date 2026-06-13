@@ -14,7 +14,8 @@ experience) and TypeScript (for types) — nothing ships to the browser except
 standard JS, and the development setup stays minimal too (one type-only dev
 dependency; see [below](#dependencies--minimal-by-design)).
 
-**Status:** early. Phase 1 (the reactive core) is implemented and tested.
+**Status:** early. Phase 1 (reactive core) and Phase 2 (JSX runtime + `render`)
+are implemented and tested — a reactive counter works end-to-end.
 
 ---
 
@@ -81,8 +82,50 @@ every write.
 Calling `count()` is what records the dependency — it's the subscription point,
 not decoration. This is the SolidJS model. It means kanabun needs **no
 compiler** for reactivity (Svelte's bare `count++` magic fundamentally requires
-one), which keeps the core ~350 lines of standard JS and lets `tsc` and your
-editor understand every line with zero custom tooling.
+one), which keeps the core small and lets `tsc` and your editor understand
+every line with zero custom tooling.
+
+---
+
+## Rendering (JSX)
+
+Templates are JSX/TSX. TypeScript type-checks them against kanabun's own JSX
+runtime (`jsxImportSource: "@kanabun/core"`), so there's no DSL and no LSP.
+There's **no virtual DOM and no diffing**: `jsx(...)` builds real DOM eagerly,
+and only the reactive bits are wired with fine-grained effects.
+
+```tsx
+import { signal, render } from "@kanabun/core";
+
+function Counter() {
+  const count = signal(0);
+  return (
+    <button type="button" onClick={() => count.update((n) => n + 1)}>
+      count is {count}
+    </button>
+  );
+}
+
+render(() => <Counter />, document.getElementById("app")!);
+```
+
+Components run **once** (no re-execution); reactivity is per-expression.
+
+### The reactive-expression convention
+
+Because there's no compiler, you mark what's reactive explicitly: **a child or
+attribute that is a function is reactive.**
+
+```tsx
+<span>{count}</span>             // reactive — the accessor is a function
+<span>{() => count() * 2}</span> // reactive — a thunk
+<span>{count()}</span>           // STATIC — read once when built
+<div class={() => cls()} />      // reactive attribute
+<button onClick={handler} />     // on* is always an event, never reactive
+```
+
+A runnable example lives in [`examples/counter/`](examples/counter/) — serve it
+with `bun examples/counter/index.html`.
 
 ---
 
@@ -116,16 +159,24 @@ CI runs typecheck, tests, and coverage on every push and PR
 
 ```
 packages/
-  core/        @kanabun/core — runtime-independent reactive core (done)
+  core/        @kanabun/core — reactive core + DOM/JSX runtime
     src/
-    test/      *.spec.ts
+      reactive.ts         signals: signal/computed/effect/batch/createRoot
+      dom.ts              render + fine-grained DOM bindings
+      jsx-runtime.ts      jsx/jsxs/Fragment + JSX type namespace
+      jsx-dev-runtime.ts  dev transform entry
+    test/      *.spec.ts (+ dom-mock.ts, a tiny test-only DOM)
+examples/
+  counter/     a runnable reactive counter
 docs/          design docs (English + 日本語)
 ```
 
-The `core` package never touches Bun- or Node-specific APIs; runtime-specific
-code will live in a thin CLI/dev layer added in a later phase.
+The `core` package uses only standard JS / Web APIs (the DOM is a Web API); it
+never touches Bun- or Node-specific APIs. Runtime-specific code will live in a
+thin CLI/dev layer added in a later phase.
 
-Tests are named `*.spec.ts`.
+Tests are named `*.spec.ts`. The renderer is tested against a small in-repo DOM
+mock, so no jsdom/happy-dom dependency is needed.
 
 ---
 

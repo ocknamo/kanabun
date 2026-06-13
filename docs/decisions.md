@@ -118,8 +118,42 @@ are the hardest to change later:
   (no leaks, dynamic dependencies just work). Verified by tests.
 
 Disposal is explicit at the leaf: `effect` returns a disposer, and `onCleanup`
-/ returned-cleanup handle teardown. Ownership trees (auto-disposing nested
-effects) are deferred to the component model in a later phase.
+/ returned-cleanup handle teardown.
+
+Ownership was added when Phase 2 needed it (rather than deferred further):
+`createRoot(fn => …)` establishes a scope; computations created inside it are
+disposed together, and an effect that re-runs disposes the children it created
+on its previous run (no leaks). This was added as an *additive* layer that
+leaves the Phase 1 propagation — and its tests — untouched.
+
+## Rendering decisions (Phase 2)
+
+### Runtime JSX, no compiler
+
+`jsx`/`jsxs`/`Fragment` build **real DOM eagerly** at call time — a
+hyperscript-with-signals model. There is no virtual DOM, no diffing, and no
+custom compiler: this honours the "runtime only" decision while still getting
+JSX's type-checking and editor support for free (TypeScript resolves types from
+our `JSX` namespace via `jsxImportSource`). Components run **once** (the Solid
+model); only reactive expressions re-run.
+
+### The reactive-expression convention: functions are reactive
+
+Without a compiler, the source must say what's reactive. The rule: **a child or
+attribute whose value is a function is reactive** (wrapped in an `effect` and
+anchored by a comment marker so it keeps its position); anything else is set
+once. `on*` props are always events. So `{count}` and `{() => count() * 2}` are
+reactive, while `{count()}` is read once. This is the one bit of ceremony the
+no-compiler choice costs, and it is small and explicit.
+
+### Testing the DOM without a DOM dependency
+
+The renderer needs a DOM, but Bun ships none and jsdom/happy-dom would violate
+the zero-dependency stance. So the renderer resolves `globalThis.document`
+lazily and tests install a tiny in-repo DOM mock (`test/dom-mock.ts`). The
+`document` is never required at import time, keeping the core loadable anywhere.
+The example is additionally built in CI via `bun build` to exercise the real
+JSX transform end-to-end.
 
 ## Roadmap (abridged)
 
@@ -127,8 +161,8 @@ effects) are deferred to the component model in a later phase.
   `cli`), `bun test`, CI + coverage. ✅
 - **Phase 1 — signals core:** `signal` / `computed` / `effect`, batching,
   cleanup; glitch-free + leak-free, fully unit-tested (100% coverage). ✅
-- **Phase 2 — JSX runtime + render:** `jsx`/`jsxs`/`Fragment`, `render`; a
-  working counter.
+- **Phase 2 — JSX runtime + render:** `jsx`/`jsxs`/`Fragment`, `render`,
+  `createRoot`; fine-grained reactive DOM, a working counter (100% coverage). ✅
 - **Phase 3 — control flow & lists:** `<Show>`, `<For>` with keyed updates;
   TodoMVC runs.
 - **Phase 4 — component model & DX:** reactive props, context, lifecycle,
