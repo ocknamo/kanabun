@@ -1,0 +1,34 @@
+{
+  "compilerOptions": {
+    // Modern, browser-targetable output. The core ships standard JS only.
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ESNext", "DOM", "DOM.Iterable"],
+
+    // Strictness — the core is meant to be rock-solid, so opt in hard.
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+
+    // Tooling ergonomics.
+    "types": ["bun"],
+    "verbatimModuleSyntax": true,
+    "isolatedModules": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "esModuleInterop": true,
+
+    // JSX is wired up now (Phase 0) so .tsx files type-check against our own
+    // runtime once it lands in Phase 2. `tsc` only resolves jsxImportSource
+    // when a .tsx file exists, so this is inert until then.
+    "jsx": "react-jsx",
+    "jsxImportSource": "@kanabun/core",
+
+    // We type-check only; Bun handles execution and (later) bundling.
+    "noEmit": true
+  },
+  "include": ["packages/*/src", "packages/*/test"]
+}

@@ -1,0 +1,19 @@
+{
+  "name": "kanabun",
+  "version": "0.0.0",
+  "private": true,
+  "description": "A Svelte-flavoured frontend framework built on Bun + TypeScript, with zero runtime dependencies.",
+  "type": "module",
+  "license": "MIT",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "test": "bun test",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "^5"
+  }
+}
