@@ -13,8 +13,10 @@
 TypeScript(型のため)だけで、ブラウザに出るのは標準 JS のみ。開発環境も最小限に
 保っています(型専用の dev 依存が1つだけ。[下記参照](#依存はあえて最小限))。
 
-**状態:** 初期段階。Phase 1〜3 を実装・テスト済み ── リアクティブコア、JSX ランタイム +
-`render`、制御構文(`<Show>` / `<For>`、keyed 更新)。**TodoMVC が動きます。**
+**状態:** 初期段階だが実用可能。リアクティブコア、JSX ランタイム + `render`、制御構文
+(`<Show>` / `<For>`、keyed)、DX プリミティブ(`onMount`、`mergeProps`、`splitProps`)、
+そして CLI(`create` / `dev` / `build`)を実装・テスト済み。**TodoMVC が動き、`kanabun dev` /
+`kanabun build` が機能します。**
 
 ---
 
@@ -148,6 +150,23 @@ Bun 1.3+ の HTML エントリ dev サーバーを利用)。
 
 ---
 
+## CLI(`@kanabun/cli`)
+
+`kanabun` コマンドは唯一の Bun 依存層です。Bun のバンドラ/サーバーをラップするので、
+esbuild / Vite への依存はありません。`@kanabun/core` はランタイム非依存のままです。
+
+```sh
+kanabun create my-app     # 新規プロジェクトを生成
+kanabun dev               # ./index.html の dev サーバー、変更で全リロード
+kanabun build             # ./index.html を ./dist にブラウザ向けバンドル
+```
+
+`dev` は HTML エントリを配信し、TS/TSX をオンザフライでバンドルし、WebSocket で
+ライブリロードします(状態保持 HMR は先送り、今は全リロード)。`build` は
+`bun build --target browser` のラッパーです。
+
+---
+
 ## 開発
 
 必要なのは [Bun](https://bun.com/) だけです。
@@ -178,15 +197,17 @@ CI は push / PR ごとに型チェック・テスト・カバレッジを実行
 
 ```
 packages/
-  core/        @kanabun/core — リアクティブコア + DOM/JSX ランタイム
+  core/        @kanabun/core — リアクティブコア + DOM/JSX ランタイム(ランタイム非依存)
     src/
-      reactive.ts         signals: signal/computed/effect/batch/createRoot
+      reactive.ts         signals: signal/computed/effect/batch/createRoot, onMount
       dom.ts              render + 細粒度の DOM バインド + keyed 差分
       control-flow.ts     <Show>, <For>, mapArray(keyed)
       props.ts            mergeProps / splitProps
       jsx-runtime.ts      jsx/jsxs/Fragment + JSX 型名前空間
       jsx-dev-runtime.ts  dev トランスフォームの入口
-    test/      *.spec.ts(+ dom-mock.ts: 小さなテスト専用 DOM)
+  cli/         @kanabun/cli — `kanabun` コマンド(Bun 専用層)
+    src/        build.ts, create.ts, dev.ts, index.ts(argv + ディスパッチ)
+    bin/        kanabun.ts
 examples/
   counter/     動かせるリアクティブなカウンター
   todomvc/     動かせる TodoMVC

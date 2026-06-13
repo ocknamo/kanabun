@@ -39,5 +39,5 @@
     // We type-check only; Bun handles execution and (later) bundling.
     "noEmit": true
   },
-  "include": ["packages/*/src", "packages/*/test", "examples"]
+  "include": ["packages/*/src", "packages/*/test", "packages/*/bin", "examples"]
 }

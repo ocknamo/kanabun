@@ -187,6 +187,26 @@ child (`<Show>{() => <Child/>}</Show>`) is created lazily, so hiding disposes
 the child's scope (via the owner tree) and showing recreates it. Both behaviours
 are pinned by tests, so the trade-off is explicit rather than accidental.
 
+## CLI decisions (Phase 5)
+
+`@kanabun/cli` is the **only** Bun-dependent layer; the core never imports
+Bun/Node APIs. The `kanabun` command has three subcommands:
+
+- `build` wraps `Bun.build({ target: "browser" })` — no esbuild/Vite. It never
+  throws: an unresolvable entry or a compile error comes back as
+  `{ success: false, logs }`.
+- `dev` is a thin server on Bun's built-in `Bun.serve`: it serves the HTML
+  entry (injecting a live-reload snippet), bundles TS/TSX on demand, and pushes
+  a **full reload** over a WebSocket on file change. Stateful HMR is deferred
+  (per the roadmap's "reload first") because it's the heaviest, least-leveraged
+  piece. The request handler is factored out (`createDevHandler`) so it's unit
+  tested without standing up a socket.
+- `create` scaffolds a runnable project from an embedded template (no network).
+
+The CLI is held to the same bar as the core: 100% coverage, including a live
+dev-server test (start on an ephemeral port, fetch HTML + bundled JS, and assert
+a WebSocket reload fires on file change).
+
 ## Roadmap (abridged)
 
 - **Phase 0 — scaffold:** Bun project, workspace split (`core` vs future
@@ -201,6 +221,6 @@ are pinned by tests, so the trade-off is explicit rather than accidental.
   `ref` already work from Phases 2–3; added `onMount` and `mergeProps` /
   `splitProps`. ⏳ Remaining: `context` and scoped CSS (both need a design
   call — see below).
-- **Phase 5 — Bun integration:** `create` / `dev` / `build` CLI; HMR (full
-  reload first).
+- **Phase 5 — Bun integration:** `create` / `dev` / `build` CLI; dev server with
+  full-reload over WebSocket. Bun-only layer, 100% covered. ✅
 - **Phase 6 — hardening (optional):** SSR/hydration, router, stateful HMR, etc.

@@ -54,6 +54,9 @@ Run all of these (and the example builds) before considering work done.
 - `packages/core/src/` — `reactive.ts` (signals, owner tree, lifecycle),
   `dom.ts` (render + keyed reconcile), `control-flow.ts` (`<Show>`/`<For>`),
   `props.ts` (`mergeProps`/`splitProps`), `jsx-runtime.ts` / `jsx-dev-runtime.ts`.
+  Runtime-independent — no Bun/Node APIs.
+- `packages/cli/` — the `kanabun` command (`build`/`dev`/`create`). The **only**
+  Bun-dependent layer; `Bun.*`, `node:*`, `process` live here, never in core.
 - `examples/` — runnable `counter` and `todomvc` (TSX). Not shipped; excluded
   from coverage. `app.tsx` holds the component; `main.tsx` mounts it.
 - `docs/` — design decisions (EN + JA).

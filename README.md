@@ -14,9 +14,10 @@ experience) and TypeScript (for types) — nothing ships to the browser except
 standard JS, and the development setup stays minimal too (one type-only dev
 dependency; see [below](#dependencies--minimal-by-design)).
 
-**Status:** early. Phases 1–3 are implemented and tested — reactive core, JSX
-runtime + `render`, and control flow (`<Show>` / `<For>` with keyed updates).
-**TodoMVC runs.**
+**Status:** early but usable. Reactive core, JSX runtime + `render`, control
+flow (`<Show>` / `<For>` keyed), DX primitives (`onMount`, `mergeProps`,
+`splitProps`), and a CLI (`create` / `dev` / `build`) are implemented and
+tested. **TodoMVC runs; `kanabun dev` and `kanabun build` work.**
 
 ---
 
@@ -155,6 +156,24 @@ Runnable examples: [`examples/counter/`](examples/counter/) and
 
 ---
 
+## CLI (`@kanabun/cli`)
+
+The `kanabun` command is the only Bun-dependent layer — it wraps Bun's bundler
+and server so there's no esbuild/Vite dependency. `@kanabun/core` stays
+runtime-independent.
+
+```sh
+kanabun create my-app     # scaffold a new project
+kanabun dev               # dev server for ./index.html, full reload on change
+kanabun build             # bundle ./index.html to ./dist for the browser
+```
+
+`dev` serves the HTML entry, bundles TS/TSX on the fly, and live-reloads over a
+WebSocket (stateful HMR is deferred — full reload for now). `build` wraps
+`bun build --target browser`.
+
+---
+
 ## Development
 
 Requires only [Bun](https://bun.com/).
@@ -185,15 +204,17 @@ CI runs typecheck, tests, and coverage on every push and PR
 
 ```
 packages/
-  core/        @kanabun/core — reactive core + DOM/JSX runtime
+  core/        @kanabun/core — reactive core + DOM/JSX runtime (runtime-independent)
     src/
-      reactive.ts         signals: signal/computed/effect/batch/createRoot
+      reactive.ts         signals: signal/computed/effect/batch/createRoot, onMount
       dom.ts              render + fine-grained DOM bindings + keyed reconcile
       control-flow.ts     <Show>, <For>, mapArray (keyed)
       props.ts            mergeProps / splitProps
       jsx-runtime.ts      jsx/jsxs/Fragment + JSX type namespace
       jsx-dev-runtime.ts  dev transform entry
-    test/      *.spec.ts (+ dom-mock.ts, a tiny test-only DOM)
+  cli/         @kanabun/cli — the `kanabun` command (Bun-only layer)
+    src/        build.ts, create.ts, dev.ts, index.ts (argv + dispatch)
+    bin/        kanabun.ts
 examples/
   counter/     a runnable reactive counter
   todomvc/     a runnable TodoMVC

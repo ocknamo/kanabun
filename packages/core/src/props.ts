@@ -41,8 +41,9 @@ export function mergeProps<T extends Array<PropRecord | undefined | null>>(
 /**
  * Split `props` into one object per key group, plus a trailing "rest" object
  * with everything not taken. Each piece forwards to `props` via getters, so
- * reactivity is preserved (e.g. `const [local, rest] = splitProps(props,
- * ["class"])`).
+ * values stay reactive (e.g. `const [local, rest] = splitProps(props,
+ * ["class"])`). The *key set* of each piece is fixed at call time (values are
+ * live, but keys added to `props` afterwards are not reflected).
  */
 export function splitProps<T extends PropRecord>(
   props: T,
