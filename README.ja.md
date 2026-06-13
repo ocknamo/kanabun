@@ -13,8 +13,8 @@
 TypeScript(型のため)だけで、ブラウザに出るのは標準 JS のみ。開発環境も最小限に
 保っています(型専用の dev 依存が1つだけ。[下記参照](#依存はあえて最小限))。
 
-**状態:** 初期段階。Phase 1(リアクティブコア)と Phase 2(JSX ランタイム + `render`)
-を実装・テスト済み。リアクティブなカウンターがエンドツーエンドで動きます。
+**状態:** 初期段階。Phase 1〜3 を実装・テスト済み ── リアクティブコア、JSX ランタイム +
+`render`、制御構文(`<Show>` / `<For>`、keyed 更新)。**TodoMVC が動きます。**
 
 ---
 
@@ -119,8 +119,24 @@ render(() => <Counter />, document.getElementById("app")!);
 <button onClick={handler} />     // on* は常にイベント、リアクティブにはならない
 ```
 
-動かせる例は [`examples/counter/`](examples/counter/) にあります
-(`bun examples/counter/index.html` で起動)。
+### 制御構文:`<Show>` と `<For>`
+
+`<Show>` は条件分岐、`<For>` は **keyed** なリスト描画です。アイテムは参照でキーづけされ、
+アイテムごとにノードを一度だけ生成、挿入/削除/並べ替え時に再利用します(全再構築なし)。
+アイテムが消えるとそのリアクティブスコープは破棄されます。
+
+```tsx
+<Show when={() => user()} fallback={<p>Loading…</p>}>
+  <Profile user={user()!} />
+</Show>
+
+<For each={() => todos()} fallback={<p>No todos</p>}>
+  {(todo) => <li class={() => (todo.done() ? "done" : "")}>{todo.title}</li>}
+</For>
+```
+
+動かせる例:[`examples/counter/`](examples/counter/) と
+[`examples/todomvc/`](examples/todomvc/)(`bun examples/<name>/index.html` で起動)。
 
 ---
 
@@ -157,12 +173,14 @@ packages/
   core/        @kanabun/core — リアクティブコア + DOM/JSX ランタイム
     src/
       reactive.ts         signals: signal/computed/effect/batch/createRoot
-      dom.ts              render + 細粒度の DOM バインド
+      dom.ts              render + 細粒度の DOM バインド + keyed 差分
+      control-flow.ts     <Show>, <For>, mapArray(keyed)
       jsx-runtime.ts      jsx/jsxs/Fragment + JSX 型名前空間
       jsx-dev-runtime.ts  dev トランスフォームの入口
     test/      *.spec.ts(+ dom-mock.ts: 小さなテスト専用 DOM)
 examples/
   counter/     動かせるリアクティブなカウンター
+  todomvc/     動かせる TodoMVC
 docs/          設計ドキュメント(English + 日本語)
 ```
 

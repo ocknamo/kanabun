@@ -24,10 +24,14 @@ export type JSXChild =
   | JSXChild[]
   | (() => JSXChild);
 
-type Component<P> = (props: P) => unknown;
+// A component accepts its own props shape; the factory must accept any of them,
+// so `type` is intentionally loose here (the JSX transform enforces real prop
+// types at the call site via the JSX namespace below).
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type Component = (props: any) => unknown;
 
 export function jsx(
-  type: string | Component<Props>,
+  type: string | Component,
   props: Props,
   _key?: unknown,
 ): unknown {

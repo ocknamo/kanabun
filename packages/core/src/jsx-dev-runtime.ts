@@ -5,10 +5,11 @@
  * metadata (source location, etc.), so this simply delegates to `jsx`.
  */
 import { jsx, Fragment } from "./jsx-runtime";
+import type { Component } from "./jsx-runtime";
 import type { Props } from "./dom";
 
 export function jsxDEV(
-  type: string | ((props: Props) => unknown),
+  type: string | Component,
   props: Props,
   key?: unknown,
   _isStatic?: boolean,

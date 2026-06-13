@@ -36,10 +36,12 @@ jobs:
       - name: Test with coverage
         run: bun test --coverage --coverage-reporter=text --coverage-reporter=lcov
 
-      # Builds the example end-to-end: exercises the JSX transform, our
+      # Builds the examples end-to-end: exercises the JSX transform, our
       # jsx-runtime, and browser bundling. Catches JSX/wiring regressions.
-      - name: Build example (browser bundle)
-        run: bun build ./examples/counter/main.tsx --target browser --outfile /tmp/counter.js
+      - name: Build examples (browser bundles)
+        run: |
+          bun build ./examples/counter/main.tsx --target browser --outfile /tmp/counter.js
+          bun build ./examples/todomvc/main.tsx --target browser --outfile /tmp/todomvc.js
 
       - name: Upload coverage report
         if: always()

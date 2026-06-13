@@ -155,6 +155,31 @@ lazily and tests install a tiny in-repo DOM mock (`test/dom-mock.ts`). The
 The example is additionally built in CI via `bun build` to exercise the real
 JSX transform end-to-end.
 
+## Control-flow decisions (Phase 3)
+
+### Keyed lists in two layers
+
+The hard part — efficient array updates — is split into two small, independently
+testable pieces:
+
+- `mapArray` (in `<For>`) keeps **node identity stable per item**, keyed by
+  reference: a node is created once per item, reused on reorder/insert, and each
+  item runs in its own `createRoot` so a removed item's reactivity is disposed.
+- `reconcileNodes` (in the DOM runtime) syncs the DOM to a target node list by
+  identity, removing what's gone and moving only nodes that are genuinely out of
+  place (back-to-front anchoring).
+
+Composed, they give keyed updates with no full rebuild. The algorithm isn't the
+LIS-optimal minimum number of moves (Solid's udomdiff is), but it's O(n),
+correct, and plenty for TodoMVC; it can be upgraded behind the same seam later.
+
+### `<Show>` / `<For>` are components, not magic
+
+They're ordinary components that run once and return a reactive thunk, so they
+ride the exact same insertion path as any other reactive child — no special
+casing in the renderer. `<Show>` memoizes its condition to a boolean so children
+aren't swapped while the condition merely changes among truthy values.
+
 ## Roadmap (abridged)
 
 - **Phase 0 — scaffold:** Bun project, workspace split (`core` vs future
@@ -163,8 +188,8 @@ JSX transform end-to-end.
   cleanup; glitch-free + leak-free, fully unit-tested (100% coverage). ✅
 - **Phase 2 — JSX runtime + render:** `jsx`/`jsxs`/`Fragment`, `render`,
   `createRoot`; fine-grained reactive DOM, a working counter (100% coverage). ✅
-- **Phase 3 — control flow & lists:** `<Show>`, `<For>` with keyed updates;
-  TodoMVC runs.
+- **Phase 3 — control flow & lists:** `<Show>`, `<For>` with keyed updates
+  (two-layer `mapArray` + `reconcileNodes`); TodoMVC runs (100% coverage). ✅
 - **Phase 4 — component model & DX:** reactive props, context, lifecycle,
   bindings, scoped CSS.
 - **Phase 5 — Bun integration:** `create` / `dev` / `build` CLI; HMR (full

@@ -160,13 +160,39 @@ function reconcile(
     return current;
   }
   const next = normalize(value);
-  if (current !== null) {
+  reconcileNodes(parent, current ?? [], next, before);
+  return next.length > 0 ? next : null;
+}
+
+/**
+ * Sync the DOM children in `[..before)` from `current` to `next`, keyed by node
+ * identity: nodes present in both keep their DOM node (only moved if out of
+ * order), missing ones are removed, new ones inserted. Combined with `<For>`'s
+ * stable per-item node identity, this is the keyed list update.
+ *
+ * Positioning walks back-to-front, anchoring each node before the already-
+ * placed suffix, so a node is only touched when it's genuinely misplaced.
+ */
+export function reconcileNodes(
+  parent: Node,
+  current: Node[],
+  next: Node[],
+  before: Node | null,
+): void {
+  if (current.length > 0) {
+    const keep = new Set(next);
     for (const node of current) {
-      if (node.parentNode === parent) parent.removeChild(node);
+      if (!keep.has(node) && node.parentNode === parent) parent.removeChild(node);
     }
   }
-  for (const node of next) parent.insertBefore(node, before);
-  return next.length > 0 ? next : null;
+  let ref = before;
+  for (let i = next.length - 1; i >= 0; i--) {
+    const node = next[i]!;
+    if (node.parentNode !== parent || node.nextSibling !== ref) {
+      parent.insertBefore(node, ref);
+    }
+    ref = node;
+  }
 }
 
 /** Flatten a child value into a list of DOM nodes (text for primitives). */

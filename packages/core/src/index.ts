@@ -17,8 +17,12 @@ export {
 export type { Accessor, Signal, SignalOptions, Disposer } from "./reactive";
 
 // DOM runtime (render + the low-level helpers the JSX runtime builds on).
-export { render, createElement, insert } from "./dom";
+export { render, createElement, insert, reconcileNodes } from "./dom";
 export type { Props } from "./dom";
+
+// Control flow.
+export { Show, For, mapArray } from "./control-flow";
+export type { ShowProps, ForProps } from "./control-flow";
 
 // JSX runtime, also re-exported here for manual / hyperscript-style use.
 export { jsx, jsxs, Fragment } from "./jsx-runtime";

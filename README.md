@@ -14,8 +14,9 @@ experience) and TypeScript (for types) — nothing ships to the browser except
 standard JS, and the development setup stays minimal too (one type-only dev
 dependency; see [below](#dependencies--minimal-by-design)).
 
-**Status:** early. Phase 1 (reactive core) and Phase 2 (JSX runtime + `render`)
-are implemented and tested — a reactive counter works end-to-end.
+**Status:** early. Phases 1–3 are implemented and tested — reactive core, JSX
+runtime + `render`, and control flow (`<Show>` / `<For>` with keyed updates).
+**TodoMVC runs.**
 
 ---
 
@@ -124,8 +125,26 @@ attribute that is a function is reactive.**
 <button onClick={handler} />     // on* is always an event, never reactive
 ```
 
-A runnable example lives in [`examples/counter/`](examples/counter/) — serve it
-with `bun examples/counter/index.html`.
+### Control flow: `<Show>` and `<For>`
+
+`<Show>` is conditional; `<For>` is **keyed** list rendering — each item is
+keyed by reference, so a node is created once per item and reused on
+insert/remove/reorder (no full rebuild), with each item's reactive scope
+disposed when it leaves.
+
+```tsx
+<Show when={() => user()} fallback={<p>Loading…</p>}>
+  <Profile user={user()!} />
+</Show>
+
+<For each={() => todos()} fallback={<p>No todos</p>}>
+  {(todo) => <li class={() => (todo.done() ? "done" : "")}>{todo.title}</li>}
+</For>
+```
+
+Runnable examples: [`examples/counter/`](examples/counter/) and
+[`examples/todomvc/`](examples/todomvc/) — serve either with
+`bun examples/<name>/index.html`.
 
 ---
 
@@ -162,12 +181,14 @@ packages/
   core/        @kanabun/core — reactive core + DOM/JSX runtime
     src/
       reactive.ts         signals: signal/computed/effect/batch/createRoot
-      dom.ts              render + fine-grained DOM bindings
+      dom.ts              render + fine-grained DOM bindings + keyed reconcile
+      control-flow.ts     <Show>, <For>, mapArray (keyed)
       jsx-runtime.ts      jsx/jsxs/Fragment + JSX type namespace
       jsx-dev-runtime.ts  dev transform entry
     test/      *.spec.ts (+ dom-mock.ts, a tiny test-only DOM)
 examples/
   counter/     a runnable reactive counter
+  todomvc/     a runnable TodoMVC
 docs/          design docs (English + 日本語)
 ```
 
