@@ -1,0 +1,15 @@
+# Bun configuration.
+#
+# Test + coverage settings live here so local `bun test` and CI agree on what
+# "passing" means. Coverage itself is opt-in (collected with `--coverage` or
+# the `test:coverage` script) to keep the default `bun test` fast.
+[test]
+coverageReporter = ["text", "lcov"]
+coverageDir = "coverage"
+# Exclude the *.spec.ts files themselves from the coverage denominator.
+coverageSkipTestFiles = true
+# Test-only helpers (the DOM mock) and example apps are not product code.
+coveragePathIgnorePatterns = ["**/test/**", "**/examples/**"]
+# Fail the run if coverage drops below this fraction (checked whenever
+# coverage is collected). The core is meant to stay fully covered.
+coverageThreshold = 0.9

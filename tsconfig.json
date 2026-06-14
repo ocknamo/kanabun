@@ -1,0 +1,43 @@
+{
+  "compilerOptions": {
+    // Modern, browser-targetable output. The core ships standard JS only.
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ESNext", "DOM", "DOM.Iterable"],
+
+    // Strictness — the core is meant to be rock-solid, so opt in hard.
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+
+    // Tooling ergonomics. @types/bun is our single dev-time (type-only)
+    // dependency; it provides the `bun:test` and Bun runtime type surface.
+    "types": ["bun"],
+    "verbatimModuleSyntax": true,
+    "isolatedModules": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "esModuleInterop": true,
+
+    // JSX uses the automatic runtime against our own jsxImportSource, so TSX
+    // type-checks and editor-completes via TypeScript with no LSP of our own.
+    "jsx": "react-jsx",
+    "jsxImportSource": "@kanabun/core",
+
+    // Resolve the package by name to its source within the monorepo (used by
+    // examples and honoured by Bun's bundler too). External consumers use the
+    // package.json "exports" map instead. (No baseUrl needed under "bundler".)
+    "paths": {
+      "@kanabun/core": ["./packages/core/src/index.ts"],
+      "@kanabun/core/jsx-runtime": ["./packages/core/src/jsx-runtime.ts"],
+      "@kanabun/core/jsx-dev-runtime": ["./packages/core/src/jsx-dev-runtime.ts"]
+    },
+
+    // We type-check only; Bun handles execution and (later) bundling.
+    "noEmit": true
+  },
+  "include": ["packages/*/src", "packages/*/test", "packages/*/bin", "examples"]
+}
