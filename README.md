@@ -296,7 +296,11 @@ bun run typecheck      # bunx tsc --noEmit (TypeScript fetched on demand)
 ```
 
 CI runs typecheck, tests, and coverage on every push and PR
-(see [`.github/workflows/ci.yml`](.github/workflows/ci.yml)).
+(see [`.github/workflows/ci.yml`](.github/workflows/ci.yml)). A separate
+visual-regression gate screenshots the examples in a pinned Playwright
+container and diffs them against committed baselines — see
+[`tests/visual/README.md`](tests/visual/README.md). Playwright is CI-only
+tooling, never a project dependency.
 
 ### Dependencies — minimal by design
 

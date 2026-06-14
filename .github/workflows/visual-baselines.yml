@@ -1,0 +1,43 @@
+name: Update visual baselines
+
+# Manually triggered. Regenerates the visual-regression baselines inside the
+# SAME container the CI gate uses, then commits them to the branch it ran on.
+# This is the only sanctioned way to produce baselines — capturing them on a
+# laptop or a different image would cause false diffs (fonts / sub-pixel AA).
+on:
+  workflow_dispatch:
+
+jobs:
+  update:
+    name: Regenerate & commit baselines
+    runs-on: ubuntu-latest
+    container:
+      image: mcr.microsoft.com/playwright:v1.56.1-jammy
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.3.11"
+
+      - name: Install Playwright test runner (CI-only, not a project dep)
+        run: npm install --no-save @playwright/test@1.56.1
+
+      - name: Update snapshots
+        run: npx playwright test -c tests/visual/playwright.config.cjs --update-snapshots
+
+      - name: Commit baselines
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add tests/visual/__screenshots__
+          if git diff --staged --quiet; then
+            echo "No baseline changes."
+          else
+            git commit -m "chore(visual): update VRT baselines"
+            git push
+          fi
