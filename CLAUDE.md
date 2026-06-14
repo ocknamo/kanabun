@@ -61,7 +61,8 @@ Run all of these (and the example builds) before considering work done.
   from coverage. `main.tsx` mounts; larger examples (todomvc) split the
   component into `app.tsx`.
 - `docs/` — design decisions and the roadmap / remaining TODO (EN + JA:
-  `decisions.md`, `roadmap.md`). Check `roadmap.md` for what's left.
+  `decisions.md`, `roadmap.md`). Check `roadmap.md` for what's left, and
+  `docs/handoff.md` for a session handoff (current state + gotchas).
 
 ## Git
 
