@@ -17,7 +17,7 @@ dependency; see [below](#dependencies--minimal-by-design)).
 
 **Status:** early but usable. Reactive core, JSX runtime + `render`, control
 flow (`<Show>` / `<For>` keyed), DX primitives (`onMount`, `mergeProps`,
-`splitProps`, scoped `css`), and a CLI (`create` / `dev` / `build`) are implemented and
+`splitProps`, scoped `css`, `context`), and a CLI (`create` / `dev` / `build`) are implemented and
 tested. **TodoMVC runs; `kanabun dev` and `kanabun build` work.**
 
 ---
@@ -196,6 +196,33 @@ disposed when it leaves.
 - `mergeProps(...objs)` / `splitProps(props, [...keys])` — combine/divide props
   while preserving reactivity (forwarding getters).
 
+### Context
+
+`createContext(default)` returns a handle you provide with `<Ctx.Provider>` and
+read with `useContext(Ctx)`. There's no compiler, so a Provider's children must
+be a **function** — the same "functions are lazy" convention `<Show>`/`<For>`
+use — so the value is set before descendants read it. Pass an accessor as the
+value to make it reactive.
+
+```tsx
+import { createContext, useContext, signal } from "@kanabun/core";
+
+const Theme = createContext("light");
+
+function Toolbar() {
+  const theme = useContext(Theme); // "dark" below, else the default "light"
+  return <div class={theme}>…</div>;
+}
+
+const theme = signal("dark");
+// function child (required) — runs after the value is provided:
+<Theme.Provider value={theme}>{() => <Toolbar />}</Theme.Provider>;
+```
+
+`useContext` walks up the owner tree and returns the nearest provided value, or
+the context's default if no Provider is above the reader. (Plain, non-function
+children are built before the Provider runs, so they only ever see the default.)
+
 ### Scoped CSS
 
 `css` is a runtime, no-compiler helper (Emotion-style): it hashes the style body
@@ -262,8 +289,9 @@ WebSocket (stateful HMR is deferred — full reload for now). `build` wraps
 | Rendering | `render`, `jsx`, `jsxs`, `Fragment` (and low-level `createElement`, `insert`, `reconcileNodes`) |
 | Control flow | `Show`, `For`, `mapArray` |
 | Props | `mergeProps`, `splitProps` |
+| Context | `createContext`, `useContext` |
 | Styling | `css` (scoped CSS) |
-| Types | `Accessor`, `Signal`, `SignalOptions`, `Disposer`, `Props`, `JSXChild`, `JSX`, `ShowProps`, `ForProps` |
+| Types | `Accessor`, `Signal`, `SignalOptions`, `Disposer`, `Context`, `Props`, `JSXChild`, `JSX`, `ShowProps`, `ForProps` |
 
 **`@kanabun/cli`** (the `kanabun` command; also importable as a library)
 
@@ -325,7 +353,7 @@ tooling, never a project dependency.
 packages/
   core/        @kanabun/core — reactive core + DOM/JSX runtime (runtime-independent)
     src/
-      reactive.ts         signals: signal/computed/effect/batch/createRoot, onMount
+      reactive.ts         signals: signal/computed/effect/batch/createRoot, onMount, context
       dom.ts              render + fine-grained DOM bindings + keyed reconcile
       control-flow.ts     <Show>, <For>, mapArray (keyed)
       props.ts            mergeProps / splitProps

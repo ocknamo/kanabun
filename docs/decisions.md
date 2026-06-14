@@ -221,6 +221,44 @@ understood — component styles essentially never need that, and a global
 stylesheet covers the rest. Dedup is by hash, checked against the live `<head>`,
 so it survives across renders without a module-level cache to reset.
 
+## Context (Phase 4)
+
+`createContext` / `useContext` had one real design fork, flagged in the roadmap:
+in a **runtime, no-compiler** model JSX children are evaluated *eagerly* (they
+are constructor arguments), so a `<Provider>` cannot set a value before its
+children read it. Three answers were weighed:
+
+| Option | Shape | Verdict |
+| --- | --- | --- |
+| **A. Function children** | `<Ctx.Provider value={v}>{() => <App/>}</Ctx.Provider>` — the thunk runs *after* the value is set | **Chosen** |
+| B. Pull in a compiler | rewrite JSX so children are lazy automatically | Rejected: the framework's founding "no compiler" constraint. |
+| C. Keep deferring | ship without context | Rejected: it was the last open Phase 4 item. |
+
+**A** wins because it reuses the convention the framework already has —
+"**functions are lazy**", exactly how `<Show>`/`<For>` treat their children. No
+new mental model, no compiler, no dependency. The cost is explicit: plain
+(eager) children only ever see the *default*, which is asserted by a test so the
+limitation can't silently regress.
+
+Implementation rides the existing **owner tree** (Solid-style). Each reactive
+node gains a parent link (`owner`) and an optional `context` map; `useContext`
+walks up from the current owner and returns the nearest provided value (or the
+default). The Provider creates one owner scope holding the value, owned by the
+enclosing owner so it disposes with it. Two subtleties shaped the code:
+
+- **Deferred thunks.** A component child like `<For>` returns a *thunk* that the
+  outer `insert` runs later, inside an effect created *outside* the Provider's
+  scope. So the Provider wraps such a returned thunk to **re-enter its owner
+  scope on every call** (ownership only — tracking is untouched, so the `<For>`
+  keeps its dependencies). Without this, rows would walk an owner chain that
+  misses the value. Direct DOM children need no wrapping: their bindings' effects
+  are created synchronously while the scope is active.
+- **`createRoot` parent link.** `createRoot` now records its parent owner
+  (`owner.owner = prevOwner`). This is what lets a `<For>` row — which runs in
+  its own root — still resolve a Provider above the list. It does not change
+  disposal (a root is still an explicit boundary); it only makes the owner tree
+  walkable upward for context.
+
 ## CLI decisions (Phase 5)
 
 `@kanabun/cli` is the **only** Bun-dependent layer; the core never imports
@@ -253,8 +291,8 @@ a WebSocket reload fires on file change).
   (two-layer `mapArray` + `reconcileNodes`); TodoMVC runs (100% coverage). ✅
 - **Phase 4 — component model & DX:** reactive props, children, bindings, and
   `ref` already work from Phases 2–3; added `onMount`, `mergeProps` /
-  `splitProps`, and scoped `css`. ⏳ Remaining: `context` (needs a design
-  call — see below).
+  `splitProps`, scoped `css`, and `context` (`createContext` / `useContext`,
+  function-children — see below). ✅
 - **Phase 5 — Bun integration:** `create` / `dev` / `build` CLI; dev server with
   full-reload over WebSocket. Bun-only layer, 100% covered. ✅
 - **Phase 6 — hardening (optional):** SSR/hydration, router, stateful HMR, etc.
