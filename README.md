@@ -1,6 +1,7 @@
 # kanabun
 
 [![CI](https://github.com/ocknamo/kanabun/actions/workflows/ci.yml/badge.svg)](https://github.com/ocknamo/kanabun/actions/workflows/ci.yml)
+[![coverage](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/ocknamo/kanabun/badges/coverage.json)](https://github.com/ocknamo/kanabun/actions/workflows/ci.yml)
 
 *English | [日本語](./README.ja.md)*
 
@@ -296,7 +297,11 @@ bun run typecheck      # bunx tsc --noEmit (TypeScript fetched on demand)
 ```
 
 CI runs typecheck, tests, and coverage on every push and PR
-(see [`.github/workflows/ci.yml`](.github/workflows/ci.yml)). A separate
+(see [`.github/workflows/ci.yml`](.github/workflows/ci.yml)). On push to `main`
+it also derives the coverage percentage from the lcov report
+(`scripts/coverage-badge.ts`) and publishes a shields.io endpoint JSON to the
+orphan `badges` branch, which the coverage badge above reads — so the badge is
+self-hosted, with no external coverage service. A separate
 visual-regression gate screenshots the examples in a pinned Playwright
 container and diffs them against committed baselines — see
 [`tests/visual/README.md`](tests/visual/README.md). Playwright is CI-only

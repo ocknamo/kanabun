@@ -14,6 +14,10 @@ jobs:
   verify:
     name: Typecheck, test & coverage
     runs-on: ubuntu-latest
+    # Needed to publish the self-hosted coverage badge to the `badges` branch
+    # (only exercised on push to main; see "Publish coverage badge" below).
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
 
@@ -50,6 +54,39 @@ jobs:
           name: coverage-lcov
           path: coverage/lcov.info
           if-no-files-found: warn
+
+      # Self-hosted coverage badge: derive coverage% from lcov and publish a
+      # shields.io endpoint JSON to the orphan `badges` branch. No external
+      # coverage service — the README badge reads this JSON's raw URL. Runs
+      # only on push to main so PRs (incl. forks) never touch the branch.
+      - name: Generate coverage badge
+        if: github.ref == 'refs/heads/main'
+        run: bun scripts/coverage-badge.ts
+
+      - name: Publish coverage badge
+        if: github.ref == 'refs/heads/main'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          worktree="$(mktemp -d)"
+          if git ls-remote --exit-code --heads origin badges >/dev/null 2>&1; then
+            git fetch --depth=1 origin badges
+            git worktree add -B badges "$worktree" origin/badges
+          else
+            git worktree add --orphan -b badges "$worktree"
+          fi
+          cp badge/coverage.json "$worktree/coverage.json"
+          git -C "$worktree" add coverage.json
+          if git -C "$worktree" diff --cached --quiet; then
+            echo "Coverage badge unchanged; nothing to publish."
+          else
+            git -C "$worktree" commit -m "chore: update coverage badge"
+            git -C "$worktree" push origin badges
+          fi
+          git worktree remove --force "$worktree"
 
   # Visual-regression gate. Runs in Playwright's pinned container so rendering
   # is bit-identical to the environment baselines were captured in. Playwright
