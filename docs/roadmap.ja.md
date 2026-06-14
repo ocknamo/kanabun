@@ -41,6 +41,7 @@
   `<Routes>` は排他(最初にマッチ)ルーティングと 404 用の共有 `fallback` を提供。
   core の signals と owner ツリー context に乗る。依存ゼロ・カバレッジ 100%・ランタイム
   非依存。詳細は [`decisions.ja.md`](./decisions.ja.md#ルーターphase-6) を参照。
+  *フラットルートのみ ── **ネストルーティング**(レイアウト + 子ルート)は follow-up。*
 - [ ] **SSR + ハイドレーション。** サーバーで `renderToString`、クライアントで hydrate。
 - [ ] **状態保持 HMR**(現状は全リロード ── Phase 5 で意図的に簡略化した部分)。
 - [ ] **エラーバウンダリ。**

@@ -318,7 +318,9 @@ function App() {
 `<Show>`, memoizes the match to a boolean so content is built once per match
 while params keep updating. A standalone `<Route>` renders independently; wrap
 them in `<Routes>` for **exclusive** routing — the first matching route wins and
-a shared `fallback` covers the unmatched case (a natural 404). `<Link>`
+a shared `fallback` covers the unmatched case (a natural 404). Only `<Route>`
+children render inside `<Routes>`, so keep shared chrome (nav, headings) outside
+it. `<Link>`
 intercepts plain left-clicks (modified clicks and external links fall through).
 `useNavigate` / `useLocation` / `useParams` read the nearest `<Router>`. Pass
 `source={createMemorySource()}` (or a custom `RouterSource`) to drive history

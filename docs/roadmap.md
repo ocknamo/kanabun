@@ -43,6 +43,7 @@ clean, docs bilingual.
   `<Routes>` gives exclusive (first-match) routing with a shared `fallback` for
   404s. Rides core's signals + owner-tree context; zero dependencies, 100%
   covered, runtime independent. See [`decisions.md`](./decisions.md#router-phase-6).
+  *Flat routes only — **nested routing** (layouts + child routes) is a follow-up.*
 - [ ] **SSR + hydration.** `renderToString` on the server, hydrate on the client.
 - [ ] **Stateful HMR** in the dev server (currently full reload — the deliberate
   Phase 5 simplification).

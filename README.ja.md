@@ -306,7 +306,8 @@ function App() {
 マッチ結果を boolean にメモ化するので、内容はマッチごとに一度だけ構築され、params は
 更新され続けます。単独の `<Route>` は独立に描画されますが、`<Routes>` で包むと**排他**
 ルーティングになり、最初にマッチした1つだけが描画され、共有の `fallback` が未マッチ
-(=自然な 404)を受けます。`<Link>` は素の左クリックだけ横取りします(修飾キー付き
+(=自然な 404)を受けます。`<Routes>` の直下は `<Route>` のみ描画されるので、共有の
+ナビ・見出しは `<Routes>` の外に置きます。`<Link>` は素の左クリックだけ横取りします(修飾キー付き
 クリックや外部リンクはブラウザ既定に委ねる)。`useNavigate` / `useLocation` / `useParams`
 は最寄りの `<Router>` を読みます。`source={createMemorySource()}`(または独自の
 `RouterSource`)を渡せば history を自前で駆動できます。

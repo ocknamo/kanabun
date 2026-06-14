@@ -207,7 +207,11 @@ function disposableSlot(): (produce: (() => JSXChild) | null) => JSXChild {
 export interface RoutesProps {
   /** Content shown when no child `<Route>` matches — the natural home for a 404. */
   fallback?: unknown;
-  /** One or more `<Route>` elements. */
+  /**
+   * One or more `<Route>` elements. **Only `<Route>` children are rendered** —
+   * any other element placed directly inside `<Routes>` is ignored (put shared
+   * chrome like a `<nav>` outside `<Routes>`).
+   */
   children: unknown;
 }
 
@@ -230,6 +234,9 @@ function collectRoutes(value: unknown, out: RouteThunk[]): void {
  * disposes the previous one (via the owner tree), while params keep updating
  * reactively as long as a route stays selected. A child `<Route>`'s own
  * `fallback` is unused here — `<Routes>` owns the unmatched case.
+ *
+ * Only `<Route>` children participate; any other element placed directly inside
+ * is ignored, so keep shared chrome (nav, headings) outside `<Routes>`.
  */
 export function Routes(props: RoutesProps): () => JSXChild {
   const routes: RouteThunk[] = [];
