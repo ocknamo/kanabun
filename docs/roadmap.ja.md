@@ -13,7 +13,7 @@
 | 1 | signals コア: `signal`/`computed`/`effect`、バッチ、クリーンアップ、所有権 | ✅ 完了 |
 | 2 | JSX ランタイム + `render`(細粒度リアクティブ DOM) | ✅ 完了 |
 | 3 | 制御構文: `<Show>`、`<For>`(keyed); **TodoMVC 稼働** | ✅ 完了 |
-| 4 | コンポーネントモデルと DX | 🟡 一部 — `onMount`/`mergeProps`/`splitProps` 完了; `context` + スコープド CSS 未 |
+| 4 | コンポーネントモデルと DX | 🟡 一部 — `onMount`/`mergeProps`/`splitProps`/スコープド `css` 完了; `context` 未 |
 | 5 | Bun 連携: `create` / `dev` / `build` CLI | ✅ 完了 |
 | 6 | 堅牢化・周辺(ルーター、SSR 等) | ⬜ 未着手(任意) |
 
@@ -29,8 +29,10 @@
   (`<Ctx.Provider value={v}>{() => <App/>}</Ctx.Provider>`)で、`<Show>` で既に使っている
   「関数は遅延」規約と整合する。採用するか、コンパイラを導入するか(これまで却下)、
   先送りを続けるかを決める。
-- [ ] **スコープド CSS。** コンパイラなしの選択肢は限られる(クラスをハッシュして `<style>`
-  を注入するランタイム `css()` ヘルパー vs. ビルド工程)。方式を選ぶ。
+- [x] **スコープド CSS。** 完了 ── ランタイムの Emotion 風 `css\`…\`` ヘルパー。本体を
+  クラスにハッシュし、ルールをスコープして `<style>` を 1 回注入(dedupe 付き)。比較した
+  選択肢(CSS Modules 風・Svelte 属性方式は却下)は
+  [`decisions.ja.md`](./decisions.ja.md#スコープド-cssphase-4) を参照。
 
 ### Phase 6 — 堅牢化・周辺(任意)
 - [ ] **ルーター**を別パッケージ(`@kanabun/router`)で、history ベースで。
@@ -62,7 +64,9 @@
 
 1. **`context` の子モデル** — 関数の子 vs. コンパイラ vs. 先送り(上記)。Phase 4 を「完了」と
    するために次に解決すべき分岐。
-2. **スコープド CSS の方式** — ランタイムヘルパー vs. ビルド工程。
+
+(解決済み: **スコープド CSS** — ビルド工程や CSS Modules / Svelte 属性方式ではなく、
+ランタイムの Emotion 風 `css` ヘルパーを採用。`decisions.ja.md` を参照。)
 
 これらは元の構想ドキュメントの「難所」に対応します。signals の意味論(Phase 1)と keyed リスト
 (Phase 3)は解決済み、状態保持 HMR(Phase 5/6)は全リロードへ意図的に先送りしました。

@@ -187,6 +187,40 @@ child (`<Show>{() => <Child/>}</Show>`) is created lazily, so hiding disposes
 the child's scope (via the owner tree) and showing recreates it. Both behaviours
 are pinned by tests, so the trade-off is explicit rather than accidental.
 
+## Scoped CSS (Phase 4)
+
+Scoped styling had to fit the founding constraints — **runtime only, no
+compiler, zero dependencies** — which rules out Svelte's build-time selector
+rewriting. Three runtime shapes were weighed:
+
+| Option | Shape | Verdict |
+| --- | --- | --- |
+| **A. Emotion-style `css\`…\`** | hashes the body to a class, scopes rules under it, returns the class name | **Chosen** |
+| B. CSS-modules-style `css({ name: rules })` | object of declarations → map of hashed class names | Rejected: most robust (no selector parsing) but awkward for pseudo-classes, nesting, and media queries. |
+| C. Svelte-style attribute scoping | normal selectors + a `data-` attribute injected onto elements | Rejected: needs a real CSS parser **and** JSX-tree attribute injection — heavy, and at odds with the "thin, rock-solid runtime" priority. |
+
+**A** wins because it matches the roadmap's own description ("hash a class +
+inject a `<style>`") and the framework's ethos: a unique content hash means two
+distinct style blocks can never collide, so there is **no selector rewriting
+against the live DOM and no build step** — only string scoping. `class` stays a
+plain string, so the JSX runtime needs no changes; reactive toggling reuses the
+existing function-is-reactive convention (`class={() => on() ? a : b}`). It's
+also the only option the popular *styled-components* editor tooling lights up
+for free (it keys off a tag literally named `css`), and that tooling is an
+editor extension, not a project dependency — so the zero-dep rule is untouched.
+
+The scoping is a deliberately **bounded** transform (so it stays testable at
+100%): top-level declarations land under `.k-hash`; nested blocks scope `&` to
+the class or, without `&`, become a descendant; comma lists scope each part
+(commas inside `()`/`[]` are preserved); conditional group at-rules
+(`@media`/`@supports`/`@container`/`@document`/`@layer`) recurse and re-scope
+their inner rules, while other at-rules (`@keyframes`, `@font-face`) pass through
+verbatim because they are inherently global. The one acknowledged limitation:
+brace matching is lexical, so a literal `{`/`}` inside a string or comment isn't
+understood — component styles essentially never need that, and a global
+stylesheet covers the rest. Dedup is by hash, checked against the live `<head>`,
+so it survives across renders without a module-level cache to reset.
+
 ## CLI decisions (Phase 5)
 
 `@kanabun/cli` is the **only** Bun-dependent layer; the core never imports
@@ -218,8 +252,8 @@ a WebSocket reload fires on file change).
 - **Phase 3 — control flow & lists:** `<Show>`, `<For>` with keyed updates
   (two-layer `mapArray` + `reconcileNodes`); TodoMVC runs (100% coverage). ✅
 - **Phase 4 — component model & DX:** reactive props, children, bindings, and
-  `ref` already work from Phases 2–3; added `onMount` and `mergeProps` /
-  `splitProps`. ⏳ Remaining: `context` and scoped CSS (both need a design
+  `ref` already work from Phases 2–3; added `onMount`, `mergeProps` /
+  `splitProps`, and scoped `css`. ⏳ Remaining: `context` (needs a design
   call — see below).
 - **Phase 5 — Bun integration:** `create` / `dev` / `build` CLI; dev server with
   full-reload over WebSocket. Bun-only layer, 100% covered. ✅
