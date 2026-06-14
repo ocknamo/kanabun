@@ -21,6 +21,51 @@ tested. **TodoMVC runs; `kanabun dev` and `kanabun build` work.**
 
 ---
 
+## Quickstart
+
+Everything below runs from a clone of this repo — the packages aren't published
+to npm yet (see the [roadmap](docs/roadmap.md)).
+
+```sh
+bun install            # installs only @types/bun
+bun test               # the full suite
+```
+
+Run an example with live reload, or bundle it for the browser:
+
+```sh
+# dev server (full reload on change)
+bun packages/cli/bin/kanabun.ts dev   examples/todomvc/index.html
+
+# production bundle
+bun packages/cli/bin/kanabun.ts build examples/counter/index.html --outdir dist
+```
+
+Scaffold a new app (the intended `kanabun create` workflow):
+
+```sh
+bun packages/cli/bin/kanabun.ts create my-app
+```
+
+A minimal component:
+
+```tsx
+import { signal, render } from "@kanabun/core";
+
+function Counter() {
+  const count = signal(0);
+  return (
+    <button type="button" onClick={() => count.update((n) => n + 1)}>
+      count is {count}
+    </button>
+  );
+}
+
+render(() => <Counter />, document.getElementById("app")!);
+```
+
+---
+
 ## Why
 
 Signals give you Svelte-like ergonomics without a virtual DOM or a diff
@@ -171,6 +216,39 @@ kanabun build             # bundle ./index.html to ./dist for the browser
 `dev` serves the HTML entry, bundles TS/TSX on the fly, and live-reloads over a
 WebSocket (stateful HMR is deferred — full reload for now). `build` wraps
 `bun build --target browser`.
+
+---
+
+## API reference
+
+**`@kanabun/core`**
+
+| Group | Exports |
+| --- | --- |
+| Reactivity | `signal`, `computed`, `effect`, `batch`, `untrack`, `createRoot` |
+| Lifecycle | `onMount`, `onCleanup` |
+| Rendering | `render`, `jsx`, `jsxs`, `Fragment` (and low-level `createElement`, `insert`, `reconcileNodes`) |
+| Control flow | `Show`, `For`, `mapArray` |
+| Props | `mergeProps`, `splitProps` |
+| Types | `Accessor`, `Signal`, `SignalOptions`, `Disposer`, `Props`, `JSXChild`, `JSX`, `ShowProps`, `ForProps` |
+
+**`@kanabun/cli`** (the `kanabun` command; also importable as a library)
+
+| Function | Purpose |
+| --- | --- |
+| `build(opts)` | Bundle for the browser; returns `{ success, outputs, logs }` (never throws). |
+| `dev(opts)` | Start the dev server; returns `{ url, port, stop() }`. |
+| `createDevHandler(opts)` | The dev `fetch` handler, for embedding/testing. |
+| `create(name, opts?)` / `templateFiles(name)` | Scaffold a project / get its files. |
+| `parseArgs(argv)` / `run(argv)` | Parse and dispatch CLI arguments. |
+
+---
+
+## Roadmap
+
+Phases 0–5 are done (TodoMVC runs; CLI works). What's left — `context`, scoped
+CSS, router, SSR, stateful HMR — and the open design decisions are tracked in
+[`docs/roadmap.md`](docs/roadmap.md) ([日本語](docs/roadmap.ja.md)).
 
 ---
 

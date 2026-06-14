@@ -59,7 +59,8 @@ Run all of these (and the example builds) before considering work done.
   Bun-dependent layer; `Bun.*`, `node:*`, `process` live here, never in core.
 - `examples/` — runnable `counter` and `todomvc` (TSX). Not shipped; excluded
   from coverage. `app.tsx` holds the component; `main.tsx` mounts it.
-- `docs/` — design decisions (EN + JA).
+- `docs/` — design decisions and the roadmap / remaining TODO (EN + JA:
+  `decisions.md`, `roadmap.md`). Check `roadmap.md` for what's left.
 
 ## Git
 
