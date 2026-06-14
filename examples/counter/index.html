@@ -4,6 +4,21 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>kanabun — counter</title>
+    <style>
+      /* Page layout (global): center the app in the viewport. Component
+         styling lives in main.tsx via the scoped `css` helper. */
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+      }
+      #app {
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+    </style>
   </head>
   <body>
     <main id="app"></main>

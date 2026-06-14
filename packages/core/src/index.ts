@@ -28,6 +28,9 @@ export type { Props } from "./dom";
 export { Show, For, mapArray } from "./control-flow";
 export type { ShowProps, ForProps } from "./control-flow";
 
+// Scoped CSS (runtime helper: hashes a class + injects a <style>).
+export { css } from "./css";
+
 // JSX runtime, also re-exported here for manual / hyperscript-style use.
 export { jsx, jsxs, Fragment } from "./jsx-runtime";
 export type { JSXChild, JSX } from "./jsx-runtime";

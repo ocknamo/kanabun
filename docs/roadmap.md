@@ -13,7 +13,7 @@ see [`decisions.md`](./decisions.md).
 | 1 | Signals core: `signal`/`computed`/`effect`, batching, cleanup, ownership | ✅ done |
 | 2 | JSX runtime + `render` (fine-grained reactive DOM) | ✅ done |
 | 3 | Control flow: `<Show>`, `<For>` (keyed); **TodoMVC runs** | ✅ done |
-| 4 | Component model & DX | 🟡 partial — `onMount`, `mergeProps`, `splitProps` done; `context` + scoped CSS open |
+| 4 | Component model & DX | 🟡 partial — `onMount`, `mergeProps`, `splitProps`, scoped `css` done; `context` open |
 | 5 | Bun integration: `create` / `dev` / `build` CLI | ✅ done |
 | 6 | Hardening & ecosystem (router, SSR, etc.) | ⬜ not started (optional) |
 
@@ -31,8 +31,10 @@ clean, docs bilingual.
   (`<Ctx.Provider value={v}>{() => <App/>}</Ctx.Provider>`), consistent with the
   "functions are lazy" convention already used by `<Show>`. Decide: adopt that
   convention, or pull in a compiler (rejected so far), or keep deferring.
-- [ ] **Scoped CSS.** No-compiler options are limited (a runtime `css()` helper
-  that hashes a class + injects a `<style>`, vs. a build step). Pick an approach.
+- [x] **Scoped CSS.** Done — a runtime, Emotion-style `css\`…\`` helper that
+  hashes the body to a class, scopes its rules, and injects one `<style>`
+  (deduped). See [`decisions.md`](./decisions.md#scoped-css-phase-4) for the
+  options weighed (CSS-modules and Svelte-attribute styles were rejected).
 
 ### Phase 6 — hardening & ecosystem (optional)
 - [ ] **Router** as a separate package (`@kanabun/router`), history-based.
@@ -65,7 +67,9 @@ clean, docs bilingual.
 
 1. **`context` children model** — function children vs. compiler vs. defer
    (see above). This is the next fork to resolve before Phase 4 is "done".
-2. **Scoped CSS strategy** — runtime helper vs. build step.
+
+(Resolved: **scoped CSS** — a runtime Emotion-style `css` helper, over a build
+step or CSS-modules/Svelte-attribute shapes. See `decisions.md`.)
 
 These mirror the original brief's "hard parts": the signal semantics (Phase 1)
 and keyed lists (Phase 3) are solved; stateful HMR (Phase 5/6) was consciously

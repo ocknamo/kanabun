@@ -22,7 +22,7 @@ import type { Disposer } from "./reactive";
 /** Props passed to an intrinsic element (or component). */
 export type Props = Record<string, unknown> & { children?: unknown };
 
-function doc(): Document {
+export function doc(): Document {
   const d = (globalThis as { document?: Document }).document;
   if (!d) {
     throw new Error(

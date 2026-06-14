@@ -111,3 +111,10 @@ dist
 
 # TernJS port file
 .tern-port
+
+# Playwright visual-regression run artifacts and CI-only installs.
+# Committed baselines under tests/visual/__screenshots__/ are NOT ignored.
+test-results/
+playwright-report/
+blob-report/
+package-lock.json

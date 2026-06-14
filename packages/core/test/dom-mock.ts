@@ -148,6 +148,12 @@ export class MockNode {
 }
 
 class MockDocument {
+  // `<head>`, used by the scoped-CSS helper to inject `<style>` elements.
+  readonly head: MockNode;
+  constructor() {
+    this.head = new MockNode(1);
+    this.head.tagName = "HEAD";
+  }
   createElement(tag: string): MockNode {
     const el = new MockNode(1);
     el.tagName = tag.toUpperCase();

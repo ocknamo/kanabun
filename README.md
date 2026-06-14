@@ -16,7 +16,7 @@ dependency; see [below](#dependencies--minimal-by-design)).
 
 **Status:** early but usable. Reactive core, JSX runtime + `render`, control
 flow (`<Show>` / `<For>` keyed), DX primitives (`onMount`, `mergeProps`,
-`splitProps`), and a CLI (`create` / `dev` / `build`) are implemented and
+`splitProps`, scoped `css`), and a CLI (`create` / `dev` / `build`) are implemented and
 tested. **TodoMVC runs; `kanabun dev` and `kanabun build` work.**
 
 ---
@@ -195,6 +195,37 @@ disposed when it leaves.
 - `mergeProps(...objs)` / `splitProps(props, [...keys])` — combine/divide props
   while preserving reactivity (forwarding getters).
 
+### Scoped CSS
+
+`css` is a runtime, no-compiler helper (Emotion-style): it hashes the style body
+to a unique class (`k-<hash>`), scopes every rule under it, injects one `<style>`
+into `<head>` (deduped by hash), and returns the class name to apply. A unique
+hash means styles can never collide, so there's no selector rewriting or build
+step — just string scoping.
+
+```tsx
+import { css } from "@kanabun/core";
+
+const button = css`
+  padding: 0.5rem 1rem;
+  &:hover { background: #ececec; }   // & -> the scope class
+  .icon  { margin-right: 4px; }      // bare selector -> descendant (.k-x .icon)
+  @media (min-width: 40rem) { padding: 1rem; } // inner rules re-scoped
+`;
+
+<button class={button}>Save</button>;
+```
+
+`class` is a plain string, so apply it directly; toggle reactively with the
+usual function form, e.g. `class={() => active() ? `${base} ${on}` : base}`.
+Supported: top-level declarations, `&`/descendant nesting, comma lists, and
+`@media`/`@supports`/`@container`/`@document`/`@layer` (their inner rules are
+re-scoped). Other at-rules (`@keyframes`, `@font-face`, …) pass through verbatim
+since they're inherently global. A declaration before a nested block must end
+with `;` (as in Sass / native CSS nesting), and brace matching is lexical, so a
+literal `{`/`}` inside a string/comment isn't understood — use a global
+stylesheet for that.
+
 Runnable examples: [`examples/counter/`](examples/counter/) and
 [`examples/todomvc/`](examples/todomvc/) — serve either with
 `bun examples/<name>/index.html` (uses Bun 1.3+ HTML-entry dev server).
@@ -230,6 +261,7 @@ WebSocket (stateful HMR is deferred — full reload for now). `build` wraps
 | Rendering | `render`, `jsx`, `jsxs`, `Fragment` (and low-level `createElement`, `insert`, `reconcileNodes`) |
 | Control flow | `Show`, `For`, `mapArray` |
 | Props | `mergeProps`, `splitProps` |
+| Styling | `css` (scoped CSS) |
 | Types | `Accessor`, `Signal`, `SignalOptions`, `Disposer`, `Props`, `JSXChild`, `JSX`, `ShowProps`, `ForProps` |
 
 **`@kanabun/cli`** (the `kanabun` command; also importable as a library)
@@ -246,8 +278,8 @@ WebSocket (stateful HMR is deferred — full reload for now). `build` wraps
 
 ## Roadmap
 
-Phases 0–5 are done (TodoMVC runs; CLI works). What's left — `context`, scoped
-CSS, router, SSR, stateful HMR — and the open design decisions are tracked in
+Phases 0–5 are done (TodoMVC runs; CLI works). What's left — `context`, router,
+SSR, stateful HMR — and the open design decisions are tracked in
 [`docs/roadmap.md`](docs/roadmap.md) ([日本語](docs/roadmap.ja.md)).
 
 ---
@@ -264,7 +296,11 @@ bun run typecheck      # bunx tsc --noEmit (TypeScript fetched on demand)
 ```
 
 CI runs typecheck, tests, and coverage on every push and PR
-(see [`.github/workflows/ci.yml`](.github/workflows/ci.yml)).
+(see [`.github/workflows/ci.yml`](.github/workflows/ci.yml)). A separate
+visual-regression gate screenshots the examples in a pinned Playwright
+container and diffs them against committed baselines — see
+[`tests/visual/README.md`](tests/visual/README.md). Playwright is CI-only
+tooling, never a project dependency.
 
 ### Dependencies — minimal by design
 
@@ -288,6 +324,7 @@ packages/
       dom.ts              render + fine-grained DOM bindings + keyed reconcile
       control-flow.ts     <Show>, <For>, mapArray (keyed)
       props.ts            mergeProps / splitProps
+      css.ts              scoped CSS (hash + scope + inject a <style>)
       jsx-runtime.ts      jsx/jsxs/Fragment + JSX type namespace
       jsx-dev-runtime.ts  dev transform entry
   cli/         @kanabun/cli — the `kanabun` command (Bun-only layer)
