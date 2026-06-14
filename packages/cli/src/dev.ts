@@ -6,7 +6,8 @@
  * (stateful HMR is deliberately deferred — see docs/decisions.md). All Bun/Node
  * APIs are confined to this CLI layer.
  */
-import { watch } from "node:fs";
+import { realpathSync, watch } from "node:fs";
+import { realpath } from "node:fs/promises";
 import { dirname, extname, join, resolve, sep } from "node:path";
 import type { ServerWebSocket } from "bun";
 import { errorMessages } from "./errors";
@@ -47,7 +48,11 @@ export function createDevHandler(
   options: DevHandlerOptions,
 ): (req: Request) => Promise<Response> {
   const { htmlPath } = options;
-  const root = resolve(options.root);
+  // Canonical served root (symlinks resolved) so containment checks are sound.
+  const root = realpathSync(resolve(options.root));
+  const notFound = (): Response => new Response("Not found", { status: 404 });
+  const escapesRoot = (p: string): boolean => p !== root && !p.startsWith(root + sep);
+
   return async (req: Request): Promise<Response> => {
     const pathname = decodeURIComponent(new URL(req.url).pathname);
 
@@ -62,11 +67,16 @@ export function createDevHandler(
     }
 
     const filePath = join(root, pathname);
-    // Reject path traversal: `..` (incl. `%2e%2e%2f`, which `decodeURIComponent`
-    // turns back into `../`) must not escape the served root.
-    const resolved = resolve(filePath);
-    if (resolved !== root && !resolved.startsWith(root + sep)) {
-      return new Response("Not found", { status: 404 });
+    // Two containment checks must both pass:
+    //  1. lexical — blocks `..` (incl. `%2e%2e%2f`, which decodeURIComponent
+    //     turns back into `../`).
+    //  2. real path — blocks a symlink *inside* root pointing outside it
+    //     (which would otherwise be followed by Bun.file / Bun.build).
+    if (escapesRoot(resolve(filePath))) return notFound();
+    try {
+      if (escapesRoot(await realpath(filePath))) return notFound();
+    } catch {
+      // Target doesn't exist: fall through (module → build error, static → 404).
     }
 
     if (MODULE_RE.test(pathname)) {
@@ -90,7 +100,7 @@ export function createDevHandler(
       const type = CONTENT_TYPES[extname(pathname)];
       return new Response(file, type ? { headers: { "content-type": type } } : {});
     }
-    return new Response("Not found", { status: 404 });
+    return notFound();
   };
 }
 

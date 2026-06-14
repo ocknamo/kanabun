@@ -122,7 +122,7 @@ export async function run(argv: string[]): Promise<DevServer | undefined> {
       let port = 3000;
       if (typeof flags.port === "string") {
         port = Number(flags.port);
-        if (!Number.isInteger(port) || port < 0) {
+        if (!Number.isInteger(port) || port < 0 || port > 65535) {
           throw new Error(`kanabun: invalid --port \`${flags.port}\`.`);
         }
       }

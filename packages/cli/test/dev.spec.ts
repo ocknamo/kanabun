@@ -1,6 +1,6 @@
 import { describe, expect, test, beforeAll, afterAll, afterEach } from "bun:test";
 import { createDevHandler, dev, type DevServer } from "../src/dev";
-import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, rm, writeFile, symlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -22,6 +22,10 @@ beforeAll(async () => {
   await writeFile(join(site, "notes.txt"), `just text`);
   // A secret OUTSIDE the served root, to test path-traversal containment.
   await writeFile(join(fixture, "secret.txt"), `TOPSECRET`);
+  await writeFile(join(fixture, "outside.tsx"), `export const x = "OUTSIDE";`);
+  // Symlinks that live INSIDE the root but point outside it.
+  await symlink(join(fixture, "secret.txt"), join(site, "leak.txt"));
+  await symlink(join(fixture, "outside.tsx"), join(site, "evil.tsx"));
 });
 afterAll(async () => {
   await rm(fixture, { recursive: true, force: true });
@@ -71,12 +75,31 @@ describe("createDevHandler", () => {
     expect(res.status).toBe(404);
   });
 
-  test("rejects path traversal (encoded ../) without leaking files", async () => {
-    const res = await handler()(
-      new Request("http://localhost/..%2fsecret.txt"),
-    );
+  test("rejects path traversal across encodings without leaking files", async () => {
+    const h = handler();
+    const vectors = [
+      "/..%2fsecret.txt",
+      "/%2e%2e%2fsecret.txt",
+      "/..%2F..%2Fsecret.txt",
+      "/sub/..%2f..%2fsecret.txt",
+    ];
+    for (const path of vectors) {
+      const res = await h(new Request(`http://localhost${path}`));
+      expect(res.status).toBe(404);
+      expect(await res.text()).not.toContain("TOPSECRET");
+    }
+  });
+
+  test("rejects a symlink that escapes the root (static file)", async () => {
+    const res = await handler()(new Request("http://localhost/leak.txt"));
     expect(res.status).toBe(404);
     expect(await res.text()).not.toContain("TOPSECRET");
+  });
+
+  test("rejects a symlink that escapes the root (module)", async () => {
+    const res = await handler()(new Request("http://localhost/evil.tsx"));
+    expect(res.status).toBe(404);
+    expect(await res.text()).not.toContain("OUTSIDE");
   });
 });
 
