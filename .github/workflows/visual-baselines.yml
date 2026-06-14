@@ -6,13 +6,6 @@ name: Update visual baselines
 # laptop or a different image would cause false diffs (fonts / sub-pixel AA).
 on:
   workflow_dispatch:
-  # TEMPORARY bootstrap trigger: run once on this branch to generate and commit
-  # the initial baselines, then revert this block to leave only workflow_dispatch.
-  # paths-ignore stops the baseline commit from re-triggering this workflow.
-  push:
-    branches: [claude/scoped-css-implementation-3dewdi]
-    paths-ignore:
-      - "tests/visual/__screenshots__/**"
 
 jobs:
   update:
