@@ -19,6 +19,15 @@ on its findings:
 Do not declare a phase or task finished without a clean (or consciously
 accepted) review.
 
+## ⚠️ Visual changes: use the `snapshot` skill
+
+**When a task touches the rendered look — CSS / styling, layout, or any visual
+change — use the `snapshot` skill** (`.claude/skills/snapshot/SKILL.md`) to
+capture PC + mobile screenshots of an example and confirm the result. Tests and
+`bun build` stay green even when styles don't actually apply (e.g. a `<style>`
+isn't injected or a class doesn't match), so verify the real picture before
+reporting done.
+
 ## Conventions (the reviewer enforces these — so should you)
 
 - **Zero dependencies.** No runtime deps, ever. The only permitted dev
