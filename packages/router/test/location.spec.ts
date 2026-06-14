@@ -52,6 +52,12 @@ describe("matchPath", () => {
     expect(matchPath("/q/:term", "/q/hello%20world")).toEqual({ term: "hello world" });
   });
 
+  test("a malformed percent-escape falls back to the raw segment (never throws)", () => {
+    // External input could be malformed; matching must not crash.
+    expect(matchPath("/q/:term", "/q/%E0%A4%A")).toEqual({ term: "%E0%A4%A" });
+    expect(matchPath("/files/*rest", "/files/%C0%80/x")).toEqual({ rest: "%C0%80/x" });
+  });
+
   test("named wildcard captures the remainder", () => {
     expect(matchPath("/files/*rest", "/files/a/b/c.txt")).toEqual({ rest: "a/b/c.txt" });
   });

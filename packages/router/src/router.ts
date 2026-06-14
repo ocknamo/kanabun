@@ -43,6 +43,10 @@ interface RouterContextValue {
 const RouterContext = createContext<RouterContextValue | null>(null);
 const RouteContext = createContext<Accessor<RouteParams> | null>(null);
 
+// A single shared "no params" object, so reads outside a match return a stable
+// reference (a fresh `{}` each time would re-trigger any dependent computation).
+const EMPTY_PARAMS: RouteParams = Object.freeze({}) as RouteParams;
+
 function useRouter(api: string): RouterContextValue {
   const ctx = useContext(RouterContext);
   if (ctx === null) {
@@ -100,7 +104,7 @@ export function useNavigate(): Navigate {
  */
 export function useParams(): Accessor<RouteParams> {
   const params = useContext(RouteContext);
-  return params ?? (() => ({}));
+  return params ?? (() => EMPTY_PARAMS);
 }
 
 export interface RouteProps {
@@ -126,7 +130,7 @@ export function Route(props: RouteProps): () => JSXChild {
   const { location } = useRouter("<Route>");
   const matched = computed(() => matchPath(props.path, location().pathname));
   const isMatched = computed(() => matched() !== null);
-  const params: Accessor<RouteParams> = () => matched() ?? {};
+  const params: Accessor<RouteParams> = () => matched() ?? EMPTY_PARAMS;
 
   // Build the content *inside* the route context, so the component (and any
   // descendants) can read `useParams()`, and pass the accessor directly too.

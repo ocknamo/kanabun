@@ -196,6 +196,32 @@ describe("useLocation / useNavigate", () => {
     expect(serialize(container)).toBe("<div><p>/b</p></div>");
   });
 
+  test("disposing the render unsubscribes from the source", () => {
+    // Wrap a memory source to count live subscriptions, then assert the
+    // <Router>'s onCleanup releases it when the render is disposed.
+    const base = createMemorySource("/");
+    let live = 0;
+    const src = {
+      ...base,
+      subscribe(callback: () => void) {
+        live++;
+        const off = base.subscribe(callback);
+        return () => {
+          live--;
+          off();
+        };
+      },
+    };
+    const container = createContainer();
+    const dispose = render(
+      () => jsx(Router, { source: src, children: () => jsx("p", { children: "x" }) }),
+      asEl(container),
+    );
+    expect(live).toBe(1);
+    dispose();
+    expect(live).toBe(0);
+  });
+
   test("useNavigate pushes and replaces", () => {
     const src = createMemorySource("/");
     const container = createContainer();

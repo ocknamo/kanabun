@@ -42,6 +42,16 @@ function segments(path: string): string[] {
   return out;
 }
 
+// URLs are external input (links, the address bar, deep links), so a malformed
+// percent-escape must not crash matching — fall back to the raw segment.
+function safeDecode(value: string): string {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
 /**
  * Match `pathname` against a route `pattern`, returning the captured params or
  * `null` if it doesn't match. Supported pattern syntax:
@@ -64,14 +74,14 @@ export function matchPath(pattern: string, pathname: string): RouteParams | null
     if (seg[0] === "*") {
       const name = seg.slice(1);
       if (name !== "") {
-        params[name] = pathSegs.slice(i).map(decodeURIComponent).join("/");
+        params[name] = pathSegs.slice(i).map(safeDecode).join("/");
       }
       return params; // a wildcard absorbs everything left (possibly nothing)
     }
     const part = pathSegs[i];
     if (part === undefined) return null; // path is shorter than the pattern
     if (seg[0] === ":") {
-      params[seg.slice(1)] = decodeURIComponent(part);
+      params[seg.slice(1)] = safeDecode(part);
     } else if (seg !== part) {
       return null; // a static segment didn't match
     }
