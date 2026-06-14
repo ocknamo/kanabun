@@ -31,6 +31,9 @@ lib-cov
 coverage
 *.lcov
 
+# Generated coverage badge (CI publishes it to the orphan `badges` branch)
+badge/
+
 # nyc test coverage
 .nyc_output
 
