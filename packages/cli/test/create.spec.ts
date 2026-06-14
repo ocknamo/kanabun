@@ -41,6 +41,13 @@ describe("create", () => {
     expect(tsconfig.compilerOptions.jsxImportSource).toBe("@kanabun/core");
   });
 
+  test("uses the directory basename as the project name", async () => {
+    const projectDir = await create("apps/web", { cwd: dir });
+    expect(projectDir).toBe(join(dir, "apps/web"));
+    const pkg = JSON.parse(await readFile(join(projectDir, "package.json"), "utf8"));
+    expect(pkg.name).toBe("web");
+  });
+
   test("throws if the directory already exists", async () => {
     await create("dup", { cwd: dir });
     await expect(create("dup", { cwd: dir })).rejects.toThrow(/already exists/);

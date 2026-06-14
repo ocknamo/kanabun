@@ -7,7 +7,7 @@
  */
 import { mkdir, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 
 export interface CreateOptions {
   /** Directory to create the project under. Defaults to `process.cwd()`. */
@@ -94,7 +94,9 @@ export async function create(name: string, options: CreateOptions = {}): Promise
   if (existsSync(dir)) {
     throw new Error(`kanabun: directory already exists: ${dir}`);
   }
-  const files = templateFiles(name);
+  // The project name is the target directory's basename, so a path like
+  // `create ./apps/web` yields the package name "web", not the whole path.
+  const files = templateFiles(basename(dir));
   for (const [relativePath, content] of Object.entries(files)) {
     const fullPath = join(dir, relativePath);
     await mkdir(dirname(fullPath), { recursive: true });
