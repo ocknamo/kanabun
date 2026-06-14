@@ -26,6 +26,10 @@ beforeAll(async () => {
   // Symlinks that live INSIDE the root but point outside it.
   await symlink(join(fixture, "secret.txt"), join(site, "leak.txt"));
   await symlink(join(fixture, "outside.tsx"), join(site, "evil.tsx"));
+  // A symlinked *directory* inside root that points outside it.
+  await mkdir(join(fixture, "outside-dir"), { recursive: true });
+  await writeFile(join(fixture, "outside-dir", "deep.txt"), `DEEPSECRET`);
+  await symlink(join(fixture, "outside-dir"), join(site, "symdir"));
 });
 afterAll(async () => {
   await rm(fixture, { recursive: true, force: true });
@@ -100,6 +104,12 @@ describe("createDevHandler", () => {
     const res = await handler()(new Request("http://localhost/evil.tsx"));
     expect(res.status).toBe(404);
     expect(await res.text()).not.toContain("OUTSIDE");
+  });
+
+  test("rejects a request through a symlinked directory that escapes the root", async () => {
+    const res = await handler()(new Request("http://localhost/symdir/deep.txt"));
+    expect(res.status).toBe(404);
+    expect(await res.text()).not.toContain("DEEPSECRET");
   });
 });
 
