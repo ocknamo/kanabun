@@ -5,10 +5,13 @@
  * (browser globals are resolved lazily), and built entirely on `@kanabun/core`'s
  * signals + owner-tree context. No virtual DOM, no compiler.
  */
-export { Router, Route, Link, useNavigate, useLocation, useParams } from "./router";
+export { Router, Route, Routes, Link, useNavigate, useLocation, useParams } from "./router";
 export type {
   RouterProps,
   RouteProps,
+  RoutesProps,
+  RouteHandle,
+  RouteThunk,
   LinkProps,
   Navigate,
   NavigateOptions,

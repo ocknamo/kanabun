@@ -303,8 +303,10 @@ function App() {
             <Link href="/">Home</Link>
             <Link href="/users/1">User 1</Link>
           </nav>
-          <Route path="/" children={<p>home</p>} />
-          <Route path="/users/:id" children={() => <User />} />
+          <Routes fallback={<p>404</p>}>  {/* first match wins; else fallback */}
+            <Route path="/" children={<p>home</p>} />
+            <Route path="/users/:id" children={() => <User />} />
+          </Routes>
         </>
       )}
     </Router>
@@ -314,10 +316,13 @@ function App() {
 
 `<Route>` matches a pattern (`/`, `/users/:id`, `/files/*rest`) and, like
 `<Show>`, memoizes the match to a boolean so content is built once per match
-while params keep updating. `<Link>` intercepts plain left-clicks (modified
-clicks and external links fall through). `useNavigate` / `useLocation` /
-`useParams` read the nearest `<Router>`. Pass `source={createMemorySource()}`
-(or a custom `RouterSource`) to drive history yourself.
+while params keep updating. A standalone `<Route>` renders independently; wrap
+them in `<Routes>` for **exclusive** routing — the first matching route wins and
+a shared `fallback` covers the unmatched case (a natural 404). `<Link>`
+intercepts plain left-clicks (modified clicks and external links fall through).
+`useNavigate` / `useLocation` / `useParams` read the nearest `<Router>`. Pass
+`source={createMemorySource()}` (or a custom `RouterSource`) to drive history
+yourself.
 
 ---
 
@@ -350,11 +355,11 @@ clicks and external links fall through). `useNavigate` / `useLocation` /
 
 | Group | Exports |
 | --- | --- |
-| Components | `Router`, `Route`, `Link` |
+| Components | `Router`, `Routes`, `Route`, `Link` |
 | Hooks | `useNavigate`, `useLocation`, `useParams` |
 | Sources | `createBrowserSource`, `createMemorySource` |
 | Matching | `matchPath`, `parsePath` |
-| Types | `RouterProps`, `RouteProps`, `LinkProps`, `Navigate`, `NavigateOptions`, `RouterSource`, `MemorySource`, `WindowLike`, `RouterLocation`, `RouteParams` |
+| Types | `RouterProps`, `RoutesProps`, `RouteProps`, `RouteHandle`, `RouteThunk`, `LinkProps`, `Navigate`, `NavigateOptions`, `RouterSource`, `MemorySource`, `WindowLike`, `RouterLocation`, `RouteParams` |
 
 ---
 

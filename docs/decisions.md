@@ -303,6 +303,21 @@ already use.
   the params still update reactively underneath — a param change within the same
   route does not rebuild. The matcher (`matchPath`) is a pure function handling
   static / `:param` / trailing `*wildcard` segments.
+- **`<Routes>` for exclusive matching (and 404).** Standalone `<Route>`s are
+  independent toggles (every match renders), which is wrong for a catch-all. So
+  `<Routes>` renders the **first** matching child and a shared `fallback` when
+  none match. The trick, with no compiler and eager JSX: a `<Route>` returns a
+  *thunk that also carries its match state* (`$matched` / `$content` — functions
+  can hold properties), so it still renders standalone, while `<Routes>` reads
+  those fields to pick one — mirroring Solid's `<Switch>`/`<Match>`. Naming
+  follows React Router (`<Routes fallback>`) over Solid's `<Switch>`.
+- **Disposal via an explicit `createRoot` slot.** The context wrap that lets
+  deferred reads resolve the router runs the whole route subtree under the
+  *stable* Router owner, so a re-running insert effect's `disposeOwned` never
+  reaches the previous route — it would leak on every switch. Both `<Route>` and
+  `<Routes>` therefore render content through a small "disposable slot" that owns
+  it in its own `createRoot` and tears the old one down on switch/unmount — the
+  same explicit-disposal pattern `<For>`/`mapArray` use.
 - **Params, two ways.** The accessor is passed directly to `component`/function
   children, *and* exposed via a `RouteContext` so descendants can read
   `useParams()`. The latter reuses core's context, so those descendants must live

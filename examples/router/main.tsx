@@ -1,6 +1,7 @@
 import { render, For, css } from "@kanabun/core";
 import {
   Router,
+  Routes,
   Route,
   Link,
   useParams,
@@ -118,10 +119,11 @@ function App() {
         <Link href="/oops">Broken link</Link>
       </nav>
 
-      <Route path="/" children={<Home />} />
-      <Route path="/users" children={() => <Users />} />
-      <Route path="/users/:id" children={() => <User />} />
-      <Route path="/oops" children={<p>404 — nothing here.</p>} />
+      <Routes fallback={<p>404 — nothing here.</p>}>
+        <Route path="/" children={<Home />} />
+        <Route path="/users" children={() => <Users />} />
+        <Route path="/users/:id" children={() => <User />} />
+      </Routes>
 
       <Crumbs />
     </div>

@@ -13,6 +13,7 @@
 import {
   signal,
   computed,
+  createRoot,
   onCleanup,
   createContext,
   useContext,
@@ -122,11 +123,29 @@ export interface RouteProps {
 }
 
 /**
+ * The value a `<Route>` returns: a thunk you can drop straight into the tree
+ * (it renders its content while matched, else its `fallback`) that *also*
+ * carries its match state and a content factory. Standalone use only ever calls
+ * the thunk; an enclosing `<Routes>` reads the `$`-prefixed fields instead to
+ * pick a single route exclusively.
+ */
+export interface RouteHandle {
+  /** Whether this route currently matches the location (memoized boolean). */
+  readonly $matched: Accessor<boolean>;
+  /** Build the route's content (inside its route context). */
+  readonly $content: () => JSXChild;
+}
+export type RouteThunk = (() => JSXChild) & RouteHandle;
+
+/**
  * Render content while `path` matches the current location. Like `<Show>`, the
  * match is memoized to a boolean, so content is built once on match (and
  * disposed on mismatch) while the params still update reactively underneath.
+ *
+ * Used standalone, a `<Route>` renders independently. Wrapped in `<Routes>`, the
+ * routes become mutually exclusive (first match wins, with a shared fallback).
  */
-export function Route(props: RouteProps): () => JSXChild {
+export function Route(props: RouteProps): RouteThunk {
   const { location } = useRouter("<Route>");
   const matched = computed(() => matchPath(props.path, location().pathname));
   const isMatched = computed(() => matched() !== null);
@@ -134,7 +153,7 @@ export function Route(props: RouteProps): () => JSXChild {
 
   // Build the content *inside* the route context, so the component (and any
   // descendants) can read `useParams()`, and pass the accessor directly too.
-  const content = () =>
+  const content = (): JSXChild =>
     RouteContext.Provider({
       value: params,
       children: () => {
@@ -144,10 +163,85 @@ export function Route(props: RouteProps): () => JSXChild {
         }
         return props.children;
       },
-    });
+    }) as JSXChild;
 
-  return () =>
-    (isMatched() ? content() : (props.fallback ?? null)) as JSXChild;
+  // Standalone use renders/​disposes its own content as the match toggles.
+  const slot = disposableSlot();
+  const thunk = (() => {
+    if (isMatched()) return slot(content);
+    slot(null); // matched → unmatched: tear the content down
+    return (props.fallback ?? null) as JSXChild;
+  }) as RouteThunk;
+  // A function can carry properties: expose the match state so an enclosing
+  // <Routes> can select this route without rendering it independently.
+  (thunk as { $matched: Accessor<boolean> }).$matched = isMatched;
+  (thunk as { $content: () => JSXChild }).$content = content;
+  return thunk;
+}
+
+/**
+ * A render slot that owns one piece of content at a time: each call disposes the
+ * previously-built content's reactive root before building the next (and on the
+ * owner's teardown). `null` clears the slot. This is what makes a route switch —
+ * in `<Route>` or `<Routes>` — dispose the route it leaves, rather than leaking
+ * it onto the (stable) Router owner the context wrap runs under.
+ */
+function disposableSlot(): (produce: (() => JSXChild) | null) => JSXChild {
+  let dispose: (() => void) | null = null;
+  onCleanup(() => dispose?.());
+  return (produce) => {
+    if (dispose !== null) {
+      dispose();
+      dispose = null;
+    }
+    if (produce === null) return null;
+    let view!: JSXChild;
+    dispose = createRoot((d) => {
+      view = produce();
+      return d;
+    });
+    return view;
+  };
+}
+
+export interface RoutesProps {
+  /** Content shown when no child `<Route>` matches — the natural home for a 404. */
+  fallback?: unknown;
+  /** One or more `<Route>` elements. */
+  children: unknown;
+}
+
+function isRouteHandle(value: unknown): value is RouteThunk {
+  return typeof value === "function" && "$matched" in (value as object);
+}
+
+/** Flatten children (arrays/fragments) down to the `<Route>` handles among them. */
+function collectRoutes(value: unknown, out: RouteThunk[]): void {
+  if (Array.isArray(value)) {
+    for (const item of value) collectRoutes(item, out);
+  } else if (isRouteHandle(value)) {
+    out.push(value);
+  }
+}
+
+/**
+ * Exclusive routing: render the **first** child `<Route>` that matches the
+ * current location, or `fallback` when none do. Switching the selected route
+ * disposes the previous one (via the owner tree), while params keep updating
+ * reactively as long as a route stays selected. A child `<Route>`'s own
+ * `fallback` is unused here — `<Routes>` owns the unmatched case.
+ */
+export function Routes(props: RoutesProps): () => JSXChild {
+  const routes: RouteThunk[] = [];
+  collectRoutes(props.children, routes);
+  const slot = disposableSlot();
+  return () => {
+    for (const route of routes) {
+      if (route.$matched()) return slot(route.$content);
+    }
+    slot(null); // no match: tear down the previously selected route
+    return (props.fallback ?? null) as JSXChild;
+  };
 }
 
 export interface LinkProps {

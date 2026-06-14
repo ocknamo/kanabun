@@ -291,8 +291,10 @@ function App() {
             <Link href="/">Home</Link>
             <Link href="/users/1">User 1</Link>
           </nav>
-          <Route path="/" children={<p>home</p>} />
-          <Route path="/users/:id" children={() => <User />} />
+          <Routes fallback={<p>404</p>}>  {/* 最初にマッチした1つ、なければ fallback */}
+            <Route path="/" children={<p>home</p>} />
+            <Route path="/users/:id" children={() => <User />} />
+          </Routes>
         </>
       )}
     </Router>
@@ -302,10 +304,12 @@ function App() {
 
 `<Route>` はパターン(`/`、`/users/:id`、`/files/*rest`)にマッチし、`<Show>` と同じく
 マッチ結果を boolean にメモ化するので、内容はマッチごとに一度だけ構築され、params は
-更新され続けます。`<Link>` は素の左クリックだけ横取りします(修飾キー付きクリックや外部
-リンクはブラウザ既定に委ねる)。`useNavigate` / `useLocation` / `useParams` は最寄りの
-`<Router>` を読みます。`source={createMemorySource()}`(または独自の `RouterSource`)を
-渡せば history を自前で駆動できます。
+更新され続けます。単独の `<Route>` は独立に描画されますが、`<Routes>` で包むと**排他**
+ルーティングになり、最初にマッチした1つだけが描画され、共有の `fallback` が未マッチ
+(=自然な 404)を受けます。`<Link>` は素の左クリックだけ横取りします(修飾キー付き
+クリックや外部リンクはブラウザ既定に委ねる)。`useNavigate` / `useLocation` / `useParams`
+は最寄りの `<Router>` を読みます。`source={createMemorySource()}`(または独自の
+`RouterSource`)を渡せば history を自前で駆動できます。
 
 ---
 
@@ -338,11 +342,11 @@ function App() {
 
 | グループ | エクスポート |
 | --- | --- |
-| コンポーネント | `Router`, `Route`, `Link` |
+| コンポーネント | `Router`, `Routes`, `Route`, `Link` |
 | フック | `useNavigate`, `useLocation`, `useParams` |
 | ソース | `createBrowserSource`, `createMemorySource` |
 | マッチング | `matchPath`, `parsePath` |
-| 型 | `RouterProps`, `RouteProps`, `LinkProps`, `Navigate`, `NavigateOptions`, `RouterSource`, `MemorySource`, `WindowLike`, `RouterLocation`, `RouteParams` |
+| 型 | `RouterProps`, `RoutesProps`, `RouteProps`, `RouteHandle`, `RouteThunk`, `LinkProps`, `Navigate`, `NavigateOptions`, `RouterSource`, `MemorySource`, `WindowLike`, `RouterLocation`, `RouteParams` |
 
 ---
 
