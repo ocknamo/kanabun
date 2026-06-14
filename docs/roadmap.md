@@ -13,7 +13,7 @@ see [`decisions.md`](./decisions.md).
 | 1 | Signals core: `signal`/`computed`/`effect`, batching, cleanup, ownership | ✅ done |
 | 2 | JSX runtime + `render` (fine-grained reactive DOM) | ✅ done |
 | 3 | Control flow: `<Show>`, `<For>` (keyed); **TodoMVC runs** | ✅ done |
-| 4 | Component model & DX | 🟡 partial — `onMount`, `mergeProps`, `splitProps`, scoped `css` done; `context` open |
+| 4 | Component model & DX | ✅ done — `onMount`, `mergeProps`, `splitProps`, scoped `css`, `context` |
 | 5 | Bun integration: `create` / `dev` / `build` CLI | ✅ done |
 | 6 | Hardening & ecosystem (router, SSR, etc.) | ⬜ not started (optional) |
 
@@ -23,14 +23,14 @@ clean, docs bilingual.
 
 ## Remaining TODO
 
-### Phase 4 — finish the component model
-- [ ] **`context` (`createContext` / `useContext`).** Needs a design decision
-  first: in the runtime (no-compiler) model, JSX children are created eagerly,
-  so a `<Provider>` can't set a value before its children read it. The
-  runtime-only answer is **function children**
-  (`<Ctx.Provider value={v}>{() => <App/>}</Ctx.Provider>`), consistent with the
-  "functions are lazy" convention already used by `<Show>`. Decide: adopt that
-  convention, or pull in a compiler (rejected so far), or keep deferring.
+### Phase 4 — component model ✅ done
+- [x] **`context` (`createContext` / `useContext`).** Done — **function
+  children** (`<Ctx.Provider value={v}>{() => <App/>}</Ctx.Provider>`),
+  consistent with the "functions are lazy" convention `<Show>`/`<For>` use. The
+  compiler option was rejected (founding constraint); plain eager children see
+  only the default (asserted by a test). Implementation rides the owner tree (a
+  parent link + a `context` map; `useContext` walks up). See
+  [`decisions.md`](./decisions.md#context-phase-4).
 - [x] **Scoped CSS.** Done — a runtime, Emotion-style `css\`…\`` helper that
   hashes the body to a class, scopes its rules, and injects one `<style>`
   (deduped). See [`decisions.md`](./decisions.md#scoped-css-phase-4) for the
@@ -65,11 +65,12 @@ clean, docs bilingual.
 
 ## Open design decisions
 
-1. **`context` children model** — function children vs. compiler vs. defer
-   (see above). This is the next fork to resolve before Phase 4 is "done".
+None open for Phase 4 — it's complete. The remaining work is Phase 6 / DX
+(optional), listed above.
 
-(Resolved: **scoped CSS** — a runtime Emotion-style `css` helper, over a build
-step or CSS-modules/Svelte-attribute shapes. See `decisions.md`.)
+(Resolved: **`context` children model** — **function children**, over a compiler
+or deferring. And **scoped CSS** — a runtime Emotion-style `css` helper, over a
+build step or CSS-modules/Svelte-attribute shapes. See `decisions.md`.)
 
 These mirror the original brief's "hard parts": the signal semantics (Phase 1)
 and keyed lists (Phase 3) are solved; stateful HMR (Phase 5/6) was consciously

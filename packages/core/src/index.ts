@@ -14,8 +14,10 @@ export {
   onCleanup,
   onMount,
   createRoot,
+  createContext,
+  useContext,
 } from "./reactive";
-export type { Accessor, Signal, SignalOptions, Disposer } from "./reactive";
+export type { Accessor, Signal, SignalOptions, Disposer, Context } from "./reactive";
 
 // Component prop helpers.
 export { mergeProps, splitProps } from "./props";
