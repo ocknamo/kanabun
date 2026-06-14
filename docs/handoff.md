@@ -3,14 +3,14 @@
 > このファイルは作業の引き継ぎ用メモです(プロダクト文書ではないので日本語のみ)。
 > 規約は [`../CLAUDE.md`](../CLAUDE.md)、残作業は [`roadmap.md`](./roadmap.md) が一次情報。
 > ここは「いまの状態」と「今セッションで得た知見・落とし穴」に絞ります。
-> 最終更新: 2026-06-14 / 最終コミット: `e4f00cf`
+> 最終更新: 2026-06-14 / 最終コミット: `c53cef5`
 
 ## 1. いまどこにいるか
 
-- **ブランチ**: `claude/bun-svelte-framework-mpn6g0` で開発(`main` 直push しない / PR は指示があるまで作らない)。すべて push 済み。
-- **進捗**: 要求定義の **Phase 0〜5 完了**。Phase 4 は一部(`onMount`/`mergeProps`/`splitProps` 済、`context`・scoped CSS 未)。Phase 6 は未着手。
-- **品質**: **118 テスト / 0 fail、全ソース 100% カバレッジ、`tsc` クリーン**。依存ゼロ(dev は `@types/bun` のみ)、`packages/core` はランタイム非依存を維持。
-- **成果物**: `@kanabun/core`(signals + JSX/DOM ランタイム + 制御構文 + props/lifecycle)、`@kanabun/cli`(`create`/`dev`/`build`)、`examples/{counter,todomvc}`、バイリンガル docs。
+- **ブランチ**: `claude/phase-4-tasks-docs-kuiulb` で開発(`main` 直push しない / PR は指示があるまで作らない)。`main` には PR #1〜#3 経由で scoped CSS・VRT・カバレッジバッジまでマージ済み。
+- **進捗**: 要求定義の **Phase 0〜3, 5 完了**。Phase 4 は **`onMount`/`mergeProps`/`splitProps`/scoped `css` まで完了**し、残るは **`context`(`createContext`/`useContext`)のみ**。Phase 6 は未着手。
+- **品質**: **136 テスト / 0 fail、全ソース 100% カバレッジ、`tsc` クリーン**。依存ゼロ(dev は `@types/bun` のみ)、`packages/core` はランタイム非依存を維持。
+- **成果物**: `@kanabun/core`(signals + JSX/DOM ランタイム + 制御構文 + props/lifecycle + scoped `css`)、`@kanabun/cli`(`create`/`dev`/`build`)、`examples/{counter,todomvc}`、VRT(スクショ回帰)ゲート、バイリンガル docs。
 
 ## 2. 必須ワークフロー(CLAUDE.md より)
 
@@ -29,7 +29,7 @@
 
 最有力は **`context` の設計判断**。ランタイム(コンパイラなし)では JSX の子が即時生成されるため、`<Provider>` が子の読み取りより先に値を設定できない。ランタイムのみの答えは**関数の子**(`<Ctx.Provider value={v}>{() => <App/>}</Ctx.Provider>`、`<Show>` と同じ「関数は遅延」規約)。A=関数の子で実装 / B=コンパイラ導入(これまで却下)/ C=先送り、の3択。ユーザーは A/B/C 形式の論点提示を好む(過去の `$state` 判断と同様)。
 
-その他: scoped CSS、ルーター(別パッケージ)、SSR、状態保持 HMR、`JSX.IntrinsicElements` 厳密化、`splitProps` タプル型化、npm 公開。
+その他(Phase 6 / DX、優先度は低め): ルーター(別パッケージ)、SSR、状態保持 HMR、`JSX.IntrinsicElements` 厳密化、`splitProps` タプル型化、npm 公開。scoped CSS は **完了済み**(`packages/core/src/css.ts`、PR #2)。
 
 ## 4. 今セッションで踏んだ落とし穴(再発防止メモ)
 
@@ -47,5 +47,6 @@
 - `packages/core/src/reactive.ts` — signals・owner ツリー・`onMount`(push-pull 3色塗り、glitch-free)
 - `packages/core/src/dom.ts` — `render`・細粒度バインド・`reconcileNodes`(keyed 差分)
 - `packages/core/src/control-flow.ts` — `<Show>`/`<For>`/`mapArray`
+- `packages/core/src/{props,css}.ts` — `mergeProps`/`splitProps`・scoped `css`(ハッシュ class + `<style>` 注入)
 - `packages/cli/src/{build,dev,create,index,errors}.ts` — CLI(Bun 依存はここだけ)
 - `docs/{decisions,roadmap}.md`(+ `.ja.md`)— 設計判断 / 残作業
