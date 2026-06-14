@@ -5,6 +5,7 @@ const { test, expect } = require("@playwright/test");
 // drive it through deterministic interactions before snapshotting.
 test("todomvc — initial render", async ({ page }) => {
   await page.goto("http://localhost:3101/");
-  await page.waitForLoadState("networkidle");
+  // Wait for the mounted app rather than `networkidle` (more deterministic).
+  await expect(page.locator("input.new-todo")).toBeVisible();
   await expect(page).toHaveScreenshot("todomvc.png", { fullPage: true });
 });

@@ -48,6 +48,8 @@ module.exports = {
     {
       command: "bun examples/counter/index.html",
       cwd: repoRoot,
+      // Pin the port so an inherited PORT in the CI env can't move it off 3000.
+      env: { PORT: "3000" },
       url: "http://localhost:3000",
       reuseExistingServer: !process.env.CI,
       timeout: 60_000,

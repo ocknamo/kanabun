@@ -25,11 +25,19 @@ Run the **"Update visual baselines"** GitHub Actions workflow
 pinned container, captures fresh PNGs under `__screenshots__/`, and commits them
 to the branch.
 
-> First-time bootstrap: until baselines exist, the `visual` CI gate fails by
-> design (Playwright errors on a missing snapshot). The workflow must be present
-> on the default branch for the "Run workflow" button to appear, so after this
-> lands on `main`, trigger the workflow once to populate baselines and turn the
-> gate green. To bootstrap pre-merge, run the same image locally:
+> First-time bootstrap (merge procedure): until baselines exist, the `visual`
+> CI gate fails by design (Playwright errors on a missing snapshot), so **do not
+> make `visual` a required status check until baselines are committed**. The
+> `workflow_dispatch` button only appears once the workflow is on the default
+> branch, so the bootstrapping PR itself stays red. Sequence:
+>
+> 1. Merge this change (with `visual` not yet required).
+> 2. Trigger **"Update visual baselines"** on `main` — it commits the PNGs.
+>    Confirm `github-actions[bot]` can push (branch protection must allow it, or
+>    run the `docker run` below locally and commit yourself).
+> 3. Once the gate is green, mark `visual` a required check.
+>
+> To bootstrap pre-merge instead, run the same image locally:
 >
 > ```sh
 > docker run --rm -it -v "$PWD":/w -w /w mcr.microsoft.com/playwright:v1.56.1-jammy \
