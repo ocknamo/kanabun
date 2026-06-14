@@ -15,7 +15,7 @@
 | 3 | 制御構文: `<Show>`、`<For>`(keyed); **TodoMVC 稼働** | ✅ 完了 |
 | 4 | コンポーネントモデルと DX | ✅ 完了 — `onMount`/`mergeProps`/`splitProps`/スコープド `css`/`context` |
 | 5 | Bun 連携: `create` / `dev` / `build` CLI | ✅ 完了 |
-| 6 | 堅牢化・周辺(ルーター、SSR 等) | ⬜ 未着手(任意) |
+| 6 | 堅牢化・周辺(ルーター、SSR 等) | 🟡 進行中 — **ルーター完了**;残りは任意 |
 
 全期間で維持した品質基準: **ランタイム依存ゼロ**、`packages/core` のランタイム非依存、
 全ソースファイルの行/関数カバレッジ 100%、`tsc` クリーン、ドキュメントのバイリンガル。
@@ -35,7 +35,11 @@
   [`decisions.ja.md`](./decisions.ja.md#スコープド-cssphase-4) を参照。
 
 ### Phase 6 — 堅牢化・周辺(任意)
-- [ ] **ルーター**を別パッケージ(`@kanabun/router`)で、history ベースで。
+- [x] **ルーター**を別パッケージ(`@kanabun/router`)で、history ベースで。完了 ──
+  `<Router>`/`<Route>`/`<Link>` + `useNavigate`/`useLocation`/`useParams`、差し替え
+  可能な history ソース(`createBrowserSource` / `createMemorySource`)の上に構築。
+  core の signals と owner ツリー context に乗る。依存ゼロ・カバレッジ 100%・ランタイム
+  非依存。詳細は [`decisions.ja.md`](./decisions.ja.md#ルーターphase-6) を参照。
 - [ ] **SSR + ハイドレーション。** サーバーで `renderToString`、クライアントで hydrate。
 - [ ] **状態保持 HMR**(現状は全リロード ── Phase 5 で意図的に簡略化した部分)。
 - [ ] **エラーバウンダリ。**

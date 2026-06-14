@@ -279,6 +279,45 @@ The CLI is held to the same bar as the core: 100% coverage, including a live
 dev-server test (start on an ephemeral port, fetch HTML + bundled JS, and assert
 a WebSocket reload fires on file change).
 
+## Router (Phase 6)
+
+`@kanabun/router` is a history-based, separate package. It honours the same
+founding constraints as the core — **zero dependencies, no compiler, runtime
+independent** — and introduces no new machinery: it rides the existing signals,
+the owner-tree context, and the "functions are lazy" convention `<Show>`/`<For>`
+already use.
+
+- **A history-source seam.** A `RouterSource` is the thin boundary between the
+  router's reactive state and *where* the URL actually lives. `createBrowserSource`
+  drives `window.history`/`location`/`popstate` (resolving `window` **lazily**, so
+  importing the module never needs a DOM); `createMemorySource` is an in-process
+  implementation for tests and non-browser/SSR hosts. This seam is what makes the
+  router 100% unit-testable without jsdom.
+- **A reactive current location.** `<Router>` owns a single signal tracking the
+  current path, subscribes to the source (torn down via `onCleanup`), and parses
+  it with `computed` into a `RouterLocation` (`pathname`/`search`/`hash`/`query`).
+  `push`/`replace` don't notify — the router updates itself synchronously after
+  navigating, so only back/forward fire the subscription.
+- **`<Route>` borrows `<Show>`'s semantics.** The match is memoized to a
+  **boolean**, so content is built once on match (and disposed on mismatch) while
+  the params still update reactively underneath — a param change within the same
+  route does not rebuild. The matcher (`matchPath`) is a pure function handling
+  static / `:param` / trailing `*wildcard` segments.
+- **Params, two ways.** The accessor is passed directly to `component`/function
+  children, *and* exposed via a `RouteContext` so descendants can read
+  `useParams()`. The latter reuses core's context, so those descendants must live
+  under **function** (lazy) children — the same eager-children limitation context
+  already documents (eager children only ever see the default, here an empty obj).
+- **`<Link>`.** An `<a>` that navigates client-side. Only a plain left-click is
+  intercepted; modified clicks, non-left buttons, a `target` other than `_self`,
+  and external/`mailto:` links fall through to the browser's default behaviour.
+
+The router is held to the same bar: 100% line/function coverage and a clean
+`tsc`. `examples/router` is verified in a real browser (the `snapshot` skill) for
+client-side navigation (no reload), `:id` resolution, the live `useLocation`
+readout, and scoped CSS. (A committed VRT baseline for the example is a
+follow-up — it must be captured in the pinned Playwright container.)
+
 ## Roadmap (abridged)
 
 - **Phase 0 — scaffold:** Bun project, workspace split (`core` vs future
@@ -295,4 +334,5 @@ a WebSocket reload fires on file change).
   function-children — see below). ✅
 - **Phase 5 — Bun integration:** `create` / `dev` / `build` CLI; dev server with
   full-reload over WebSocket. Bun-only layer, 100% covered. ✅
-- **Phase 6 — hardening (optional):** SSR/hydration, router, stateful HMR, etc.
+- **Phase 6 — hardening (optional):** **router done** (`@kanabun/router`, above).
+  Remaining: SSR/hydration, stateful HMR, etc. (optional).
