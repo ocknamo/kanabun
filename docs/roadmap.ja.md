@@ -37,7 +37,8 @@
 ### Phase 6 — 堅牢化・周辺(任意)
 - [x] **ルーター**を別パッケージ(`@kanabun/router`)で、history ベースで。完了 ──
   `<Router>`/`<Routes>`/`<Route>`/`<Link>` + `useNavigate`/`useLocation`/`useParams`、
-  差し替え可能な history ソース(`createBrowserSource` / `createMemorySource`)の上に構築。
+  差し替え可能な history ソース(`createBrowserSource` / `createHashSource` /
+  `createMemorySource` ── ハッシュは GitHub Pages でも書き換え無しで動く)の上に構築。
   `<Routes>` は排他(最初にマッチ)ルーティングと 404 用の共有 `fallback` を提供。
   core の signals と owner ツリー context に乗る。依存ゼロ・カバレッジ 100%・ランタイム
   非依存。詳細は [`decisions.ja.md`](./decisions.ja.md#ルーターphase-6) を参照。

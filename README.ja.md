@@ -309,8 +309,10 @@ function App() {
 (=自然な 404)を受けます。`<Routes>` の直下は `<Route>` のみ描画されるので、共有の
 ナビ・見出しは `<Routes>` の外に置きます。`<Link>` は素の左クリックだけ横取りします(修飾キー付き
 クリックや外部リンクはブラウザ既定に委ねる)。`useNavigate` / `useLocation` / `useParams`
-は最寄りの `<Router>` を読みます。`source={createMemorySource()}`(または独自の
-`RouterSource`)を渡せば history を自前で駆動できます。
+は最寄りの `<Router>` を読みます。`source` prop で history バックエンドを差し替えられます:
+省略でブラウザ history、`createHashSource()` は **GitHub Pages** のような静的ホスト向け
+(ルートを URL ハッシュに置くので、サーバの書き換え無しで直リンク・リロードが動く)、
+`createMemorySource()` はテスト/SSR 向け、または独自の `RouterSource`。
 
 ---
 
@@ -345,7 +347,7 @@ function App() {
 | --- | --- |
 | コンポーネント | `Router`, `Routes`, `Route`, `Link` |
 | フック | `useNavigate`, `useLocation`, `useParams` |
-| ソース | `createBrowserSource`, `createMemorySource` |
+| ソース | `createBrowserSource`, `createHashSource`, `createMemorySource` |
 | マッチング | `matchPath`, `parsePath` |
 | 型 | `RouterProps`, `RoutesProps`, `RouteProps`, `RouteHandle`, `RouteThunk`, `LinkProps`, `Navigate`, `NavigateOptions`, `RouterSource`, `MemorySource`, `WindowLike`, `RouterLocation`, `RouteParams` |
 

@@ -38,8 +38,8 @@ interface LocationLike {
 export interface WindowLike {
   history: HistoryLike;
   location: LocationLike;
-  addEventListener(type: "popstate", callback: () => void): void;
-  removeEventListener(type: "popstate", callback: () => void): void;
+  addEventListener(type: "popstate" | "hashchange", callback: () => void): void;
+  removeEventListener(type: "popstate" | "hashchange", callback: () => void): void;
 }
 
 /** Resolve the global `window` lazily, so importing this module never needs a DOM. */
@@ -67,6 +67,35 @@ export function createBrowserSource(win: WindowLike = getWindow()): RouterSource
     subscribe(callback) {
       win.addEventListener("popstate", callback);
       return () => win.removeEventListener("popstate", callback);
+    },
+  };
+}
+
+/**
+ * A {@link RouterSource} that stores the route in the URL **hash**
+ * (`example.com/#/users/1`). The path lives after the `#`, which browsers never
+ * send to the server — so deep links and refreshes work on static hosts with no
+ * rewrite rules (GitHub Pages, S3, plain file servers). Resolves `window` lazily
+ * (or accepts a stand-in), like {@link createBrowserSource}.
+ */
+export function createHashSource(win: WindowLike = getWindow()): RouterSource {
+  const read = () => {
+    const hash = win.location.hash;
+    const path = hash.startsWith("#") ? hash.slice(1) : hash;
+    return path === "" ? "/" : path;
+  };
+  return {
+    location: read,
+    // Setting the hash adds a history entry (and fires `hashchange`, which the
+    // router absorbs as a no-op since it already updated itself).
+    push: (to) => {
+      win.location.hash = to;
+    },
+    // replaceState swaps the hash without a new entry and without `hashchange`.
+    replace: (to) => win.history.replaceState(null, "", "#" + to),
+    subscribe(callback) {
+      win.addEventListener("hashchange", callback);
+      return () => win.removeEventListener("hashchange", callback);
     },
   };
 }

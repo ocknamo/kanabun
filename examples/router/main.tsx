@@ -131,7 +131,9 @@ function App() {
 }
 
 // Use an in-memory history so the example runs anywhere (incl. file://) without
-// touching the address bar; swap to the default browser source in a real app.
+// touching the address bar. In a real app, omit `source` for the browser
+// history, or use `createHashSource()` for static hosts like GitHub Pages (deep
+// links/refreshes work with no server rewrites).
 const source = createMemorySource("/");
 
 const root = document.getElementById("app");

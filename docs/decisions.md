@@ -290,9 +290,12 @@ already use.
 - **A history-source seam.** A `RouterSource` is the thin boundary between the
   router's reactive state and *where* the URL actually lives. `createBrowserSource`
   drives `window.history`/`location`/`popstate` (resolving `window` **lazily**, so
-  importing the module never needs a DOM); `createMemorySource` is an in-process
-  implementation for tests and non-browser/SSR hosts. This seam is what makes the
-  router 100% unit-testable without jsdom.
+  importing the module never needs a DOM); `createHashSource` stores the route in
+  the URL hash (`#/path`) for static hosts with no rewrite rules (GitHub Pages,
+  S3, file servers) — deep links and refreshes just work; `createMemorySource` is
+  an in-process implementation for tests and non-browser/SSR hosts. The seam is
+  what makes the router 100% unit-testable without jsdom **and** what made hash
+  routing a ~20-line addition rather than a rewrite — `<Router>` is unchanged.
 - **A reactive current location.** `<Router>` owns a single signal tracking the
   current path, subscribes to the source (torn down via `onCleanup`), and parses
   it with `computed` into a `RouterLocation` (`pathname`/`search`/`hash`/`query`).

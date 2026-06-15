@@ -8,8 +8,8 @@
 ## 1. いまどこにいるか
 
 - **ブランチ**: `claude/phase-6-tasks-6whmn1` で開発(`main` 直push しない / PR は指示があるまで作らない)。`main` には PR #1〜#4 経由で scoped CSS・VRT・カバレッジバッジ・context までマージ済み。
-- **進捗**: 要求定義の **Phase 0〜5 完了**。**Phase 6 はルーター(`@kanabun/router`)を実装** ── history ベース、`<Router>`/`<Routes>`(排他+404 fallback)/`<Route>`/`<Link>` + `useNavigate`/`useLocation`/`useParams`、差し替え可能な history ソース。残る Phase 6(SSR/状態保持 HMR/エラーバウンダリ/Suspense/開発時警告)は未着手。
-- **品質**: **191 テスト / 0 fail、全ソース 100% カバレッジ、`tsc` クリーン**。依存ゼロ(dev は `@types/bun` のみ)、`packages/{core,router}` はランタイム非依存を維持。
+- **進捗**: 要求定義の **Phase 0〜5 完了**。**Phase 6 はルーター(`@kanabun/router`)を実装** ── history ベース、`<Router>`/`<Routes>`(排他+404 fallback)/`<Route>`/`<Link>` + `useNavigate`/`useLocation`/`useParams`、差し替え可能な history ソース(browser / **hash**(GitHub Pages 向け)/ memory)。残る Phase 6(SSR/状態保持 HMR/エラーバウンダリ/Suspense/開発時警告/ネストルーティング)は未着手。
+- **品質**: **195 テスト / 0 fail、全ソース 100% カバレッジ、`tsc` クリーン**。依存ゼロ(dev は `@types/bun` のみ)、`packages/{core,router}` はランタイム非依存を維持。
 - **成果物**: `@kanabun/core`、`@kanabun/cli`(`create`/`dev`/`build`)、**`@kanabun/router`**、`examples/{counter,todomvc,router}`、VRT(スクショ回帰)ゲート、バイリンガル docs。
 
 ## 2. 必須ワークフロー(CLAUDE.md より)

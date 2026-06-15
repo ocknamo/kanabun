@@ -322,9 +322,11 @@ a shared `fallback` covers the unmatched case (a natural 404). Only `<Route>`
 children render inside `<Routes>`, so keep shared chrome (nav, headings) outside
 it. `<Link>`
 intercepts plain left-clicks (modified clicks and external links fall through).
-`useNavigate` / `useLocation` / `useParams` read the nearest `<Router>`. Pass
-`source={createMemorySource()}` (or a custom `RouterSource`) to drive history
-yourself.
+`useNavigate` / `useLocation` / `useParams` read the nearest `<Router>`. The
+`source` prop swaps the history backend: omit it for the browser history,
+`createHashSource()` for static hosts like **GitHub Pages** (routes live in the
+URL hash, so deep links and refreshes work with no server rewrites),
+`createMemorySource()` for tests/SSR, or your own `RouterSource`.
 
 ---
 
@@ -359,7 +361,7 @@ yourself.
 | --- | --- |
 | Components | `Router`, `Routes`, `Route`, `Link` |
 | Hooks | `useNavigate`, `useLocation`, `useParams` |
-| Sources | `createBrowserSource`, `createMemorySource` |
+| Sources | `createBrowserSource`, `createHashSource`, `createMemorySource` |
 | Matching | `matchPath`, `parsePath` |
 | Types | `RouterProps`, `RoutesProps`, `RouteProps`, `RouteHandle`, `RouteThunk`, `LinkProps`, `Navigate`, `NavigateOptions`, `RouterSource`, `MemorySource`, `WindowLike`, `RouterLocation`, `RouteParams` |
 

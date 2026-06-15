@@ -17,7 +17,7 @@ export type {
   NavigateOptions,
 } from "./router";
 
-export { createBrowserSource, createMemorySource } from "./source";
+export { createBrowserSource, createHashSource, createMemorySource } from "./source";
 export type { RouterSource, MemorySource, WindowLike } from "./source";
 
 export { parsePath, matchPath } from "./location";

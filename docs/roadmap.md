@@ -39,7 +39,8 @@ clean, docs bilingual.
 ### Phase 6 — hardening & ecosystem (optional)
 - [x] **Router** as a separate package (`@kanabun/router`), history-based. Done —
   `<Router>`/`<Routes>`/`<Route>`/`<Link>` + `useNavigate`/`useLocation`/`useParams`,
-  over a pluggable history source (`createBrowserSource` / `createMemorySource`).
+  over a pluggable history source (`createBrowserSource` / `createHashSource` /
+  `createMemorySource` — hash routing works on GitHub Pages with no rewrites).
   `<Routes>` gives exclusive (first-match) routing with a shared `fallback` for
   404s. Rides core's signals + owner-tree context; zero dependencies, 100%
   covered, runtime independent. See [`decisions.md`](./decisions.md#router-phase-6).

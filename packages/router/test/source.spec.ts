@@ -2,6 +2,7 @@ import { describe, expect, test, afterEach } from "bun:test";
 import {
   createMemorySource,
   createBrowserSource,
+  createHashSource,
   type WindowLike,
 } from "../src/index";
 
@@ -108,5 +109,82 @@ describe("browser source", () => {
 
   test("throws when no `window` is available", () => {
     expect(() => createBrowserSource()).toThrow(/no `window`/);
+  });
+});
+
+// A window stand-in whose location lives entirely in the hash. Setting
+// `location.hash` updates it; `hashchange()` fires the registered listeners.
+function fakeHashWindow(initialHash = ""): WindowLike & { hashchange(): void } {
+  let url = new URL("http://x/" + initialHash);
+  const listeners = new Set<() => void>();
+  return {
+    history: {
+      pushState: (_state, _unused, to) => {
+        url = new URL(to, url);
+      },
+      replaceState: (_state, _unused, to) => {
+        url = new URL(to, url);
+      },
+    },
+    location: {
+      get pathname() {
+        return url.pathname;
+      },
+      get search() {
+        return url.search;
+      },
+      get hash() {
+        return url.hash;
+      },
+      set hash(value: string) {
+        url.hash = value;
+      },
+    },
+    addEventListener: (_type, callback) => {
+      listeners.add(callback);
+    },
+    removeEventListener: (_type, callback) => {
+      listeners.delete(callback);
+    },
+    hashchange() {
+      for (const cb of [...listeners]) cb();
+    },
+  };
+}
+
+describe("hash source", () => {
+  afterEach(() => {
+    delete (globalThis as { window?: unknown }).window;
+  });
+
+  test("reads the path from the location hash (defaults to /)", () => {
+    expect(createHashSource(fakeHashWindow()).location()).toBe("/");
+    expect(createHashSource(fakeHashWindow("#/users/1")).location()).toBe("/users/1");
+  });
+
+  test("push writes the hash; replace swaps it via replaceState", () => {
+    const win = fakeHashWindow("#/");
+    const src = createHashSource(win);
+    src.push("/a");
+    expect(src.location()).toBe("/a");
+    src.replace("/b?x=1"); // query stays inside the fragment
+    expect(src.location()).toBe("/b?x=1");
+  });
+
+  test("subscribe wires hashchange; unsubscribe removes it", () => {
+    const win = fakeHashWindow();
+    const src = createHashSource(win);
+    let count = 0;
+    const off = src.subscribe(() => count++);
+    win.hashchange();
+    expect(count).toBe(1);
+    off();
+    win.hashchange();
+    expect(count).toBe(1);
+  });
+
+  test("defaults to the global `window`", () => {
+    (globalThis as { window?: unknown }).window = fakeHashWindow("#/home");
+    expect(createHashSource().location()).toBe("/home");
   });
 });
