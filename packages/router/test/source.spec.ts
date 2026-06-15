@@ -3,6 +3,7 @@ import {
   createMemorySource,
   createBrowserSource,
   createHashSource,
+  parsePath,
   type WindowLike,
 } from "../src/index";
 
@@ -169,6 +170,28 @@ describe("hash source", () => {
     expect(src.location()).toBe("/a");
     src.replace("/b?x=1"); // query stays inside the fragment
     expect(src.location()).toBe("/b?x=1");
+    // The underlying hash must carry a single leading "#" (no `"#" + to` doubling).
+    expect(win.location.hash).toBe("#/b?x=1");
+  });
+
+  test("a fragment query parses back into pathname + search", () => {
+    const win = fakeHashWindow("#/");
+    const src = createHashSource(win);
+    src.push("/b?x=1&y=2");
+    const loc = parsePath(src.location());
+    expect(loc.pathname).toBe("/b");
+    expect(loc.search).toBe("?x=1&y=2");
+    expect(loc.query).toEqual({ x: "1", y: "2" });
+  });
+
+  test("empty and slash-less hashes resolve sensibly", () => {
+    expect(createHashSource(fakeHashWindow("#")).location()).toBe("/"); // bare "#"
+    // A hash without a leading slash still matches (segments ignore it).
+    const win = fakeHashWindow();
+    const src = createHashSource(win);
+    src.push("about");
+    expect(src.location()).toBe("about");
+    expect(parsePath(src.location()).pathname).toBe("/about");
   });
 
   test("subscribe wires hashchange; unsubscribe removes it", () => {
