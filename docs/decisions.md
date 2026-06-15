@@ -336,6 +336,50 @@ client-side navigation (no reload), `:id` resolution, the live `useLocation`
 readout, and scoped CSS. (A committed VRT baseline for the example is a
 follow-up — it must be captured in the pinned Playwright container.)
 
+## Error boundaries (Phase 6)
+
+`catchError` (a core primitive) and `<ErrorBoundary>` (the component) let a
+subtree fail without taking the whole app down. Like context, they introduce no
+new machinery — they ride the **owner tree** that already exists.
+
+- **An error handler is just owner-tree context.** `catchError(tryFn, handler)`
+  creates an owner scope whose `context` carries `handler` under a private
+  `ERROR` symbol — exactly how `createContext`'s `Provider` stores a value. When
+  a computation throws, the propagation core walks **up the owner chain** for the
+  nearest such handler (`handleError`), mirroring how `useContext` walks up for a
+  value. No handler found ⇒ the error is rethrown, so an unguarded failure still
+  reaches the host instead of being silently swallowed.
+- **One catch point in the core.** A derivation's `update()` wraps its `fn()` in
+  a single `try`/`catch`. On a throw it drops the half-collected dependencies,
+  marks itself CLEAN (so a re-validating pull can't loop on it), and routes the
+  error. This is the *only* change to the reactive core, and it's a no-op on the
+  happy path — the glitch-free propagation is untouched.
+- **Both creation *and* update errors are caught.** An error thrown while a
+  descendant effect/computed *re-runs* is caught in that `update()` and routed.
+  An error thrown while *building* the children (a component function that throws
+  outright) is caught synchronously by `catchError`'s own `try`/`catch`. Because
+  the guarded scope is registered on the owner tree, effects created under it
+  route to the handler even when they first run *later*, in a subsequent flush.
+- **`<ErrorBoundary>` builds its children once, then only *chooses*.** The
+  component builds the guarded children **eagerly, in their own `createRoot`**,
+  wrapped in `catchError` whose handler sets a `failure` signal. Its render thunk
+  then merely reads `failure` and returns the (already built) children or the
+  fallback — it does **not** rebuild on every render. That isolation is what makes
+  *nesting* safe: a nested boundary's reactive reads run inside the parent's slot,
+  so were the children rebuilt in the render thunk, an inner failure would re-run
+  the parent, recreate the inner boundary (clearing its caught error), and
+  re-throw forever. Building once breaks that loop. `reset` rebuilds (disposing
+  the old, broken `createRoot` subtree first); the rebuild is wrapped in `batch`
+  so disposing, clearing the error, and rebuilding settle before the boundary
+  re-renders. The `fallback` is either a static node or `(err, reset) => node`,
+  matching React's ergonomics without a compiler.
+- **Children are a function (lazy), same as `<Show>`/context.** Wrap children in
+  a thunk so their *creation* is guarded too; a plain (eager) child is built
+  before the boundary runs, so only its later updates would be caught.
+
+Held to the same bar: 100% line/function coverage and a clean `tsc`, zero
+dependencies, runtime independent.
+
 ## Roadmap (abridged)
 
 - **Phase 0 — scaffold:** Bun project, workspace split (`core` vs future

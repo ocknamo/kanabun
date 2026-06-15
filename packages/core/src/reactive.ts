@@ -195,11 +195,26 @@ class ReactiveNode {
     currentOwner = this;
     this.collecting = [];
     let next: unknown;
+    let caught: unknown;
+    let threw = false;
     try {
       next = this.fn!();
+    } catch (err) {
+      threw = true;
+      caught = err;
     } finally {
       listener = prevListener;
       currentOwner = prevOwner;
+    }
+    if (threw) {
+      // The derivation failed mid-run: drop the half-collected deps, mark clean
+      // so a re-validating pull doesn't loop, and route the error to the nearest
+      // boundary (or rethrow if there is none). The broken subtree is torn down
+      // by whoever handles it (an `<ErrorBoundary>` re-render disposes its scope).
+      this.collecting = null;
+      this.color = CLEAN;
+      handleError(caught, this.owner);
+      return;
     }
     this.reconcileSources();
 
@@ -486,6 +501,55 @@ export function onMount(fn: () => void): void {
       listener = prevListener;
     }
   });
+}
+
+// ── Error handling ───────────────────────────────────────────────
+/** Key under which an error handler is stored on an owner's `context` map. */
+const ERROR = Symbol("error-handler");
+
+/**
+ * Route `err` to the nearest error handler registered (via {@link catchError})
+ * on the owner tree at or above `owner`. If none is found the error is rethrown,
+ * so an unguarded failure still surfaces to the host rather than being swallowed.
+ */
+function handleError(err: unknown, owner: ReactiveNode | null): void {
+  for (let o = owner; o !== null; o = o.owner) {
+    if (o.context !== null && ERROR in o.context) {
+      (o.context[ERROR] as (e: unknown) => void)(err);
+      return;
+    }
+  }
+  throw err;
+}
+
+/**
+ * Run `tryFn`, routing any error it throws — synchronously now, *or* later when
+ * a reactive computation created under it re-runs — to `handler` instead of
+ * letting it propagate. The guarded scope is registered on the owner tree, so
+ * the propagation core consults it when a descendant effect/computed throws.
+ * Returns `tryFn`'s result, or `undefined` if it threw synchronously.
+ *
+ * This is the primitive behind {@link ErrorBoundary}; reach for the component
+ * for UI, and for this when you need to catch imperatively.
+ */
+export function catchError<T>(
+  tryFn: () => T,
+  handler: (err: unknown) => void,
+): T | undefined {
+  const owner = new ReactiveNode(undefined, false, defaultEquals, false);
+  owner.owner = currentOwner;
+  owner.context = { [ERROR]: handler };
+  if (currentOwner !== null) (currentOwner.owned ??= []).push(owner);
+  const prevOwner = currentOwner;
+  currentOwner = owner;
+  try {
+    return tryFn();
+  } catch (err) {
+    handler(err);
+    return undefined;
+  } finally {
+    currentOwner = prevOwner;
+  }
 }
 
 // ── Context ──────────────────────────────────────────────────────

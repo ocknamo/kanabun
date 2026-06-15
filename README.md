@@ -223,6 +223,32 @@ const theme = signal("dark");
 the context's default if no Provider is above the reader. (Plain, non-function
 children are built before the Provider runs, so they only ever see the default.)
 
+### Error boundaries
+
+`<ErrorBoundary>` catches errors thrown while **creating** or **reactively
+updating** its children and renders a `fallback` instead of crashing the app.
+Wrap the children in a function (the same lazy convention) so their creation is
+guarded too. The `fallback` may be a node, or `(err, reset) => node` where
+`reset` clears the error and rebuilds the children.
+
+```tsx
+import { ErrorBoundary } from "@kanabun/core";
+
+<ErrorBoundary fallback={(err, reset) => (
+  <div>
+    <p>Something broke: {String(err)}</p>
+    <button onClick={reset}>Retry</button>
+  </div>
+)}>
+  {() => <Widget />}
+</ErrorBoundary>;
+```
+
+Under the hood the error handler is stored on the owner tree (like context); a
+throw walks up to the nearest boundary, or rethrows to the host if there is none.
+`catchError(tryFn, handler)` is the same mechanism as a primitive, for catching
+imperatively.
+
 ### Scoped CSS
 
 `css` is a runtime, no-compiler helper (Emotion-style): it hashes the style body
@@ -340,10 +366,11 @@ URL hash, so deep links and refreshes work with no server rewrites),
 | Lifecycle | `onMount`, `onCleanup` |
 | Rendering | `render`, `jsx`, `jsxs`, `Fragment` (and low-level `createElement`, `insert`, `reconcileNodes`) |
 | Control flow | `Show`, `For`, `mapArray` |
+| Error handling | `ErrorBoundary`, `catchError` |
 | Props | `mergeProps`, `splitProps` |
 | Context | `createContext`, `useContext` |
 | Styling | `css` (scoped CSS) |
-| Types | `Accessor`, `Signal`, `SignalOptions`, `Disposer`, `Context`, `Props`, `JSXChild`, `JSX`, `ShowProps`, `ForProps` |
+| Types | `Accessor`, `Signal`, `SignalOptions`, `Disposer`, `Context`, `Props`, `JSXChild`, `JSX`, `ShowProps`, `ForProps`, `ErrorBoundaryProps` |
 
 **`@kanabun/cli`** (the `kanabun` command; also importable as a library)
 

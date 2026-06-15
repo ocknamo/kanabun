@@ -15,7 +15,7 @@ see [`decisions.md`](./decisions.md).
 | 3 | Control flow: `<Show>`, `<For>` (keyed); **TodoMVC runs** | ✅ done |
 | 4 | Component model & DX | ✅ done — `onMount`, `mergeProps`, `splitProps`, scoped `css`, `context` |
 | 5 | Bun integration: `create` / `dev` / `build` CLI | ✅ done |
-| 6 | Hardening & ecosystem (router, SSR, etc.) | 🟡 in progress — **router done**; rest optional |
+| 6 | Hardening & ecosystem (router, SSR, etc.) | 🟡 in progress — **router + error boundaries done**; rest optional |
 
 Quality bar held throughout: **zero runtime dependencies**, `packages/core`
 runtime-independent, 100% line/function coverage on all source files, `tsc`
@@ -48,7 +48,13 @@ clean, docs bilingual.
 - [ ] **SSR + hydration.** `renderToString` on the server, hydrate on the client.
 - [ ] **Stateful HMR** in the dev server (currently full reload — the deliberate
   Phase 5 simplification).
-- [ ] **Error boundaries.**
+- [x] **Error boundaries.** Done — `catchError` (core primitive) + `<ErrorBoundary
+  fallback={…}>`. Catches errors thrown while *creating* or *reactively updating*
+  children and renders a fallback instead of crashing; `reset` rebuilds the
+  subtree. Rides the owner tree (an error handler is stored as context under a
+  private symbol; a throw walks up to the nearest one, else rethrows). Zero
+  dependencies, 100% covered, runtime independent. See
+  [`decisions.md`](./decisions.md#error-boundaries-phase-6).
 - [ ] **Async / Suspense** primitives (e.g. `resource`).
 - [ ] **Dev-time warnings** (e.g. reading a signal you meant to pass as a thunk).
 

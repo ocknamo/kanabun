@@ -216,6 +216,30 @@ const theme = signal("dark");
 既定値)を返します。(素の・関数でない子は Provider 実行前に構築されるため、既定値しか
 見えません。)
 
+### エラーバウンダリ
+
+`<ErrorBoundary>` は、子の **生成時** または **リアクティブ更新時** に throw された
+エラーを捕捉し、アプリをクラッシュさせずに `fallback` を描画します。子を関数で包めば
+(同じ遅延の規約)その生成もガードされます。`fallback` はノード、または
+`(err, reset) => node`(`reset` はエラーをクリアして子を作り直す)を指定できます。
+
+```tsx
+import { ErrorBoundary } from "@kanabun/core";
+
+<ErrorBoundary fallback={(err, reset) => (
+  <div>
+    <p>壊れました: {String(err)}</p>
+    <button onClick={reset}>再試行</button>
+  </div>
+)}>
+  {() => <Widget />}
+</ErrorBoundary>;
+```
+
+内部では、エラーハンドラを owner ツリーに(context と同様に)保存します。throw は
+最も近い境界まで上に辿り、無ければホストへ再 throw されます。`catchError(tryFn, handler)`
+は同じ仕組みをプリミティブとして提供し、命令的に捕捉したいときに使えます。
+
 ### スコープド CSS
 
 `css` はランタイム・コンパイラなしのヘルパー(Emotion 風)です。スタイル本体を
@@ -326,10 +350,11 @@ function App() {
 | ライフサイクル | `onMount`, `onCleanup` |
 | 描画 | `render`, `jsx`, `jsxs`, `Fragment`(低レベル: `createElement`, `insert`, `reconcileNodes`) |
 | 制御構文 | `Show`, `For`, `mapArray` |
+| エラー処理 | `ErrorBoundary`, `catchError` |
 | props | `mergeProps`, `splitProps` |
 | コンテキスト | `createContext`, `useContext` |
 | スタイリング | `css`(スコープド CSS) |
-| 型 | `Accessor`, `Signal`, `SignalOptions`, `Disposer`, `Context`, `Props`, `JSXChild`, `JSX`, `ShowProps`, `ForProps` |
+| 型 | `Accessor`, `Signal`, `SignalOptions`, `Disposer`, `Context`, `Props`, `JSXChild`, `JSX`, `ShowProps`, `ForProps`, `ErrorBoundaryProps` |
 
 **`@kanabun/cli`**(`kanabun` コマンド。ライブラリとしても import 可能)
 
