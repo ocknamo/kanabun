@@ -28,6 +28,7 @@
  * lives entirely in the public `signal`/`computed`/`effect` wrappers,
  * which keeps the propagation core free of generic-variance friction.
  */
+import { warn } from "./dev";
 
 // ── Node colors ───────────────────────────────────────────────────
 const CLEAN = 0; // up to date
@@ -148,6 +149,16 @@ class ReactiveNode {
 
   /** Write a new value (signals only). Pushes staleness to observers. */
   write(next: unknown): void {
+    // A write while a *computed* (non-effect derivation) is evaluating means a
+    // side effect inside something that's supposed to be pure — a common cause
+    // of glitches and surprising re-runs. Effects are allowed to write.
+    if (listener !== null && !listener.isEffect) {
+      warn(
+        "a signal was written while a computed was evaluating. Derivations must " +
+          "be pure (no side effects) — move the write into an effect or an " +
+          "event handler.",
+      );
+    }
     if (this.equals(this.value, next)) return;
     this.value = next;
     if (this.observers !== null) {
@@ -404,6 +415,13 @@ export function computed<T>(fn: () => T, options?: SignalOptions<T>): Accessor<T
  * @returns a disposer that stops the effect and runs its cleanups.
  */
 export function effect(fn: () => void | (() => void)): Disposer {
+  if (currentOwner === null) {
+    warn(
+      "effect() was created outside any owner (createRoot/render). It won't be " +
+        "disposed automatically — keep the returned disposer and call it, or " +
+        "create the effect inside a root.",
+    );
+  }
   const node = new ReactiveNode(
     () => {
       const cleanup = fn();
@@ -453,7 +471,13 @@ export function untrack<T>(fn: () => T): T {
  * next execution and on disposal. A no-op when called outside any owner.
  */
 export function onCleanup(fn: () => void): void {
-  if (currentOwner === null) return;
+  if (currentOwner === null) {
+    warn(
+      "onCleanup() was called outside an owner; the cleanup will never run. " +
+        "Call it during a render or inside an effect/createRoot.",
+    );
+    return;
+  }
   (currentOwner.cleanups ??= []).push(fn);
 }
 
@@ -487,6 +511,13 @@ export function createRoot<T>(fn: (dispose: () => void) => T): T {
  * are untracked. Skipped if the owner is disposed before the microtask fires.
  */
 export function onMount(fn: () => void): void {
+  if (currentOwner === null) {
+    warn(
+      "onMount() was called outside an owner. It will run, but isn't tied to a " +
+        "component lifecycle (onCleanup inside it won't be honoured). Call it " +
+        "during a render or inside an effect/createRoot.",
+    );
+  }
   const owner = currentOwner;
   queueMicrotask(() => {
     if (owner !== null && owner.color === DISPOSED) return;

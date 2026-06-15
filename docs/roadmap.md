@@ -15,7 +15,7 @@ see [`decisions.md`](./decisions.md).
 | 3 | Control flow: `<Show>`, `<For>` (keyed); **TodoMVC runs** | ✅ done |
 | 4 | Component model & DX | ✅ done — `onMount`, `mergeProps`, `splitProps`, scoped `css`, `context` |
 | 5 | Bun integration: `create` / `dev` / `build` CLI | ✅ done |
-| 6 | Hardening & ecosystem (router, SSR, etc.) | 🟡 in progress — **router + error boundaries done**; rest optional |
+| 6 | Hardening & ecosystem (router, SSR, etc.) | 🟡 in progress — **router + error boundaries + dev-time warnings done**; rest optional |
 
 Quality bar held throughout: **zero runtime dependencies**, `packages/core`
 runtime-independent, 100% line/function coverage on all source files, `tsc`
@@ -56,7 +56,14 @@ clean, docs bilingual.
   dependencies, 100% covered, runtime independent. See
   [`decisions.md`](./decisions.md#error-boundaries-phase-6).
 - [ ] **Async / Suspense** primitives (e.g. `resource`).
-- [ ] **Dev-time warnings** (e.g. reading a signal you meant to pass as a thunk).
+- [x] **Dev-time warnings.** Done — opt-in runtime diagnostics (`setDev(true)`;
+  `kanabun dev` enables them automatically via `globalThis.__KANABUN_DEV__`).
+  Flags owner-less `effect()`/`onMount()`/`onCleanup()` and signal writes inside
+  a computed; deduped, with a settable sink (`setWarnHandler`). The "reading a
+  signal you meant to pass as a thunk" case isn't robustly detectable without a
+  compiler — see [`decisions.md`](./decisions.md#dev-time-warnings-phase-6) for
+  why, and for what *is* detectable. Zero dependencies, 100% covered, runtime
+  independent.
 
 ### DX & type precision
 - [ ] Tighten `JSX.IntrinsicElements`: it's intentionally permissive (`[name]: any`)

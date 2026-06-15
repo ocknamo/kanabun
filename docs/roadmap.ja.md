@@ -15,7 +15,7 @@
 | 3 | 制御構文: `<Show>`、`<For>`(keyed); **TodoMVC 稼働** | ✅ 完了 |
 | 4 | コンポーネントモデルと DX | ✅ 完了 — `onMount`/`mergeProps`/`splitProps`/スコープド `css`/`context` |
 | 5 | Bun 連携: `create` / `dev` / `build` CLI | ✅ 完了 |
-| 6 | 堅牢化・周辺(ルーター、SSR 等) | 🟡 進行中 — **ルーター + エラーバウンダリ完了**;残りは任意 |
+| 6 | 堅牢化・周辺(ルーター、SSR 等) | 🟡 進行中 — **ルーター + エラーバウンダリ + 開発時警告 完了**;残りは任意 |
 
 全期間で維持した品質基準: **ランタイム依存ゼロ**、`packages/core` のランタイム非依存、
 全ソースファイルの行/関数カバレッジ 100%、`tsc` クリーン、ドキュメントのバイリンガル。
@@ -52,7 +52,13 @@
   上に辿る ── 無ければ再 throw)。依存ゼロ・カバレッジ 100%・ランタイム非依存。詳細は
   [`decisions.ja.md`](./decisions.ja.md#エラーバウンダリphase-6) を参照。
 - [ ] **非同期 / Suspense** プリミティブ(例: `resource`)。
-- [ ] **開発時の警告**(例: thunk として渡すべき signal を読んでしまった等)。
+- [x] **開発時の警告。** 完了 ── オプトインのランタイム診断(`setDev(true)`。
+  `kanabun dev` は `globalThis.__KANABUN_DEV__` 経由で自動有効化)。owner 外の
+  `effect()`/`onMount()`/`onCleanup()` と、computed 内のシグナル書き込みを検知。重複排除
+  あり、差し替え可能なシンク(`setWarnHandler`)付き。「thunk として渡すべき signal を
+  読んでしまった」ケースはコンパイラ無しでは確実に検知できない ── 理由と *検知できる* もの
+  は [`decisions.ja.md`](./decisions.ja.md#開発時警告phase-6) を参照。依存ゼロ・カバレッジ
+  100%・ランタイム非依存。
 
 ### DX と型の精緻化
 - [ ] `JSX.IntrinsicElements` の厳密化: 現状は意図的に緩い(`[name]: any`)。要素ごとの

@@ -370,6 +370,7 @@ URL hash, so deep links and refreshes work with no server rewrites),
 | Props | `mergeProps`, `splitProps` |
 | Context | `createContext`, `useContext` |
 | Styling | `css` (scoped CSS) |
+| Dev warnings | `setDev`, `setWarnHandler` (opt-in; `kanabun dev` enables them) |
 | Types | `Accessor`, `Signal`, `SignalOptions`, `Disposer`, `Context`, `Props`, `JSXChild`, `JSX`, `ShowProps`, `ForProps`, `ErrorBoundaryProps` |
 
 **`@kanabun/cli`** (the `kanabun` command; also importable as a library)

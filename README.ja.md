@@ -354,6 +354,7 @@ function App() {
 | props | `mergeProps`, `splitProps` |
 | コンテキスト | `createContext`, `useContext` |
 | スタイリング | `css`(スコープド CSS) |
+| 開発時警告 | `setDev`, `setWarnHandler`(オプトイン。`kanabun dev` が自動有効化) |
 | 型 | `Accessor`, `Signal`, `SignalOptions`, `Disposer`, `Context`, `Props`, `JSXChild`, `JSX`, `ShowProps`, `ForProps`, `ErrorBoundaryProps` |
 
 **`@kanabun/cli`**(`kanabun` コマンド。ライブラリとしても import 可能)

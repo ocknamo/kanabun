@@ -3,13 +3,16 @@
 > このファイルは作業の引き継ぎ用メモです(プロダクト文書ではないので日本語のみ)。
 > 規約は [`../CLAUDE.md`](../CLAUDE.md)、残作業は [`roadmap.md`](./roadmap.md) が一次情報。
 > ここは「いまの状態」と「今セッションで得た知見・落とし穴」に絞ります。
-> 最終更新: 2026-06-14 / 最終コミット: ルーター実装(`@kanabun/router`)
+> 最終更新: 2026-06-15 / 最終コミット: 開発時警告(dev-time warnings)
 
 ## 1. いまどこにいるか
 
-- **ブランチ**: `claude/phase-6-tasks-6whmn1` で開発(`main` 直push しない / PR は指示があるまで作らない)。`main` には PR #1〜#4 経由で scoped CSS・VRT・カバレッジバッジ・context までマージ済み。
-- **進捗**: 要求定義の **Phase 0〜5 完了**。**Phase 6 はルーター(`@kanabun/router`)を実装** ── history ベース、`<Router>`/`<Routes>`(排他+404 fallback)/`<Route>`/`<Link>` + `useNavigate`/`useLocation`/`useParams`、差し替え可能な history ソース(browser / **hash**(GitHub Pages 向け)/ memory)。残る Phase 6(SSR/状態保持 HMR/エラーバウンダリ/Suspense/開発時警告/ネストルーティング)は未着手。
-- **品質**: **195 テスト / 0 fail、全ソース 100% カバレッジ、`tsc` クリーン**。依存ゼロ(dev は `@types/bun` のみ)、`packages/{core,router}` はランタイム非依存を維持。
+- **ブランチ**: `claude/phase-6-2tvf6l` で開発(`main` 直push しない / PR は指示があるまで作らない)。`main` には PR #1〜#6 経由で scoped CSS・VRT・カバレッジバッジ・context・ルーター・エラーバウンダリまでマージ済み。
+- **進捗**: 要求定義の **Phase 0〜5 完了**。**Phase 6 は ルーター(`@kanabun/router`)+ エラーバウンダリ + 開発時警告 を実装済み**。
+  - ルーター ── history ベース、`<Router>`/`<Routes>`(排他+404 fallback)/`<Route>`/`<Link>` + `useNavigate`/`useLocation`/`useParams`、差し替え可能な history ソース(browser / **hash**(GitHub Pages 向け)/ memory)。
+  - **開発時警告(今セッション)** ── `packages/core/src/dev.ts`。オプトイン(`setDev(true)`、`kanabun dev` は `globalThis.__KANABUN_DEV__` で自動 ON)。owner 外の `effect()`/`onMount()`/`onCleanup()` と computed 内のシグナル書き込みを検知。重複排除 + 差し替え可能シンク(`setWarnHandler`)。詳細は `decisions.md`「Dev-time warnings (Phase 6)」。
+  - 残る Phase 6(SSR/ハイドレーション、状態保持 HMR、Async/Suspense(`resource`)、ネストルーティング)は未着手。
+- **品質**: **225 テスト / 0 fail、全ソース 100% カバレッジ、`tsc` クリーン**。依存ゼロ(dev は `@types/bun` のみ)、`packages/{core,router}` はランタイム非依存を維持。
 - **成果物**: `@kanabun/core`、`@kanabun/cli`(`create`/`dev`/`build`)、**`@kanabun/router`**、`examples/{counter,todomvc,router}`、VRT(スクショ回帰)ゲート、バイリンガル docs。
 
 ## 2. 必須ワークフロー(CLAUDE.md より)
