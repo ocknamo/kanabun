@@ -15,7 +15,7 @@ see [`decisions.md`](./decisions.md).
 | 3 | Control flow: `<Show>`, `<For>` (keyed); **TodoMVC runs** | ✅ done |
 | 4 | Component model & DX | ✅ done — `onMount`, `mergeProps`, `splitProps`, scoped `css`, `context` |
 | 5 | Bun integration: `create` / `dev` / `build` CLI | ✅ done |
-| 6 | Hardening & ecosystem (router, SSR, etc.) | ⬜ not started (optional) |
+| 6 | Hardening & ecosystem (router, SSR, etc.) | 🟡 in progress — **router done**; rest optional |
 
 Quality bar held throughout: **zero runtime dependencies**, `packages/core`
 runtime-independent, 100% line/function coverage on all source files, `tsc`
@@ -37,7 +37,14 @@ clean, docs bilingual.
   options weighed (CSS-modules and Svelte-attribute styles were rejected).
 
 ### Phase 6 — hardening & ecosystem (optional)
-- [ ] **Router** as a separate package (`@kanabun/router`), history-based.
+- [x] **Router** as a separate package (`@kanabun/router`), history-based. Done —
+  `<Router>`/`<Routes>`/`<Route>`/`<Link>` + `useNavigate`/`useLocation`/`useParams`,
+  over a pluggable history source (`createBrowserSource` / `createHashSource` /
+  `createMemorySource` — hash routing works on GitHub Pages with no rewrites).
+  `<Routes>` gives exclusive (first-match) routing with a shared `fallback` for
+  404s. Rides core's signals + owner-tree context; zero dependencies, 100%
+  covered, runtime independent. See [`decisions.md`](./decisions.md#router-phase-6).
+  *Flat routes only — **nested routing** (layouts + child routes) is a follow-up.*
 - [ ] **SSR + hydration.** `renderToString` on the server, hydrate on the client.
 - [ ] **Stateful HMR** in the dev server (currently full reload — the deliberate
   Phase 5 simplification).

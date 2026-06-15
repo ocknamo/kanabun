@@ -19,11 +19,17 @@
       "name": "@kanabun/core",
       "version": "0.0.0",
     },
+    "packages/router": {
+      "name": "@kanabun/router",
+      "version": "0.0.0",
+    },
   },
   "packages": {
     "@kanabun/cli": ["@kanabun/cli@workspace:packages/cli"],
 
     "@kanabun/core": ["@kanabun/core@workspace:packages/core"],
+
+    "@kanabun/router": ["@kanabun/router@workspace:packages/router"],
 
     "@types/bun": ["@types/bun@1.3.14", "", { "dependencies": { "bun-types": "1.3.14" } }, "sha512-h1hFqFVcvAvD9j9K7ZW7vd82aSA+rTdznZa+5bwvCwqSB1jmmfLcbIWhOLx1/+boy/xmjgCs/OMUL8hRJSmnPw=="],
 

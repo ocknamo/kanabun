@@ -254,9 +254,10 @@ with `;` (as in Sass / native CSS nesting), and brace matching is lexical, so a
 literal `{`/`}` inside a string/comment isn't understood — use a global
 stylesheet for that.
 
-Runnable examples: [`examples/counter/`](examples/counter/) and
-[`examples/todomvc/`](examples/todomvc/) — serve either with
-`bun examples/<name>/index.html` (uses Bun 1.3+ HTML-entry dev server).
+Runnable examples: [`examples/counter/`](examples/counter/),
+[`examples/todomvc/`](examples/todomvc/) and [`examples/router/`](examples/router/)
+— serve any with `bun examples/<name>/index.html` (uses Bun 1.3+ HTML-entry dev
+server).
 
 ---
 
@@ -275,6 +276,57 @@ kanabun build             # bundle ./index.html to ./dist for the browser
 `dev` serves the HTML entry, bundles TS/TSX on the fly, and live-reloads over a
 WebSocket (stateful HMR is deferred — full reload for now). `build` wraps
 `bun build --target browser`.
+
+---
+
+## Router (`@kanabun/router`)
+
+A history-based router in a separate package — built entirely on the core's
+signals and owner-tree context, so it adds **zero dependencies** and stays
+runtime-independent (browser globals are resolved lazily; tests and SSR use an
+in-memory history source).
+
+```tsx
+import { Router, Route, Link, useParams } from "@kanabun/router";
+
+function User() {
+  const params = useParams();             // reactive route params
+  return <h2>User {() => params().id}</h2>;
+}
+
+function App() {
+  return (
+    <Router>
+      {() => (                            // function child: lazy, like <Show>
+        <>
+          <nav>
+            <Link href="/">Home</Link>
+            <Link href="/users/1">User 1</Link>
+          </nav>
+          <Routes fallback={<p>404</p>}>  {/* first match wins; else fallback */}
+            <Route path="/" children={<p>home</p>} />
+            <Route path="/users/:id" children={() => <User />} />
+          </Routes>
+        </>
+      )}
+    </Router>
+  );
+}
+```
+
+`<Route>` matches a pattern (`/`, `/users/:id`, `/files/*rest`) and, like
+`<Show>`, memoizes the match to a boolean so content is built once per match
+while params keep updating. A standalone `<Route>` renders independently; wrap
+them in `<Routes>` for **exclusive** routing — the first matching route wins and
+a shared `fallback` covers the unmatched case (a natural 404). Only `<Route>`
+children render inside `<Routes>`, so keep shared chrome (nav, headings) outside
+it. `<Link>`
+intercepts plain left-clicks (modified clicks and external links fall through).
+`useNavigate` / `useLocation` / `useParams` read the nearest `<Router>`. The
+`source` prop swaps the history backend: omit it for the browser history,
+`createHashSource()` for static hosts like **GitHub Pages** (routes live in the
+URL hash, so deep links and refreshes work with no server rewrites),
+`createMemorySource()` for tests/SSR, or your own `RouterSource`.
 
 ---
 
@@ -303,12 +355,23 @@ WebSocket (stateful HMR is deferred — full reload for now). `build` wraps
 | `create(name, opts?)` / `templateFiles(name)` | Scaffold a project / get its files. |
 | `parseArgs(argv)` / `run(argv)` | Parse and dispatch CLI arguments. |
 
+**`@kanabun/router`**
+
+| Group | Exports |
+| --- | --- |
+| Components | `Router`, `Routes`, `Route`, `Link` |
+| Hooks | `useNavigate`, `useLocation`, `useParams` |
+| Sources | `createBrowserSource`, `createHashSource`, `createMemorySource` |
+| Matching | `matchPath`, `parsePath` |
+| Types | `RouterProps`, `RoutesProps`, `RouteProps`, `RouteHandle`, `RouteThunk`, `LinkProps`, `Navigate`, `NavigateOptions`, `RouterSource`, `MemorySource`, `WindowLike`, `RouterLocation`, `RouteParams` |
+
 ---
 
 ## Roadmap
 
-Phases 0–5 are done (TodoMVC runs; CLI works). What's left — `context`, router,
-SSR, stateful HMR — and the open design decisions are tracked in
+Phases 0–5 are done (TodoMVC runs; CLI works), and Phase 6 now ships a router
+(`@kanabun/router`). What's left — SSR, stateful HMR, error boundaries, async /
+Suspense — and the open design decisions are tracked in
 [`docs/roadmap.md`](docs/roadmap.md) ([日本語](docs/roadmap.ja.md)).
 
 ---
@@ -363,9 +426,12 @@ packages/
   cli/         @kanabun/cli — the `kanabun` command (Bun-only layer)
     src/        build.ts, create.ts, dev.ts, index.ts (argv + dispatch)
     bin/        kanabun.ts
+  router/      @kanabun/router — history-based router (runtime-independent)
+    src/        location.ts (parse/match), source.ts (history sources), router.ts (components + hooks)
 examples/
   counter/     a runnable reactive counter
   todomvc/     a runnable TodoMVC
+  router/      a runnable multi-page router demo
 docs/          design docs (English + 日本語)
 ```
 

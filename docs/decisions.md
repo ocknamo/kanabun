@@ -279,6 +279,63 @@ The CLI is held to the same bar as the core: 100% coverage, including a live
 dev-server test (start on an ephemeral port, fetch HTML + bundled JS, and assert
 a WebSocket reload fires on file change).
 
+## Router (Phase 6)
+
+`@kanabun/router` is a history-based, separate package. It honours the same
+founding constraints as the core — **zero dependencies, no compiler, runtime
+independent** — and introduces no new machinery: it rides the existing signals,
+the owner-tree context, and the "functions are lazy" convention `<Show>`/`<For>`
+already use.
+
+- **A history-source seam.** A `RouterSource` is the thin boundary between the
+  router's reactive state and *where* the URL actually lives. `createBrowserSource`
+  drives `window.history`/`location`/`popstate` (resolving `window` **lazily**, so
+  importing the module never needs a DOM); `createHashSource` stores the route in
+  the URL hash (`#/path`) for static hosts with no rewrite rules (GitHub Pages,
+  S3, file servers) — deep links and refreshes just work; `createMemorySource` is
+  an in-process implementation for tests and non-browser/SSR hosts. The seam is
+  what makes the router 100% unit-testable without jsdom **and** what made hash
+  routing a ~20-line addition rather than a rewrite — `<Router>` is unchanged.
+- **A reactive current location.** `<Router>` owns a single signal tracking the
+  current path, subscribes to the source (torn down via `onCleanup`), and parses
+  it with `computed` into a `RouterLocation` (`pathname`/`search`/`hash`/`query`).
+  `push`/`replace` don't notify — the router updates itself synchronously after
+  navigating, so only back/forward fire the subscription.
+- **`<Route>` borrows `<Show>`'s semantics.** The match is memoized to a
+  **boolean**, so content is built once on match (and disposed on mismatch) while
+  the params still update reactively underneath — a param change within the same
+  route does not rebuild. The matcher (`matchPath`) is a pure function handling
+  static / `:param` / trailing `*wildcard` segments.
+- **`<Routes>` for exclusive matching (and 404).** Standalone `<Route>`s are
+  independent toggles (every match renders), which is wrong for a catch-all. So
+  `<Routes>` renders the **first** matching child and a shared `fallback` when
+  none match. The trick, with no compiler and eager JSX: a `<Route>` returns a
+  *thunk that also carries its match state* (`$matched` / `$content` — functions
+  can hold properties), so it still renders standalone, while `<Routes>` reads
+  those fields to pick one — mirroring Solid's `<Switch>`/`<Match>`. Naming
+  follows React Router (`<Routes fallback>`) over Solid's `<Switch>`.
+- **Disposal via an explicit `createRoot` slot.** The context wrap that lets
+  deferred reads resolve the router runs the whole route subtree under the
+  *stable* Router owner, so a re-running insert effect's `disposeOwned` never
+  reaches the previous route — it would leak on every switch. Both `<Route>` and
+  `<Routes>` therefore render content through a small "disposable slot" that owns
+  it in its own `createRoot` and tears the old one down on switch/unmount — the
+  same explicit-disposal pattern `<For>`/`mapArray` use.
+- **Params, two ways.** The accessor is passed directly to `component`/function
+  children, *and* exposed via a `RouteContext` so descendants can read
+  `useParams()`. The latter reuses core's context, so those descendants must live
+  under **function** (lazy) children — the same eager-children limitation context
+  already documents (eager children only ever see the default, here an empty obj).
+- **`<Link>`.** An `<a>` that navigates client-side. Only a plain left-click is
+  intercepted; modified clicks, non-left buttons, a `target` other than `_self`,
+  and external/`mailto:` links fall through to the browser's default behaviour.
+
+The router is held to the same bar: 100% line/function coverage and a clean
+`tsc`. `examples/router` is verified in a real browser (the `snapshot` skill) for
+client-side navigation (no reload), `:id` resolution, the live `useLocation`
+readout, and scoped CSS. (A committed VRT baseline for the example is a
+follow-up — it must be captured in the pinned Playwright container.)
+
 ## Roadmap (abridged)
 
 - **Phase 0 — scaffold:** Bun project, workspace split (`core` vs future
@@ -295,4 +352,5 @@ a WebSocket reload fires on file change).
   function-children — see below). ✅
 - **Phase 5 — Bun integration:** `create` / `dev` / `build` CLI; dev server with
   full-reload over WebSocket. Bun-only layer, 100% covered. ✅
-- **Phase 6 — hardening (optional):** SSR/hydration, router, stateful HMR, etc.
+- **Phase 6 — hardening (optional):** **router done** (`@kanabun/router`, above).
+  Remaining: SSR/hydration, stateful HMR, etc. (optional).
