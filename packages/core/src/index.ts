@@ -16,6 +16,7 @@ export {
   createRoot,
   createContext,
   useContext,
+  catchError,
 } from "./reactive";
 export type { Accessor, Signal, SignalOptions, Disposer, Context } from "./reactive";
 
@@ -27,8 +28,8 @@ export { render, createElement, insert, reconcileNodes } from "./dom";
 export type { Props } from "./dom";
 
 // Control flow.
-export { Show, For, mapArray } from "./control-flow";
-export type { ShowProps, ForProps } from "./control-flow";
+export { Show, For, mapArray, ErrorBoundary } from "./control-flow";
+export type { ShowProps, ForProps, ErrorBoundaryProps } from "./control-flow";
 
 // Scoped CSS (runtime helper: hashes a class + injects a <style>).
 export { css } from "./css";

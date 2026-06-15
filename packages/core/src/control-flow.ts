@@ -3,7 +3,7 @@
  * on. These are ordinary components: they run once and return a reactive thunk
  * that the DOM runtime inserts and keeps up to date.
  */
-import { computed, createRoot, onCleanup } from "./reactive";
+import { batch, catchError, computed, createRoot, onCleanup, signal } from "./reactive";
 import type { JSXChild } from "./jsx-runtime";
 
 /**
@@ -120,5 +120,92 @@ export function For<T>(props: ForProps<T>): () => JSXChild {
   return () => {
     const nodes = mapped();
     return (nodes.length > 0 ? nodes : (props.fallback ?? null)) as JSXChild;
+  };
+}
+
+export interface ErrorBoundaryProps {
+  /**
+   * Shown when a child throws. Either a static node, or a function receiving the
+   * thrown error and a `reset` callback that clears the error and rebuilds the
+   * children from scratch.
+   */
+  fallback: unknown | ((err: unknown, reset: () => void) => unknown);
+  /** The guarded subtree. */
+  children: unknown;
+}
+
+/**
+ * Catches errors thrown while **creating** *or* **reactively updating** its
+ * children and renders `fallback` instead of letting them crash the whole app.
+ * Built on {@link catchError}: a throw from any descendant computation is routed
+ * up the owner tree to here. The `reset` handed to a function `fallback` clears
+ * the error and recreates the children.
+ *
+ * As with `<Show>`/context, wrap the children in a **function** so their
+ * *creation* is guarded too (a plain child is built eagerly, before the boundary
+ * runs, so only its later *updates* would be caught):
+ *
+ *     <ErrorBoundary fallback={(err) => <p>oops: {String(err)}</p>}>
+ *       {() => <App />}
+ *     </ErrorBoundary>
+ */
+export function ErrorBoundary(props: ErrorBoundaryProps): () => JSXChild {
+  const failure = signal<{ readonly err: unknown } | null>(null);
+
+  // The guarded children live in their *own* disposable root and are built once
+  // (and again on `reset`) — crucially **not** on every render. That isolation
+  // is what keeps a thrown error from rebuilding the subtree: were the children
+  // rebuilt inside the render thunk, a nested boundary's `failure` would re-run
+  // the parent's slot, recreate the nested boundary (clearing its caught error),
+  // and re-throw forever. `catchError` registers the handler on the owner tree,
+  // so an error from creating the children now — or from a later update — routes
+  // here. The build is wrapped in `batch` so disposing the old children, clearing
+  // the error, and rebuilding settle before the boundary re-renders.
+  let dispose: (() => void) | null = null;
+  let children: JSXChild = null;
+  const build = (): void => {
+    batch(() => {
+      dispose?.();
+      failure.set(null);
+      dispose = createRoot((d) => {
+        children = catchError(
+          () => {
+            const c = props.children;
+            return typeof c === "function" ? (c as () => unknown)() : c;
+          },
+          (err) => {
+            if (failure.peek() === null) failure.set({ err });
+          },
+        ) as JSXChild;
+        return d;
+      });
+    });
+  };
+  onCleanup(() => dispose?.());
+
+  const reset = (): void => build();
+  const renderFallback = (err: unknown): JSXChild => {
+    const fb = props.fallback;
+    return (
+      typeof fb === "function"
+        ? (fb as (e: unknown, r: () => void) => unknown)(err, reset)
+        : fb
+    ) as JSXChild;
+  };
+
+  build(); // initial, eager build in its own root
+  // The render thunk *chooses* between the (already built) children and the
+  // fallback, reading `failure` so a later throw or a `reset` re-renders it. On a
+  // failure it also tears down the broken children's root (the same disposal the
+  // router's slot does) so the dead subtree stops reacting to unrelated updates;
+  // `reset` rebuilds it.
+  return () => {
+    const f = failure();
+    if (f === null) return children;
+    if (dispose !== null) {
+      dispose();
+      dispose = null;
+    }
+    return renderFallback(f.err);
   };
 }
