@@ -34,6 +34,9 @@ export type { ShowProps, ForProps, ErrorBoundaryProps } from "./control-flow";
 // Scoped CSS (runtime helper: hashes a class + injects a <style>).
 export { css } from "./css";
 
+// Dev-time warnings (opt-in diagnostics; `kanabun dev` enables them for you).
+export { setDev, setWarnHandler } from "./dev";
+
 // JSX runtime, also re-exported here for manual / hyperscript-style use.
 export { jsx, jsxs, Fragment } from "./jsx-runtime";
-export type { JSXChild, JSX } from "./jsx-runtime";
+export type { JSXChild, JSX, EventHandler, HTMLAttributes } from "./jsx-runtime";

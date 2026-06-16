@@ -51,6 +51,11 @@ describe("createDevHandler", () => {
     expect(await res.text()).toContain("__kanabun_livereload");
   });
 
+  test("enables core dev warnings via the injected dev flag", async () => {
+    const res = await handler()(new Request("http://localhost/"));
+    expect(await res.text()).toContain("globalThis.__KANABUN_DEV__ = true");
+  });
+
   test("bundles a module request to browser JS", async () => {
     const res = await handler()(new Request("http://localhost/main.tsx"));
     expect(res.headers.get("content-type")).toContain("javascript");

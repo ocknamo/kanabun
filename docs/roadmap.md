@@ -15,7 +15,7 @@ see [`decisions.md`](./decisions.md).
 | 3 | Control flow: `<Show>`, `<For>` (keyed); **TodoMVC runs** | ✅ done |
 | 4 | Component model & DX | ✅ done — `onMount`, `mergeProps`, `splitProps`, scoped `css`, `context` |
 | 5 | Bun integration: `create` / `dev` / `build` CLI | ✅ done |
-| 6 | Hardening & ecosystem (router, SSR, etc.) | 🟡 in progress — **router + error boundaries done**; rest optional |
+| 6 | Hardening & ecosystem (router, SSR, etc.) | 🟡 in progress — **router + error boundaries + dev-time warnings done**; rest optional |
 
 Quality bar held throughout: **zero runtime dependencies**, `packages/core`
 runtime-independent, 100% line/function coverage on all source files, `tsc`
@@ -56,19 +56,43 @@ clean, docs bilingual.
   dependencies, 100% covered, runtime independent. See
   [`decisions.md`](./decisions.md#error-boundaries-phase-6).
 - [ ] **Async / Suspense** primitives (e.g. `resource`).
-- [ ] **Dev-time warnings** (e.g. reading a signal you meant to pass as a thunk).
+- [x] **Dev-time warnings.** Done — opt-in runtime diagnostics (`setDev(true)`;
+  `kanabun dev` enables them automatically via `globalThis.__KANABUN_DEV__`).
+  Flags owner-less `effect()`/`onMount()`/`onCleanup()` and signal writes inside
+  a computed; deduped, with a settable sink (`setWarnHandler`). The "reading a
+  signal you meant to pass as a thunk" case isn't robustly detectable without a
+  compiler — see [`decisions.md`](./decisions.md#dev-time-warnings-phase-6) for
+  why, and for what *is* detectable. Zero dependencies, 100% covered, runtime
+  independent.
 
 ### DX & type precision
-- [ ] Tighten `JSX.IntrinsicElements`: it's intentionally permissive (`[name]: any`)
-  today; add real per-element attribute and event-handler types.
+- [~] Tighten `JSX.IntrinsicElements`. **Event handlers done** — `on*` props are
+  typed as `EventHandler<E>` functions (a typed event), so "forgot the `() =>`"
+  (`onClick={count.set(…)}`) is a compile error, while conditional handlers
+  (`undefined`) and the `void`/`undefined` distinction are handled precisely. See
+  [`dx.md`](./dx.md#1-type-level-checks-compile-time). **Remaining:** per-element
+  *attribute* types (still `[attr]: any`).
 - [ ] Precise `splitProps` return type (tuple of `Pick`/`Omit`) instead of the
   current loose `Array<Partial<T>>`.
+
+> The three layers that *do* catch mistakes (types, runtime dev warnings, tests)
+> are consolidated in [`dx.md`](./dx.md) — including what can't be caught without
+> a compiler and the linter that would close that gap.
 
 ### Tooling & publishing
 - [ ] **Publish** `@kanabun/core` and `@kanabun/cli` to npm. Until then, the
   `create`-scaffolded `package.json` references `^0.0.0` placeholders and the
   quickstart runs from this repo.
 - [ ] Versioning / release strategy.
+- [ ] **In-house linter (`kanabun lint`).** Static analysis to catch the slips
+  the runtime can't — chiefly `{count()}` where `{count}` was meant in a
+  child/attribute (needs to see the source before the call collapses to a value),
+  plus related convention violations. **Not** an ESLint plugin (ESLint is an
+  external dependency; kanabun ships zero deps) — a first-party CLI command in the
+  Bun layer, reusing the on-demand TypeScript parser already used for
+  typechecking. Opt-in, dev-only authoring tooling, *not* a runtime compiler
+  (keeps the founding constraint intact). See
+  [`dx.md`](./dx.md#4-future-an-in-house-linter).
 
 ### Known minor items (from reviews)
 - [ ] Dev server does a `realpath` stat per request for containment, in addition

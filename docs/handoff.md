@@ -3,13 +3,18 @@
 > このファイルは作業の引き継ぎ用メモです(プロダクト文書ではないので日本語のみ)。
 > 規約は [`../CLAUDE.md`](../CLAUDE.md)、残作業は [`roadmap.md`](./roadmap.md) が一次情報。
 > ここは「いまの状態」と「今セッションで得た知見・落とし穴」に絞ります。
-> 最終更新: 2026-06-14 / 最終コミット: ルーター実装(`@kanabun/router`)
+> 最終更新: 2026-06-15 / 最終コミット: 開発時警告(dev-time warnings)
 
 ## 1. いまどこにいるか
 
-- **ブランチ**: `claude/phase-6-tasks-6whmn1` で開発(`main` 直push しない / PR は指示があるまで作らない)。`main` には PR #1〜#4 経由で scoped CSS・VRT・カバレッジバッジ・context までマージ済み。
-- **進捗**: 要求定義の **Phase 0〜5 完了**。**Phase 6 はルーター(`@kanabun/router`)を実装** ── history ベース、`<Router>`/`<Routes>`(排他+404 fallback)/`<Route>`/`<Link>` + `useNavigate`/`useLocation`/`useParams`、差し替え可能な history ソース(browser / **hash**(GitHub Pages 向け)/ memory)。残る Phase 6(SSR/状態保持 HMR/エラーバウンダリ/Suspense/開発時警告/ネストルーティング)は未着手。
-- **品質**: **195 テスト / 0 fail、全ソース 100% カバレッジ、`tsc` クリーン**。依存ゼロ(dev は `@types/bun` のみ)、`packages/{core,router}` はランタイム非依存を維持。
+- **ブランチ**: `claude/phase-6-2tvf6l` で開発(`main` 直push しない / PR は指示があるまで作らない)。`main` には PR #1〜#6 経由で scoped CSS・VRT・カバレッジバッジ・context・ルーター・エラーバウンダリまでマージ済み。
+- **進捗**: 要求定義の **Phase 0〜5 完了**。**Phase 6 は ルーター(`@kanabun/router`)+ エラーバウンダリ + 開発時警告 を実装済み**。
+  - ルーター ── history ベース、`<Router>`/`<Routes>`(排他+404 fallback)/`<Route>`/`<Link>` + `useNavigate`/`useLocation`/`useParams`、差し替え可能な history ソース(browser / **hash**(GitHub Pages 向け)/ memory)。
+  - **開発時警告(今セッション)** ── `packages/core/src/dev.ts`。オプトイン(`setDev(true)`、`kanabun dev` は `globalThis.__KANABUN_DEV__` で自動 ON)。owner 外の `effect()`/`onMount()`/`onCleanup()` と computed 内のシグナル書き込みを検知。重複排除 + 差し替え可能シンク(`setWarnHandler`)。詳細は `decisions.md`「Dev-time warnings (Phase 6)」。
+  - **`on*` イベントハンドラの型付け(今セッション)** ── `JSX.IntrinsicElements` の部分厳密化。`packages/core/src/jsx-runtime.ts` に `EventHandler<E>` と `HTMLAttributes`(typed `on*` + `[attr]: any`)を追加し、`IntrinsicElements` を `[name]: HTMLAttributes` に。`onClick={count.set(…)}`(アロー書き忘れ=`void`)や非関数がコンパイルエラーに。条件付きハンドラ(`undefined`)は許す。型レベルテストは `packages/core/test/jsx-types.spec.ts`(`@ts-expect-error` で自己検証)。**残り**:要素ごとの *属性* 型はまだ緩い。
+  - **開発者支援ドキュメント `docs/dx.md`(+ `.ja.md`)を新設** ── 型・実行時警告・テストの 3 層 + 将来の linter 構想を集約。
+  - 残る Phase 6(SSR/ハイドレーション、状態保持 HMR、Async/Suspense(`resource`)、ネストルーティング)は未着手。
+- **品質**: **230 テスト / 0 fail、全ソース 100% カバレッジ、`tsc` クリーン**。依存ゼロ(dev は `@types/bun` のみ)、`packages/{core,router}` はランタイム非依存を維持。
 - **成果物**: `@kanabun/core`、`@kanabun/cli`(`create`/`dev`/`build`)、**`@kanabun/router`**、`examples/{counter,todomvc,router}`、VRT(スクショ回帰)ゲート、バイリンガル docs。
 
 ## 2. 必須ワークフロー(CLAUDE.md より)
@@ -27,7 +32,9 @@
 
 ## 3. 次にやるなら(roadmap.md 参照)
 
-Phase 6 のルーターは **完了**。残るは Phase 6 / DX(任意): SSR + ハイドレーション、状態保持 HMR、エラーバウンダリ、Async/Suspense(`resource`)、開発時警告、`JSX.IntrinsicElements` 厳密化、`splitProps` タプル型化、npm 公開。
+Phase 6 のルーター・エラーバウンダリ・開発時警告・`on*` イベントハンドラ型付けは **完了**。残るは Phase 6 / DX(任意): SSR + ハイドレーション、状態保持 HMR、Async/Suspense(`resource`)、ネストルーティング、`JSX.IntrinsicElements` の **属性** 型(イベントは済)、`splitProps` タプル型化、npm 公開。
+
+**自前 linter(`kanabun lint`)** は方針合意済み・**設計のみ記録**(未実装)。ESLint は外部依存ゆえ不可 → CLI/Bun レイヤーで自前実装し、オンデマンドの TypeScript パーサ(Bun の auto-install で `import("typescript")`)を再利用する。具体設計(コマンド形・パーサ・目玉ルール `reactive-call-in-jsx` のセマンティック/シンタクティック 2 案・後続ルール・テスト方針・**先に確認すべき実現性**=マニフェスト記載なしで auto-install import が解決するか)は `docs/dx.md`(+`.ja.md`)§4「Design sketch」に記載。
 
 参考(完了済み): ルーターは `packages/router/src/`(`location.ts` = `parsePath`/`matchPath`、`source.ts` = `RouterSource`/browser+memory、`router.ts` = コンポーネント+フック)。設計判断は `decisions.md` の「Router (Phase 6)」。`context` は `packages/core/src/reactive.ts` 末尾、scoped CSS は `packages/core/src/css.ts`。
 

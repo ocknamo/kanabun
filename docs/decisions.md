@@ -380,6 +380,47 @@ new machinery — they ride the **owner tree** that already exists.
 Held to the same bar: 100% line/function coverage and a clean `tsc`, zero
 dependencies, runtime independent.
 
+## Dev-time warnings (Phase 6)
+
+Because there's **no compiler**, a class of mistakes can't be caught at build
+time. `setDev(true)` enables a small set of **runtime diagnostics** as the
+fallback — the things the "functions are reactive / getters are explicit"
+convention makes easy to get wrong.
+
+- **Opt-in, off by default.** Production and the test suite stay silent unless
+  they opt in, so there's no console noise and no cost on the hot path when off
+  (`warn` early-returns). `kanabun dev` flips it on automatically by injecting a
+  classic inline `<script>globalThis.__KANABUN_DEV__ = true</script>` before the
+  (deferred) app module — the served page and the bundled core share `globalThis`,
+  so no cross-bundle import wiring is needed. `setDev(true)` forces it on in any
+  other setup.
+- **Deduplicated, with a settable sink.** Each distinct message is emitted at
+  most once (a re-running effect can't flood the console), and warnings route
+  through `setWarnHandler` so a future dev overlay can intercept them; `null`
+  restores `console.warn`. Only `console`/`globalThis` are touched, so the module
+  stays runtime-independent.
+- **What it catches** (each detectable from state the core already tracks, with
+  low false-positive risk):
+  - **`effect()` created outside any owner** — it won't be auto-disposed (the
+    `render`/`createRoot` owner is missing), a likely leak. `computed` is *not*
+    flagged: a module-level derived value is legitimate and has no side effects.
+  - **`onCleanup()` outside an owner** — the callback would silently never run.
+  - **`onMount()` outside an owner** — it runs, but isn't tied to a lifecycle
+    (`onCleanup` inside it is ignored).
+  - **Writing a signal while a computed is evaluating** — a side effect inside
+    something meant to be pure (detected via the active `listener` being a
+    non-effect derivation). Effects are allowed to write, so they're exempt.
+- **Why not "you called `{count()}` where you meant `{count}`"?** That's the
+  motivating example, but it isn't robustly detectable at runtime: by the time
+  the JSX child is built, `count()` has already collapsed to a plain value,
+  indistinguishable from a literal — and reading a signal during synchronous
+  render is often legitimate. Catching it reliably needs a compiler, which the
+  founding constraints rule out. The warnings above target what *can* be detected
+  from the reactive graph without guessing.
+
+Held to the same bar: 100% line/function coverage and a clean `tsc`, zero
+dependencies, runtime independent.
+
 ## Roadmap (abridged)
 
 - **Phase 0 — scaffold:** Bun project, workspace split (`core` vs future

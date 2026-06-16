@@ -370,7 +370,8 @@ URL hash, so deep links and refreshes work with no server rewrites),
 | Props | `mergeProps`, `splitProps` |
 | Context | `createContext`, `useContext` |
 | Styling | `css` (scoped CSS) |
-| Types | `Accessor`, `Signal`, `SignalOptions`, `Disposer`, `Context`, `Props`, `JSXChild`, `JSX`, `ShowProps`, `ForProps`, `ErrorBoundaryProps` |
+| Dev warnings | `setDev`, `setWarnHandler` (opt-in; `kanabun dev` enables them) |
+| Types | `Accessor`, `Signal`, `SignalOptions`, `Disposer`, `Context`, `Props`, `JSXChild`, `JSX`, `EventHandler`, `HTMLAttributes`, `ShowProps`, `ForProps`, `ErrorBoundaryProps` |
 
 **`@kanabun/cli`** (the `kanabun` command; also importable as a library)
 
@@ -396,10 +397,14 @@ URL hash, so deep links and refreshes work with no server rewrites),
 
 ## Roadmap
 
-Phases 0–5 are done (TodoMVC runs; CLI works), and Phase 6 now ships a router
-(`@kanabun/router`). What's left — SSR, stateful HMR, error boundaries, async /
-Suspense — and the open design decisions are tracked in
+Phases 0–5 are done (TodoMVC runs; CLI works), and Phase 6 ships a router
+(`@kanabun/router`), error boundaries, and dev-time warnings. What's left — SSR,
+stateful HMR, async / Suspense — and the open design decisions are tracked in
 [`docs/roadmap.md`](docs/roadmap.md) ([日本語](docs/roadmap.ja.md)).
+
+Because there's no compiler, mistake-catching leans on three layers — typed
+`on*` handlers, opt-in runtime dev warnings (`setDev`), and tests. They're
+consolidated in [`docs/dx.md`](docs/dx.md) ([日本語](docs/dx.ja.md)).
 
 ---
 

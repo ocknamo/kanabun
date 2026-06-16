@@ -23,6 +23,12 @@ const CONTENT_TYPES: Record<string, string> = {
   ".svg": "image/svg+xml",
 };
 
+// Enables @kanabun/core's dev-time warnings in the served page. A classic
+// inline script, so it runs before the deferred app module bundle and the two
+// share `globalThis`.
+const DEV_FLAG_SNIPPET = `
+<script>globalThis.__KANABUN_DEV__ = true;</script>`;
+
 const LIVE_RELOAD_SNIPPET = `
 <script>
   (() => {
@@ -58,9 +64,10 @@ export function createDevHandler(
 
     if (pathname === "/" || pathname === "/index.html") {
       const html = await Bun.file(htmlPath).text();
+      const prelude = `${DEV_FLAG_SNIPPET}${LIVE_RELOAD_SNIPPET}`;
       const injected = html.includes("</body>")
-        ? html.replace("</body>", `${LIVE_RELOAD_SNIPPET}\n</body>`)
-        : html + LIVE_RELOAD_SNIPPET;
+        ? html.replace("</body>", `${prelude}\n</body>`)
+        : html + prelude;
       return new Response(injected, {
         headers: { "content-type": CONTENT_TYPES[".html"]! },
       });
