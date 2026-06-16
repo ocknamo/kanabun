@@ -405,7 +405,8 @@ owner ツリーの context に乗ります。
 
 ```
 core:  renderToString(() => <App/>)  → HTML 文字列、DOM 不要、シグナルは1回読み
-       hydrate(() => <App/>, root)   → 既存 DOM にイベント/反応性を接続
+       hydrate(() => <App/>, root)   → サーバマークアップ上にライブツリーをマウント
+                                       (クリア→再描画。ノード引き取りはしない)
 SSR  = リクエスト時に renderToString し、レスポンスで返す
 SSG  = ビルド時に renderToString し、.html に書き出す(+任意で hydrate)
 ```

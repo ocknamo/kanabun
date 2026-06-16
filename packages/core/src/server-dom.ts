@@ -208,7 +208,11 @@ export function serialize(node: ServerNode): string {
   if (VOID.has(tag)) return `<${tag}${attrs}>`;
   let inner = "";
   if (RAWTEXT.has(tag)) {
-    // Raw-text bodies (CSS/JS) are emitted verbatim, never HTML-escaped.
+    // Raw-text bodies (CSS/JS) are emitted verbatim, never HTML-escaped — the
+    // browser parses them as raw text, so escaping would corrupt them. In
+    // practice these come from the `css` helper (developer-authored CSS); never
+    // interpolate untrusted input into a `<style>`/`<script>` body (it would be
+    // emitted unescaped). Use a normal element for user data — that path escapes.
     for (const c of node.childNodes) if (c.nodeType === 3) inner += c.data;
   } else {
     for (const c of node.childNodes) inner += serialize(c);

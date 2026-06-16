@@ -466,7 +466,8 @@ disk. Designing SSG as its own thing would mean a second render path. Instead:
 
 ```
 core:  renderToString(() => <App/>)  → HTML string, no DOM, signals read once
-       hydrate(() => <App/>, root)   → attach events/reactivity to existing DOM
+       hydrate(() => <App/>, root)   → mount the live tree over server markup
+                                       (clears + re-renders; no node adoption)
 SSR  = renderToString at request time, returned in the response
 SSG  = renderToString at build time, written to .html files (+ optional hydrate)
 ```

@@ -40,6 +40,17 @@ describe("renderToString", () => {
     expect((globalThis as { document?: unknown }).document).toBe(sentinel);
   });
 
+  test("on a thrown render: propagates, disposes the root, restores document", () => {
+    delete (globalThis as { document?: unknown }).document;
+    expect(() =>
+      renderToString(() => {
+        throw new Error("boom");
+      }),
+    ).toThrow("boom");
+    // The temporary server document was restored (not left installed).
+    expect((globalThis as { document?: unknown }).document).toBeUndefined();
+  });
+
   test("does not run onMount on the server", async () => {
     let mounted = false;
     function App() {

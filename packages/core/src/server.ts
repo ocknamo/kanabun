@@ -52,10 +52,15 @@ export function renderToString(code: () => unknown): RenderToStringResult {
     flushStyles();
     let html = "";
     createRoot((dispose) => {
-      const root = sdoc.createElement("div");
-      insert(root as unknown as Node, code());
-      html = root.childNodes.map(serialize).join("");
-      dispose();
+      try {
+        const root = sdoc.createElement("div");
+        insert(root as unknown as Node, code());
+        html = root.childNodes.map(serialize).join("");
+      } finally {
+        // Always tear the root down — even if `code()` throws — so a render
+        // called from within an owner context can't leak the scope on error.
+        dispose();
+      }
     });
     const head = sdoc.head.childNodes.map(serialize).join("");
     return { html, head };
