@@ -272,6 +272,36 @@ const button = css`
 動かせる例:[`examples/counter/`](examples/counter/)、
 [`examples/todomvc/`](examples/todomvc/)、[`examples/router/`](examples/router/)
 (`bun examples/<name>/index.html` で起動 ── Bun 1.3+ の HTML エントリ dev サーバーを利用)。
+SSR の例([`examples/ssr/`](examples/ssr/))はサーバーとして起動します:
+`bun examples/ssr/server.tsx`。
+
+---
+
+## SSR・ハイドレーション(`renderToString` / `hydrate`)
+
+サーバー(またはビルド時)で HTML 文字列にレンダリングし、クライアントでインタラクティブに
+します。`renderToString` は実 DOM を必要としません ── シリアライズ可能なサーバ DOM を
+設置し、ツリーを一度組み(リアクティブ値は購読せず一度だけ読む。`onMount` は発火しない)、
+マークアップと `<head>` に入れるスコープド CSS を返します。
+
+```tsx
+// サーバー(またはビルド時の prerender)
+import { renderToString } from "@kanabun/core";
+const { html, head } = renderToString(() => <App />);
+const page = `<!doctype html><html><head>${head}</head>` +
+             `<body><div id="app">${html}</div>` +
+             `<script type="module" src="/main.js"></script></body></html>`;
+
+// クライアント(main.tsx)
+import { hydrate } from "@kanabun/core";
+hydrate(() => <App />, document.getElementById("app")!);
+```
+
+**SSG は同じ `renderToString` をビルド時に走らせ**、リクエストごとに返す代わりに `.html`
+ファイルへ書き出すだけです。`hydrate` はサーバマークアップ上にライブなアプリをマウント
+します(ページは既に描画済みなのでちらつき無し)。既存ノードのその場引き取りはしません ──
+それにはコンパイラ/マーカーが要り、「コンパイラなし」制約で除外されます。
+[`docs/decisions.md`](docs/decisions.md#ssr-hydration--ssg-phase-6) 参照。
 
 ---
 
@@ -371,14 +401,15 @@ function UsersLayout() {
 | --- | --- |
 | リアクティビティ | `signal`, `computed`, `effect`, `batch`, `untrack`, `createRoot` |
 | ライフサイクル | `onMount`, `onCleanup` |
-| 描画 | `render`, `jsx`, `jsxs`, `Fragment`(低レベル: `createElement`, `insert`, `reconcileNodes`) |
+| 描画 | `render`, `hydrate`, `jsx`, `jsxs`, `Fragment`(低レベル: `createElement`, `insert`, `reconcileNodes`) |
+| サーバー(SSR/SSG) | `renderToString`(→ `{ html, head }`。DOM 不要) |
 | 制御構文 | `Show`, `For`, `mapArray` |
 | エラー処理 | `ErrorBoundary`, `catchError` |
 | props | `mergeProps`, `splitProps` |
 | コンテキスト | `createContext`, `useContext` |
 | スタイリング | `css`(スコープド CSS) |
 | 開発時警告 | `setDev`, `setWarnHandler`(オプトイン。`kanabun dev` が自動有効化) |
-| 型 | `Accessor`, `Signal`, `SignalOptions`, `Disposer`, `Context`, `Props`, `JSXChild`, `JSX`, `EventHandler`, `HTMLAttributes`, `ShowProps`, `ForProps`, `ErrorBoundaryProps` |
+| 型 | `Accessor`, `Signal`, `SignalOptions`, `Disposer`, `Context`, `Props`, `JSXChild`, `JSX`, `EventHandler`, `HTMLAttributes`, `ShowProps`, `ForProps`, `ErrorBoundaryProps`, `RenderToStringResult` |
 
 **`@kanabun/cli`**(`kanabun` コマンド。ライブラリとしても import 可能)
 

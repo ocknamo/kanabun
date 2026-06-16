@@ -482,21 +482,32 @@ prerender loop, with **no new rendering logic**.
   strings. It is pure standard JS (no `Bun.*`/`fs`/`document`), so it stays in
   `packages/core` and keeps the runtime-independence rule. Writing files for SSG
   is the only step that needs `fs`, and that lives in the CLI/Bun layer.
-- **Markup must be hydration-compatible, not "VDOM-equal".** With no compiler
-  and no VDOM there is no node-by-node patch step: hydration **adopts** the
-  server DOM (it reuses existing nodes and attaches listeners + fine-grained
-  effects) rather than re-creating and diffing it. The string the server emits
-  therefore has to match what the client walk expects positionally. Dynamic text
-  slots are anchored the same way the live runtime anchors them (a comment
-  marker per reactive slot, `dom.ts:136`) so the client can find its place.
-- **Scoped CSS needs a collection sink — the shared gotcha.** `css`'s `inject`
-  (`css.ts:186`) appends a `<style>` to `doc().head`; on the server there is no
-  head. Rather than touch a live document, injection routes through a
-  **settable sink** (the same pattern as `setWarnHandler`): in the default
-  browser mode it appends to `<head>`; in a server collection mode it records
-  the emitted rules so `renderToString` can return them and the caller can place
-  them in the document `<head>`. This is shared by SSR *and* SSG — neither can
-  rely on a live `<head>`.
+- **Hydration is "mount over markup", not node-level adoption — and that is a
+  consequence of the founding constraints, not laziness.** The server HTML
+  paints first (fast first paint, SEO); then `hydrate` clears it and mounts the
+  live reactive tree in its place. Because the bytes are identical there is no
+  visual flash. What it does *not* do is adopt the existing server nodes (reuse
+  them in place, only wiring listeners/effects). Here's why that's not feasible:
+  the JSX runtime builds DOM **eagerly and bottom-up** — `jsx("div", {children:
+  [jsx("span", …)]})` evaluates the inner `jsx` (and its `createElement`) before
+  the outer one, so a child node is constructed before anything knows where in
+  the server tree it belongs. Node-level adoption needs a top-down cursor over
+  the server DOM, which in turn needs either compiler-emitted hydration markers
+  or template cloning (how Solid does it). Both are ruled out by the "no
+  compiler" constraint, so adoption is documented future work, not a v1
+  promise. The cost we accept is losing in-place node reuse (and transient focus
+  state in the mounted subtree) — not correctness or first paint.
+- **Scoped CSS collects into the server `<head>` — the shared gotcha.** `css`'s
+  `inject` appends a `<style data-k>` to `document.head`. On the server the
+  installed `ServerDocument` *has* a `<head>`, so styles emitted **during** the
+  render collect there for free and `renderToString` returns them as its `head`
+  string. The wrinkle is import-time styles: a module-level `` css`…` `` runs
+  before `renderToString` installs its document, when there is no `document` at
+  all — so `inject` buffers those in a `pending` map instead of throwing, and
+  `renderToString` replays them (`flushStyles`) once its document is in place.
+  The `data-k` hash on each tag means the client dedupes against the
+  server-sent `<style>` on hydration rather than injecting a duplicate. Shared
+  by SSR *and* SSG — neither has a live browser `<head>` at module-eval time.
 - **Hydration is identical for SSR and SSG.** Nothing in the client path cares
   whether the markup came from a request or a build. SSG adds no hydration code.
 - **SSG-only concerns** (deferred until the SSR primitives land): enumerating
@@ -526,5 +537,6 @@ Held to the same bar: zero dependencies, `packages/core` runtime-independent,
   function-children — see below). ✅
 - **Phase 5 — Bun integration:** `create` / `dev` / `build` CLI; dev server with
   full-reload over WebSocket. Bun-only layer, 100% covered. ✅
-- **Phase 6 — hardening (optional):** **router done** (`@kanabun/router`, above).
-  Remaining: SSR/hydration, stateful HMR, etc. (optional).
+- **Phase 6 — hardening (optional):** **router + error boundaries + dev-time
+  warnings + SSR/hydration done** (above). Remaining: stateful HMR,
+  Async/Suspense, etc. (optional).

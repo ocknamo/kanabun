@@ -283,7 +283,38 @@ stylesheet for that.
 Runnable examples: [`examples/counter/`](examples/counter/),
 [`examples/todomvc/`](examples/todomvc/) and [`examples/router/`](examples/router/)
 — serve any with `bun examples/<name>/index.html` (uses Bun 1.3+ HTML-entry dev
-server).
+server). The SSR example ([`examples/ssr/`](examples/ssr/)) runs as a server:
+`bun examples/ssr/server.tsx`.
+
+---
+
+## SSR & hydration (`renderToString` / `hydrate`)
+
+Render to an HTML string on the server (or at build time), then make it
+interactive on the client. `renderToString` needs no real DOM — it installs a
+serializable server DOM, builds the tree once (reactive values are read once,
+not subscribed; `onMount` does not fire), and returns the markup plus the
+scoped-CSS to inline in `<head>`.
+
+```tsx
+// server (or a build-time prerender)
+import { renderToString } from "@kanabun/core";
+const { html, head } = renderToString(() => <App />);
+const page = `<!doctype html><html><head>${head}</head>` +
+             `<body><div id="app">${html}</div>` +
+             `<script type="module" src="/main.js"></script></body></html>`;
+
+// client (main.tsx)
+import { hydrate } from "@kanabun/core";
+hydrate(() => <App />, document.getElementById("app")!);
+```
+
+**SSG is the same `renderToString`, run at build time** and written to `.html`
+files instead of returned per request. `hydrate` mounts the live app over the
+server markup (the page already painted, so no flash); it does not adopt the
+existing nodes in place — that needs a compiler/markers, which the no-compiler
+constraint rules out. See
+[`docs/decisions.md`](docs/decisions.md#ssr-hydration--ssg-phase-6).
 
 ---
 
@@ -388,14 +419,15 @@ function UsersLayout() {
 | --- | --- |
 | Reactivity | `signal`, `computed`, `effect`, `batch`, `untrack`, `createRoot` |
 | Lifecycle | `onMount`, `onCleanup` |
-| Rendering | `render`, `jsx`, `jsxs`, `Fragment` (and low-level `createElement`, `insert`, `reconcileNodes`) |
+| Rendering | `render`, `hydrate`, `jsx`, `jsxs`, `Fragment` (and low-level `createElement`, `insert`, `reconcileNodes`) |
+| Server (SSR/SSG) | `renderToString` (→ `{ html, head }`; no DOM needed) |
 | Control flow | `Show`, `For`, `mapArray` |
 | Error handling | `ErrorBoundary`, `catchError` |
 | Props | `mergeProps`, `splitProps` |
 | Context | `createContext`, `useContext` |
 | Styling | `css` (scoped CSS) |
 | Dev warnings | `setDev`, `setWarnHandler` (opt-in; `kanabun dev` enables them) |
-| Types | `Accessor`, `Signal`, `SignalOptions`, `Disposer`, `Context`, `Props`, `JSXChild`, `JSX`, `EventHandler`, `HTMLAttributes`, `ShowProps`, `ForProps`, `ErrorBoundaryProps` |
+| Types | `Accessor`, `Signal`, `SignalOptions`, `Disposer`, `Context`, `Props`, `JSXChild`, `JSX`, `EventHandler`, `HTMLAttributes`, `ShowProps`, `ForProps`, `ErrorBoundaryProps`, `RenderToStringResult` |
 
 **`@kanabun/cli`** (the `kanabun` command; also importable as a library)
 

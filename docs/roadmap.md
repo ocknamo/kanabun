@@ -15,7 +15,7 @@ see [`decisions.md`](./decisions.md).
 | 3 | Control flow: `<Show>`, `<For>` (keyed); **TodoMVC runs** | ✅ done |
 | 4 | Component model & DX | ✅ done — `onMount`, `mergeProps`, `splitProps`, scoped `css`, `context` |
 | 5 | Bun integration: `create` / `dev` / `build` CLI | ✅ done |
-| 6 | Hardening & ecosystem (router, SSR, etc.) | 🟡 in progress — **router + error boundaries + dev-time warnings done**; rest optional |
+| 6 | Hardening & ecosystem (router, SSR, etc.) | 🟡 in progress — **router + error boundaries + dev-time warnings + SSR/hydration done**; rest optional |
 
 Quality bar held throughout: **zero runtime dependencies**, `packages/core`
 runtime-independent, 100% line/function coverage on all source files, `tsc`
@@ -48,7 +48,16 @@ clean, docs bilingual.
   *layout* matched on a prefix; it renders a nested `<Routes>` against the leftover
   path (no `<Outlet>`), and params merge down the chain. *Relative `<Link>` hrefs
   remain a follow-up.*
-- [ ] **SSR + hydration.** `renderToString` on the server, hydrate on the client.
+- [x] **SSR + hydration.** Done — `renderToString` (core, runtime-independent:
+  installs a serializable server DOM so the eager JSX runtime can run with no
+  real `document`, builds the tree once, returns `{ html, head }` with scoped-CSS
+  collected, then disposes — `onMount` doesn't fire on the server). `hydrate`
+  (client) mounts the live app over the server markup. SSG falls out of the same
+  `renderToString` run at build time (see decisions). The example
+  (`examples/ssr`) is a runnable Bun SSR server + client hydration. Node-level
+  node adoption is *not* done and is documented as needing a compiler/markers —
+  see [`decisions.md`](./decisions.md#ssr-hydration--ssg-phase-6). Zero deps,
+  100% covered, `packages/core` stays runtime-independent.
 - [ ] **Stateful HMR** in the dev server (currently full reload — the deliberate
   Phase 5 simplification).
 - [x] **Error boundaries.** Done — `catchError` (core primitive) + `<ErrorBoundary

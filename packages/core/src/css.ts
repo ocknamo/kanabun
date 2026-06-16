@@ -47,8 +47,6 @@
  *     are not supported here (they'd land inside the scope rule and be ignored
  *     by the browser); put them in a global stylesheet.
  */
-import { doc } from "./dom";
-
 /** At-rules whose body is a list of nested rules (so it must be re-scoped). */
 const SCOPED_AT = /^@(media|supports|container|document|layer)\b/i;
 
@@ -178,13 +176,32 @@ function splitTop(s: string, sep: string): string[] {
 
 // ── Injection ────────────────────────────────────────────────────
 /**
+ * Styles produced before any `document` exists (e.g. a module-level `css\`…\``
+ * evaluated when this module is first imported on a server — before
+ * `renderToString` installs its document). They are replayed by
+ * {@link flushStyles} once a document is available, so SSR captures them too.
+ */
+const pending = new Map<string, string>();
+
+/**
  * Append a `<style data-k="id">` to `<head>`, unless one already exists.
  * Dedup is by hash against the live `<head>` (so it survives re-renders without
  * a module cache). In the practically-impossible event of a hash collision the
  * first body wins and the second is skipped — see `hash` for the spread.
+ *
+ * With no `document` (server import time) the style is recorded as `pending`
+ * rather than throwing; {@link flushStyles} replays it into a real `<head>`.
  */
 function inject(id: string, cssText: string): void {
-  const d = doc();
+  const d = (globalThis as { document?: Document }).document;
+  if (!d) {
+    if (!pending.has(id)) pending.set(id, cssText);
+    return;
+  }
+  injectInto(d, id, cssText);
+}
+
+function injectInto(d: Document, id: string, cssText: string): void {
   const head = d.head;
   for (const n of head.childNodes) {
     if (n.nodeType === 1 && (n as Element).getAttribute("data-k") === id) return;
@@ -193,6 +210,18 @@ function inject(id: string, cssText: string): void {
   style.setAttribute("data-k", id);
   style.textContent = cssText;
   head.appendChild(style);
+}
+
+/**
+ * Replay every `pending` style into the current document's `<head>`. Called by
+ * the server renderer after it installs its document, so styles registered at
+ * import time (before any document existed) still reach the rendered `<head>`.
+ * `pending` is kept (not cleared), so each fresh server render re-captures them.
+ */
+export function flushStyles(): void {
+  const d = (globalThis as { document?: Document }).document;
+  if (!d) return;
+  for (const [id, cssText] of pending) injectInto(d, id, cssText);
 }
 
 // ── Hashing ──────────────────────────────────────────────────────

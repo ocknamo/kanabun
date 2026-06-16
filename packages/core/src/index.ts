@@ -24,8 +24,12 @@ export type { Accessor, Signal, SignalOptions, Disposer, Context } from "./react
 export { mergeProps, splitProps } from "./props";
 
 // DOM runtime (render + the low-level helpers the JSX runtime builds on).
-export { render, createElement, insert, reconcileNodes } from "./dom";
+export { render, hydrate, createElement, insert, reconcileNodes } from "./dom";
 export type { Props } from "./dom";
+
+// Server rendering (SSR / SSG): render to an HTML string, no real DOM needed.
+export { renderToString } from "./server";
+export type { RenderToStringResult } from "./server";
 
 // Control flow.
 export { Show, For, mapArray, ErrorBoundary } from "./control-flow";
