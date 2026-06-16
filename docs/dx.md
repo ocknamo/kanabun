@@ -87,15 +87,21 @@ Backstops:
 - The **`snapshot` skill** captures before/after screenshots, surfacing a UI that
   silently stopped reacting.
 
-## 4. Future: a dedicated linter
+## 4. Future: an in-house linter
 
 The `{count()}` slip is exactly the kind of thing **static analysis** can catch
 that runtime checks can't — it needs to see the *source* (`count` is a signal,
 and it's being called in a reactive position) before the call collapses to a
-value. A future **ESLint plugin / kanabun lint** could flag it (and related
-convention violations: a thunk that reads no signals, an `on*` thunk, etc.)
-without violating the no-compiler runtime constraint — a linter is **opt-in
-authoring tooling**, not a runtime compiler the framework depends on. This keeps
-the runtime small while still offering compiler-grade guardrails to those who
-want them. Tracked under *Tooling & publishing* in
+value. The plan is a **first-party `kanabun lint`**, *not* an ESLint plugin:
+ESLint (and its plugin ecosystem) is an external dependency, and kanabun ships
+**zero dependencies** — adopting it would break the founding constraint. Instead
+the linter lives in the CLI / Bun layer and reuses the **on-demand TypeScript
+parser** the project already leans on for typechecking (`bunx tsc`), so it adds
+no vendored or runtime dependency — it's opt-in, dev-only authoring tooling, not
+a runtime compiler the framework depends on.
+
+It would flag the reactive-position call (`{count()}` → suggest `{count}` /
+`{() => …}`) and related convention violations (a thunk that reads no signals, an
+`on*` thunk, …). This keeps the runtime small while still offering compiler-grade
+guardrails to those who want them. Tracked under *Tooling & publishing* in
 [`roadmap.md`](./roadmap.md).

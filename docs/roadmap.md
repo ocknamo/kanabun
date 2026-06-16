@@ -84,12 +84,15 @@ clean, docs bilingual.
   `create`-scaffolded `package.json` references `^0.0.0` placeholders and the
   quickstart runs from this repo.
 - [ ] Versioning / release strategy.
-- [ ] **Linter (`@kanabun/eslint-plugin` or similar).** Static analysis to catch
-  the slips the runtime can't — chiefly `{count()}` where `{count}` was meant in
-  a child/attribute (needs to see the source before the call collapses to a
-  value), plus related convention violations. Opt-in authoring tooling, *not* a
-  runtime compiler (keeps the founding constraint intact). See
-  [`dx.md`](./dx.md#4-future-a-dedicated-linter).
+- [ ] **In-house linter (`kanabun lint`).** Static analysis to catch the slips
+  the runtime can't — chiefly `{count()}` where `{count}` was meant in a
+  child/attribute (needs to see the source before the call collapses to a value),
+  plus related convention violations. **Not** an ESLint plugin (ESLint is an
+  external dependency; kanabun ships zero deps) — a first-party CLI command in the
+  Bun layer, reusing the on-demand TypeScript parser already used for
+  typechecking. Opt-in, dev-only authoring tooling, *not* a runtime compiler
+  (keeps the founding constraint intact). See
+  [`dx.md`](./dx.md#4-future-an-in-house-linter).
 
 ### Known minor items (from reviews)
 - [ ] Dev server does a `realpath` stat per request for containment, in addition
