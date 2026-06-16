@@ -1,6 +1,6 @@
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
-import { signal, render, jsx, Fragment, insert } from "../src/index";
-import { jsxDEV } from "../src/jsx-dev-runtime";
+import { signal, render, jsx, Fragment, insert } from "./index";
+import { jsxDEV } from "./jsx-dev-runtime";
 import {
   installDOM,
   createContainer,

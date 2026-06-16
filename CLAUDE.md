@@ -40,9 +40,10 @@ reporting done.
   `count.update(fn)`. No compiler magic.
 - **Reactivity convention:** a child/attribute that is a *function* is reactive
   (`{count}`, `{() => …}`); `{count()}` is read once; `on*` props are events.
-- **Tests are named `*.spec.ts`** and live in `packages/core/test/`. Aim to keep
-  source files at 100% coverage. The renderer is tested against the in-repo DOM
-  mock (`test/dom-mock.ts`) — never add jsdom/happy-dom.
+- **Tests are named `*.spec.ts`** and live next to the source they cover (e.g.
+  `dom.spec.ts` sits beside `dom.ts` in `packages/core/src/`). Aim to keep source
+  files at 100% coverage. The renderer is tested against the in-repo DOM mock
+  (`packages/core/src/dom-mock.ts`) — never add jsdom/happy-dom.
 - **Docs are bilingual.** Keep English and 日本語 in sync (`README.md` /
   `README.ja.md`, `docs/decisions.md` / `docs/decisions.ja.md`).
 

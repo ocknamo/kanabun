@@ -7,7 +7,7 @@ import {
   untrack,
   onCleanup,
   createRoot,
-} from "../src/index";
+} from "./index";
 
 describe("signal", () => {
   test("reads and writes", () => {

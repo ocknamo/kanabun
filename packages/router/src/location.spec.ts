@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { parsePath, matchPath, matchRoute } from "../src/index";
+import { parsePath, matchPath, matchRoute } from "./index";
 
 describe("parsePath", () => {
   test("splits pathname, search, hash and query", () => {

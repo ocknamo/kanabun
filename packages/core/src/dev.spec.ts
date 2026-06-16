@@ -8,8 +8,8 @@ import {
   createRoot,
   setDev,
   setWarnHandler,
-} from "../src/index";
-import { warn, isDev, __resetDev } from "../src/dev";
+} from "./index";
+import { warn, isDev, __resetDev } from "./dev";
 
 /** Collect warnings through a custom sink so the console stays clean. */
 function captureWarnings(): string[] {

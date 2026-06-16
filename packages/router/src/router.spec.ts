@@ -11,13 +11,13 @@ import {
   createMemorySource,
   createHashSource,
   type WindowLike,
-} from "../src/index";
+} from "./index";
 import {
   installDOM,
   createContainer,
   serialize,
   type MockNode,
-} from "../../core/test/dom-mock";
+} from "../../core/src/dom-mock";
 
 let teardown: () => void;
 beforeEach(() => {

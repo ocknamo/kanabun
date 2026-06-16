@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { css } from "../src/index";
+import { css } from "./index";
 import { installDOM } from "./dom-mock";
 
 let teardown: () => void;

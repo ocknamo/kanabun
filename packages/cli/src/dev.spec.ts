@@ -1,5 +1,5 @@
 import { describe, expect, test, beforeAll, afterAll, afterEach } from "bun:test";
-import { createDevHandler, dev, type DevServer } from "../src/dev";
+import { createDevHandler, dev, type DevServer } from "./dev";
 import { mkdtemp, mkdir, rm, writeFile, symlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";

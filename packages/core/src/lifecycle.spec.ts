@@ -1,5 +1,5 @@
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
-import { render, jsx, onMount, onCleanup, createRoot } from "../src/index";
+import { render, jsx, onMount, onCleanup, createRoot } from "./index";
 import { installDOM, createContainer, type MockNode } from "./dom-mock";
 
 let teardown: () => void;

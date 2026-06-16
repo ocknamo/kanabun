@@ -1,5 +1,5 @@
 import { describe, expect, test, afterAll } from "bun:test";
-import { build } from "../src/build";
+import { build } from "./build";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
