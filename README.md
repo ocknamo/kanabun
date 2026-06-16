@@ -354,6 +354,30 @@ intercepts plain left-clicks (modified clicks and external links fall through).
 URL hash, so deep links and refreshes work with no server rewrites),
 `createMemorySource()` for tests/SSR, or your own `RouterSource`.
 
+**Nested routing.** Give a route a `*`-wildcard tail (`path="/users/*"`) and it
+becomes a *layout* that matches on a prefix. Its component renders a nested
+`<Routes>` against the leftover path — placed inside a host element (the layout's
+own chrome), which *is* the outlet (no `<Outlet>` component). Params merge down
+the chain, so a descendant `useParams()` reads the whole nested capture (`{ org,
+id }`):
+
+```tsx
+<Routes>
+  <Route path="/users/*" component={() => <UsersLayout />} />
+</Routes>;
+
+function UsersLayout() {
+  return (
+    <div class="users-layout">
+      <UserList />                          {/* stays mounted across detail nav */}
+      <Routes fallback={<p>Pick a person.</p>}>
+        <Route path="/:id" children={() => <User />} />
+      </Routes>
+    </div>
+  );
+}
+```
+
 ---
 
 ## API reference
@@ -390,8 +414,8 @@ URL hash, so deep links and refreshes work with no server rewrites),
 | Components | `Router`, `Routes`, `Route`, `Link` |
 | Hooks | `useNavigate`, `useLocation`, `useParams` |
 | Sources | `createBrowserSource`, `createHashSource`, `createMemorySource` |
-| Matching | `matchPath`, `parsePath` |
-| Types | `RouterProps`, `RoutesProps`, `RouteProps`, `RouteHandle`, `RouteThunk`, `LinkProps`, `Navigate`, `NavigateOptions`, `RouterSource`, `MemorySource`, `WindowLike`, `RouterLocation`, `RouteParams` |
+| Matching | `matchPath`, `matchRoute`, `parsePath` |
+| Types | `RouterProps`, `RoutesProps`, `RouteProps`, `RouteHandle`, `RouteThunk`, `LinkProps`, `Navigate`, `NavigateOptions`, `RouterSource`, `MemorySource`, `WindowLike`, `RouterLocation`, `RouteParams`, `RouteMatch` |
 
 ---
 

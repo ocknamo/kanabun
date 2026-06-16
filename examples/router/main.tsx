@@ -51,6 +51,11 @@ const shell = css`
     background: #f0f0f0;
   }
 
+  .users-layout {
+    display: flex;
+    gap: 1rem;
+  }
+
   .users {
     list-style: none;
     margin: 0;
@@ -58,6 +63,14 @@ const shell = css`
     display: flex;
     flex-direction: column;
     gap: 0.4rem;
+    min-width: 10rem;
+  }
+
+  .detail {
+    flex: 1;
+    border-left: 1px solid #eee;
+    padding-left: 1rem;
+    color: #555;
   }
 
   .crumbs {
@@ -69,20 +82,6 @@ const shell = css`
 
 function Home() {
   return <p>A tiny client-side router: signals + history, no reload.</p>;
-}
-
-function Users() {
-  return (
-    <ul class="users">
-      <For each={() => Object.keys(users)}>
-        {(id) => (
-          <li>
-            <Link href={`/users/${id}`}>{users[id]!.name}</Link>
-          </li>
-        )}
-      </For>
-    </ul>
-  );
 }
 
 function User() {
@@ -104,6 +103,30 @@ function User() {
   );
 }
 
+// A *layout* route: matched on the `/users/*` prefix, it keeps the master list
+// mounted while a nested <Routes> swaps the detail pane. No <Outlet> — the
+// nested router (inside this layout's own element) *is* the outlet.
+function UsersLayout() {
+  return (
+    <div class="users-layout">
+      <ul class="users">
+        <For each={() => Object.keys(users)}>
+          {(id) => (
+            <li>
+              <Link href={`/users/${id}`}>{users[id]!.name}</Link>
+            </li>
+          )}
+        </For>
+      </ul>
+      <div class="detail">
+        <Routes fallback={<p>Pick a person.</p>}>
+          <Route path="/:id" children={() => <User />} />
+        </Routes>
+      </div>
+    </div>
+  );
+}
+
 function Crumbs() {
   const location = useLocation();
   return <p class="crumbs">at {() => location().pathname}</p>;
@@ -121,8 +144,7 @@ function App() {
 
       <Routes fallback={<p>404 — nothing here.</p>}>
         <Route path="/" children={<Home />} />
-        <Route path="/users" children={() => <Users />} />
-        <Route path="/users/:id" children={() => <User />} />
+        <Route path="/users/*" component={() => <UsersLayout />} />
       </Routes>
 
       <Crumbs />

@@ -20,7 +20,7 @@ import {
   jsx,
 } from "@kanabun/core";
 import type { Accessor, JSXChild } from "@kanabun/core";
-import { parsePath, matchPath } from "./location";
+import { parsePath, matchRoute } from "./location";
 import type { RouterLocation, RouteParams } from "./location";
 import { createBrowserSource } from "./source";
 import type { RouterSource } from "./source";
@@ -43,6 +43,11 @@ interface RouterContextValue {
 // context carrying the matched params so descendants can read `useParams()`.
 const RouterContext = createContext<RouterContextValue | null>(null);
 const RouteContext = createContext<Accessor<RouteParams> | null>(null);
+// The pathname a nested `<Route>` should match against: the leftover a matched
+// ancestor (a `*`-wildcard "layout" route) didn't consume. `null` at the top
+// level, where routes match the full pathname. This is what makes routing
+// **nested** — see `decisions.md` "Nested routing (Phase 6)".
+const RelPathContext = createContext<Accessor<string> | null>(null);
 
 // A single shared "no params" object, so reads outside a match return a stable
 // reference (a fresh `{}` each time would re-trigger any dependent computation).
@@ -144,25 +149,50 @@ export type RouteThunk = (() => JSXChild) & RouteHandle;
  *
  * Used standalone, a `<Route>` renders independently. Wrapped in `<Routes>`, the
  * routes become mutually exclusive (first match wins, with a shared fallback).
+ *
+ * **Nesting:** give a route a `*`-wildcard tail (`path="/users/*"`) to make it a
+ * *layout* that matches a prefix; its content can render a nested `<Routes>` /
+ * `<Route>`, which match against the leftover path and inherit its params. No
+ * `<Outlet>` is needed — the nested router *is* the outlet, placed wherever the
+ * layout wants it.
  */
 export function Route(props: RouteProps): RouteThunk {
   const { location } = useRouter("<Route>");
-  const matched = computed(() => matchPath(props.path, location().pathname));
+  // Match against the relative path a matched ancestor left us (nested), or the
+  // full pathname at the top level. Captured params merge with the ancestor's,
+  // so a descendant `useParams()` sees the whole chain (`{ org, id }`).
+  const parentParams = useContext(RouteContext);
+  const relPath = useContext(RelPathContext);
+  const base: Accessor<string> = relPath ?? (() => location().pathname);
+
+  const matched = computed(() => matchRoute(props.path, base()));
   const isMatched = computed(() => matched() !== null);
-  const params: Accessor<RouteParams> = () => matched() ?? EMPTY_PARAMS;
+  const params = computed<RouteParams>(() => {
+    const local = matched()?.params ?? EMPTY_PARAMS;
+    // Top level: hand back `local` directly (keeping the stable empty reference
+    // for unmatched reads). Nested: merge the ancestor's params underneath.
+    return parentParams === null ? local : { ...parentParams(), ...local };
+  });
+  // What a matched `*`-wildcard route leaves for its nested routes (`"/"` else).
+  const rest: Accessor<string> = () => matched()?.rest ?? "/";
 
   // Build the content *inside* the route context, so the component (and any
   // descendants) can read `useParams()`, and pass the accessor directly too.
+  // A second provider hands nested routes the leftover path to match against.
   const content = (): JSXChild =>
     RouteContext.Provider({
       value: params,
-      children: () => {
-        if (props.component !== undefined) return props.component({ params });
-        if (typeof props.children === "function") {
-          return (props.children as (p: Accessor<RouteParams>) => unknown)(params);
-        }
-        return props.children;
-      },
+      children: () =>
+        RelPathContext.Provider({
+          value: rest,
+          children: () => {
+            if (props.component !== undefined) return props.component({ params });
+            if (typeof props.children === "function") {
+              return (props.children as (p: Accessor<RouteParams>) => unknown)(params);
+            }
+            return props.children;
+          },
+        }),
     }) as JSXChild;
 
   // Standalone use renders/​disposes its own content as the match toggles.

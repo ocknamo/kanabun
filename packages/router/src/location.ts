@@ -52,9 +52,23 @@ function safeDecode(value: string): string {
   }
 }
 
+/** The result of matching a route pattern against a path. */
+export interface RouteMatch {
+  /** Captured params (`:name` segments and a trailing `*name` wildcard). */
+  params: RouteParams;
+  /**
+   * For a **prefix** match — a pattern ending in a `*` wildcard — the leftover
+   * path the wildcard absorbed (always leading-slashed, `"/"` when empty), kept
+   * *raw* (undecoded) so a **nested** router can match against it and decode its
+   * own params. `null` for an exact (non-wildcard) match, which leaves nothing.
+   */
+  rest: string | null;
+}
+
 /**
- * Match `pathname` against a route `pattern`, returning the captured params or
- * `null` if it doesn't match. Supported pattern syntax:
+ * Match `pathname` against a route `pattern`, returning the {@link RouteMatch}
+ * (captured params + any unmatched `rest`) or `null` if it doesn't match.
+ * Supported pattern syntax:
  *
  *   - **static**   `/about`          — exact segment
  *   - **param**    `/users/:id`      — captures one segment into `params.id`
@@ -62,9 +76,11 @@ function safeDecode(value: string): string {
  *                  `/files/*`        — matches the remainder without capturing
  *
  * Matching is exact (every segment consumed) unless a wildcard absorbs the tail.
- * Trailing slashes are ignored. Param and wildcard values are URI-decoded.
+ * A wildcard pattern is a **prefix** match: `rest` carries the leftover path so
+ * nested routes can match relative to it. Trailing slashes are ignored; param
+ * and wildcard values are URI-decoded (but `rest` is not — see {@link RouteMatch}).
  */
-export function matchPath(pattern: string, pathname: string): RouteParams | null {
+export function matchRoute(pattern: string, pathname: string): RouteMatch | null {
   const patternSegs = segments(pattern);
   const pathSegs = segments(pathname);
   const params: RouteParams = {};
@@ -73,10 +89,13 @@ export function matchPath(pattern: string, pathname: string): RouteParams | null
     const seg = patternSegs[i]!;
     if (seg[0] === "*") {
       const name = seg.slice(1);
+      const restSegs = pathSegs.slice(i);
       if (name !== "") {
-        params[name] = pathSegs.slice(i).map(safeDecode).join("/");
+        params[name] = restSegs.map(safeDecode).join("/");
       }
-      return params; // a wildcard absorbs everything left (possibly nothing)
+      // A wildcard absorbs everything left (possibly nothing); expose it raw as
+      // `rest` so a nested router can keep matching from here.
+      return { params, rest: "/" + restSegs.join("/") };
     }
     const part = pathSegs[i];
     if (part === undefined) return null; // path is shorter than the pattern
@@ -88,5 +107,15 @@ export function matchPath(pattern: string, pathname: string): RouteParams | null
   }
 
   // No wildcard: the path must have exactly as many segments as the pattern.
-  return pathSegs.length === patternSegs.length ? params : null;
+  return pathSegs.length === patternSegs.length ? { params, rest: null } : null;
+}
+
+/**
+ * Match `pathname` against `pattern`, returning just the captured params (or
+ * `null`). A thin wrapper over {@link matchRoute} for callers that don't care
+ * about the unmatched `rest`.
+ */
+export function matchPath(pattern: string, pathname: string): RouteParams | null {
+  const match = matchRoute(pattern, pathname);
+  return match === null ? null : match.params;
 }
