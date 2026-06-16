@@ -15,7 +15,7 @@
   - **開発者支援ドキュメント `docs/dx.md`(+ `.ja.md`)を新設** ── 型・実行時警告・テストの 3 層 + 将来の linter 構想を集約。
   - **ネストルーティング(今セッション)** ── `*` ワイルドカードのルートがプレフィックスでマッチする *レイアウト* になり、`matchRoute` が返す余りパス(`rest`)を新しい `RelPathContext` 経由でネストした `<Routes>`/`<Route>` に渡す。`<Outlet>` は無し(ネストした `<Routes>` をレイアウトの本体内・ホスト要素の内側に置く=それ自体が outlet)。params は連鎖でマージ(`useParams()` が `{ org, id }` を読める)。詳細は `decisions.md`「Nested routing (Phase 6)」。落とし穴は §4 に追記。
   - 残る Phase 6(SSR/ハイドレーション、状態保持 HMR、Async/Suspense(`resource`)、相対 `<Link>` href)は未着手。
-- **品質**: **230 テスト / 0 fail、全ソース 100% カバレッジ、`tsc` クリーン**。依存ゼロ(dev は `@types/bun` のみ)、`packages/{core,router}` はランタイム非依存を維持。
+- **品質**: **240 テスト / 0 fail、全ソース 100% カバレッジ、`tsc` クリーン**。依存ゼロ(dev は `@types/bun` のみ)、`packages/{core,router}` はランタイム非依存を維持。
 - **成果物**: `@kanabun/core`、`@kanabun/cli`(`create`/`dev`/`build`)、**`@kanabun/router`**、`examples/{counter,todomvc,router}`、VRT(スクショ回帰)ゲート、バイリンガル docs。
 
 ## 2. 必須ワークフロー(CLAUDE.md より)
