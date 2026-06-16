@@ -39,4 +39,4 @@ export { setDev, setWarnHandler } from "./dev";
 
 // JSX runtime, also re-exported here for manual / hyperscript-style use.
 export { jsx, jsxs, Fragment } from "./jsx-runtime";
-export type { JSXChild, JSX } from "./jsx-runtime";
+export type { JSXChild, JSX, EventHandler, HTMLAttributes } from "./jsx-runtime";

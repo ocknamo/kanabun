@@ -355,7 +355,7 @@ function App() {
 | コンテキスト | `createContext`, `useContext` |
 | スタイリング | `css`(スコープド CSS) |
 | 開発時警告 | `setDev`, `setWarnHandler`(オプトイン。`kanabun dev` が自動有効化) |
-| 型 | `Accessor`, `Signal`, `SignalOptions`, `Disposer`, `Context`, `Props`, `JSXChild`, `JSX`, `ShowProps`, `ForProps`, `ErrorBoundaryProps` |
+| 型 | `Accessor`, `Signal`, `SignalOptions`, `Disposer`, `Context`, `Props`, `JSXChild`, `JSX`, `EventHandler`, `HTMLAttributes`, `ShowProps`, `ForProps`, `ErrorBoundaryProps` |
 
 **`@kanabun/cli`**(`kanabun` コマンド。ライブラリとしても import 可能)
 
@@ -381,10 +381,14 @@ function App() {
 
 ## ロードマップ
 
-Phase 0〜5 は完了(TodoMVC 稼働、CLI 動作)。Phase 6 ではルーター(`@kanabun/router`)を
-追加しました。残り ── SSR、状態保持 HMR、エラーバウンダリ、非同期 / Suspense ── と
-未決の設計判断は
+Phase 0〜5 は完了(TodoMVC 稼働、CLI 動作)。Phase 6 ではルーター(`@kanabun/router`)、
+エラーバウンダリ、開発時警告を追加しました。残り ── SSR、状態保持 HMR、非同期 / Suspense
+── と未決の設計判断は
 [`docs/roadmap.ja.md`](docs/roadmap.ja.md)([English](docs/roadmap.md))で管理しています。
+
+コンパイラがないため、ミスの検知は 3 層に頼ります ── 型付きの `on*` ハンドラ、オプトインの
+実行時開発警告(`setDev`)、テスト。詳細は
+[`docs/dx.md`](docs/dx.md)([日本語](docs/dx.ja.md))に集約しています。
 
 ---
 

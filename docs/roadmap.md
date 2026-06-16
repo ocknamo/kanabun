@@ -66,16 +66,30 @@ clean, docs bilingual.
   independent.
 
 ### DX & type precision
-- [ ] Tighten `JSX.IntrinsicElements`: it's intentionally permissive (`[name]: any`)
-  today; add real per-element attribute and event-handler types.
+- [~] Tighten `JSX.IntrinsicElements`. **Event handlers done** — `on*` props are
+  typed as `EventHandler<E>` functions (a typed event), so "forgot the `() =>`"
+  (`onClick={count.set(…)}`) is a compile error, while conditional handlers
+  (`undefined`) and the `void`/`undefined` distinction are handled precisely. See
+  [`dx.md`](./dx.md#1-type-level-checks-compile-time). **Remaining:** per-element
+  *attribute* types (still `[attr]: any`).
 - [ ] Precise `splitProps` return type (tuple of `Pick`/`Omit`) instead of the
   current loose `Array<Partial<T>>`.
+
+> The three layers that *do* catch mistakes (types, runtime dev warnings, tests)
+> are consolidated in [`dx.md`](./dx.md) — including what can't be caught without
+> a compiler and the linter that would close that gap.
 
 ### Tooling & publishing
 - [ ] **Publish** `@kanabun/core` and `@kanabun/cli` to npm. Until then, the
   `create`-scaffolded `package.json` references `^0.0.0` placeholders and the
   quickstart runs from this repo.
 - [ ] Versioning / release strategy.
+- [ ] **Linter (`@kanabun/eslint-plugin` or similar).** Static analysis to catch
+  the slips the runtime can't — chiefly `{count()}` where `{count}` was meant in
+  a child/attribute (needs to see the source before the call collapses to a
+  value), plus related convention violations. Opt-in authoring tooling, *not* a
+  runtime compiler (keeps the founding constraint intact). See
+  [`dx.md`](./dx.md#4-future-a-dedicated-linter).
 
 ### Known minor items (from reviews)
 - [ ] Dev server does a `realpath` stat per request for containment, in addition
