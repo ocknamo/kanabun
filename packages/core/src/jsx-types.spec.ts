@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import type { JSX } from "../src/jsx-runtime";
+import type { JSX } from "./jsx-runtime";
 
 /**
  * Compile-time assertions for the typed `on*` event handlers. These are checked

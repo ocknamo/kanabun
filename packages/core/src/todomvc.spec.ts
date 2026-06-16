@@ -5,7 +5,7 @@
  * behaviorally verified, not just compiled.
  */
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
-import { render, jsx } from "../src/index";
+import { render, jsx } from "./index";
 import { TodoApp } from "../../../examples/todomvc/app";
 import { installDOM, createContainer, type MockNode } from "./dom-mock";
 

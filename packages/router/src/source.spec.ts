@@ -5,7 +5,7 @@ import {
   createHashSource,
   parsePath,
   type WindowLike,
-} from "../src/index";
+} from "./index";
 
 describe("memory source", () => {
   test("push/replace update the location silently", () => {

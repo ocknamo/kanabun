@@ -133,7 +133,7 @@
 
 レンダラは DOM を必要としますが、Bun は DOM を持たず、jsdom / happy-dom は依存ゼロの
 方針に反します。そこでレンダラは `globalThis.document` を遅延解決し、テストはリポジトリ内の
-小さな DOM モック(`test/dom-mock.ts`)を差し込みます。import 時に `document` を要求しない
+小さな DOM モック(`packages/core/src/dom-mock.ts`)を差し込みます。import 時に `document` を要求しない
 ので、コアはどこでも読み込めます。さらに例は CI で `bun build` によりビルドし、実際の
 JSX トランスフォームをエンドツーエンドで検証します。
 

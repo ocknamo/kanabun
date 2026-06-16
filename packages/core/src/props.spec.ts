@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { signal, mergeProps, splitProps } from "../src/index";
+import { signal, mergeProps, splitProps } from "./index";
 
 describe("mergeProps", () => {
   test("later sources win", () => {

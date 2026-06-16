@@ -7,7 +7,7 @@ import {
   render,
   jsx,
   ErrorBoundary,
-} from "../src/index";
+} from "./index";
 import { installDOM, createContainer, serialize, type MockNode } from "./dom-mock";
 
 const asEl = (n: MockNode) => n as unknown as Element;

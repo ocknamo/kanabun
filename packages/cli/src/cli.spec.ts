@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { parseArgs, run } from "../src/index";
+import { parseArgs, run } from "./index";
 import { mkdtemp, rm } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";

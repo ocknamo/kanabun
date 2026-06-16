@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { errorMessages } from "../src/errors";
+import { errorMessages } from "./errors";
 
 describe("errorMessages", () => {
   test("expands an AggregateError into its sub-errors", () => {

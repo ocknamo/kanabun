@@ -9,7 +9,9 @@ coverageDir = "coverage"
 # Exclude the *.spec.ts files themselves from the coverage denominator.
 coverageSkipTestFiles = true
 # Test-only helpers (the DOM mock) and example apps are not product code.
-coveragePathIgnorePatterns = ["**/test/**", "**/examples/**"]
+# Specs sit next to the source they cover, so the shared mock is ignored by
+# name rather than by directory.
+coveragePathIgnorePatterns = ["**/dom-mock.ts", "**/examples/**"]
 # Fail the run if coverage drops below this fraction (checked whenever
 # coverage is collected). The core is meant to stay fully covered.
 coverageThreshold = 0.9

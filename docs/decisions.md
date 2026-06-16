@@ -150,7 +150,7 @@ no-compiler choice costs, and it is small and explicit.
 
 The renderer needs a DOM, but Bun ships none and jsdom/happy-dom would violate
 the zero-dependency stance. So the renderer resolves `globalThis.document`
-lazily and tests install a tiny in-repo DOM mock (`test/dom-mock.ts`). The
+lazily and tests install a tiny in-repo DOM mock (`packages/core/src/dom-mock.ts`). The
 `document` is never required at import time, keeping the core loadable anywhere.
 The example is additionally built in CI via `bun build` to exercise the real
 JSX transform end-to-end.
