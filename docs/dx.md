@@ -105,3 +105,31 @@ It would flag the reactive-position call (`{count()}` → suggest `{count}` /
 `on*` thunk, …). This keeps the runtime small while still offering compiler-grade
 guardrails to those who want them. Tracked under *Tooling & publishing* in
 [`roadmap.md`](./roadmap.md).
+
+### Design sketch (not yet implemented)
+
+Recorded so the next session can pick it up; nothing here ships yet.
+
+- **Shape.** A `kanabun lint [globs]` subcommand in the CLI/Bun layer
+  (`packages/cli/src/lint.ts`), reporting `file:line:col  message` and exiting
+  non-zero on findings (a CI gate). Mirrors the diagnostics style of
+  `packages/cli/src/errors.ts`.
+- **Parser.** The TypeScript compiler API, obtained the same on-demand way as
+  `bunx tsc` — via Bun's auto-install of a bare `import("typescript")`, so
+  nothing lands in `package.json` (consistent with "TS is fetched on demand, not
+  vendored; the only dev dep is `@types/bun`"). *Feasibility to confirm first:*
+  that an auto-installed `import("typescript")` resolves without a manifest entry;
+  if not, fall back to spawning TS as a child process.
+- **Flagship rule — `reactive-call-in-jsx`.** Walk each JSX child / non-`on*`
+  attribute; flag a zero-arg call (`count()`, `obj.sig()`) sitting *directly* in
+  that reactive position (not wrapped in an arrow). Two precision levels:
+  - *Semantic* (preferred): resolve the callee's type via the checker and flag
+    only `Accessor`/`Signal` calls → near-zero false positives. Needs
+    `ts.createProgram` + a `TypeChecker`.
+  - *Syntactic*: AST only, heuristic on the call shape → lighter, but
+    false-positives on intentionally-static function calls.
+- **Later rules.** `static-thunk` (a `() => …` child/attribute that reads no
+  signal — needlessly lazy) and `on-handler-not-a-function` (largely subsumed by
+  the typed `on*` props in §1, kept for plain-JS users).
+- **Tests.** Fixture sources as strings → parse → assert findings, held to the
+  repo's 100% line/function coverage bar; no new runtime dependency.

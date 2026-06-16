@@ -32,7 +32,9 @@
 
 ## 3. 次にやるなら(roadmap.md 参照)
 
-Phase 6 のルーターは **完了**。残るは Phase 6 / DX(任意): SSR + ハイドレーション、状態保持 HMR、エラーバウンダリ、Async/Suspense(`resource`)、開発時警告、`JSX.IntrinsicElements` 厳密化、`splitProps` タプル型化、npm 公開。
+Phase 6 のルーター・エラーバウンダリ・開発時警告・`on*` イベントハンドラ型付けは **完了**。残るは Phase 6 / DX(任意): SSR + ハイドレーション、状態保持 HMR、Async/Suspense(`resource`)、ネストルーティング、`JSX.IntrinsicElements` の **属性** 型(イベントは済)、`splitProps` タプル型化、npm 公開。
+
+**自前 linter(`kanabun lint`)** は方針合意済み・**設計のみ記録**(未実装)。ESLint は外部依存ゆえ不可 → CLI/Bun レイヤーで自前実装し、オンデマンドの TypeScript パーサ(Bun の auto-install で `import("typescript")`)を再利用する。具体設計(コマンド形・パーサ・目玉ルール `reactive-call-in-jsx` のセマンティック/シンタクティック 2 案・後続ルール・テスト方針・**先に確認すべき実現性**=マニフェスト記載なしで auto-install import が解決するか)は `docs/dx.md`(+`.ja.md`)§4「Design sketch」に記載。
 
 参考(完了済み): ルーターは `packages/router/src/`(`location.ts` = `parsePath`/`matchPath`、`source.ts` = `RouterSource`/browser+memory、`router.ts` = コンポーネント+フック)。設計判断は `decisions.md` の「Router (Phase 6)」。`context` は `packages/core/src/reactive.ts` 末尾、scoped CSS は `packages/core/src/css.ts`。
 
