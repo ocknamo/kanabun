@@ -13,7 +13,8 @@
   - **開発時警告(今セッション)** ── `packages/core/src/dev.ts`。オプトイン(`setDev(true)`、`kanabun dev` は `globalThis.__KANABUN_DEV__` で自動 ON)。owner 外の `effect()`/`onMount()`/`onCleanup()` と computed 内のシグナル書き込みを検知。重複排除 + 差し替え可能シンク(`setWarnHandler`)。詳細は `decisions.md`「Dev-time warnings (Phase 6)」。
   - **`on*` イベントハンドラの型付け(今セッション)** ── `JSX.IntrinsicElements` の部分厳密化。`packages/core/src/jsx-runtime.ts` に `EventHandler<E>` と `HTMLAttributes`(typed `on*` + `[attr]: any`)を追加し、`IntrinsicElements` を `[name]: HTMLAttributes` に。`onClick={count.set(…)}`(アロー書き忘れ=`void`)や非関数がコンパイルエラーに。条件付きハンドラ(`undefined`)は許す。型レベルテストは `packages/core/test/jsx-types.spec.ts`(`@ts-expect-error` で自己検証)。**残り**:要素ごとの *属性* 型はまだ緩い。
   - **開発者支援ドキュメント `docs/dx.md`(+ `.ja.md`)を新設** ── 型・実行時警告・テストの 3 層 + 将来の linter 構想を集約。
-  - 残る Phase 6(SSR/ハイドレーション、状態保持 HMR、Async/Suspense(`resource`)、ネストルーティング)は未着手。
+  - **ネストルーティング(今セッション)** ── `*` ワイルドカードのルートがプレフィックスでマッチする *レイアウト* になり、`matchRoute` が返す余りパス(`rest`)を新しい `RelPathContext` 経由でネストした `<Routes>`/`<Route>` に渡す。`<Outlet>` は無し(ネストした `<Routes>` をレイアウトの本体内・ホスト要素の内側に置く=それ自体が outlet)。params は連鎖でマージ(`useParams()` が `{ org, id }` を読める)。詳細は `decisions.md`「Nested routing (Phase 6)」。落とし穴は §4 に追記。
+  - 残る Phase 6(SSR/ハイドレーション、状態保持 HMR、Async/Suspense(`resource`)、相対 `<Link>` href)は未着手。
 - **品質**: **230 テスト / 0 fail、全ソース 100% カバレッジ、`tsc` クリーン**。依存ゼロ(dev は `@types/bun` のみ)、`packages/{core,router}` はランタイム非依存を維持。
 - **成果物**: `@kanabun/core`、`@kanabun/cli`(`create`/`dev`/`build`)、**`@kanabun/router`**、`examples/{counter,todomvc,router}`、VRT(スクショ回帰)ゲート、バイリンガル docs。
 
@@ -32,7 +33,7 @@
 
 ## 3. 次にやるなら(roadmap.md 参照)
 
-Phase 6 のルーター・エラーバウンダリ・開発時警告・`on*` イベントハンドラ型付けは **完了**。残るは Phase 6 / DX(任意): SSR + ハイドレーション、状態保持 HMR、Async/Suspense(`resource`)、ネストルーティング、`JSX.IntrinsicElements` の **属性** 型(イベントは済)、`splitProps` タプル型化、npm 公開。
+Phase 6 のルーター・**ネストルーティング**・エラーバウンダリ・開発時警告・`on*` イベントハンドラ型付けは **完了**。残るは Phase 6 / DX(任意): SSR + ハイドレーション、状態保持 HMR、Async/Suspense(`resource`)、相対 `<Link>` href、`JSX.IntrinsicElements` の **属性** 型(イベントは済)、`splitProps` タプル型化、npm 公開。
 
 **自前 linter(`kanabun lint`)** は方針合意済み・**設計のみ記録**(未実装)。ESLint は外部依存ゆえ不可 → CLI/Bun レイヤーで自前実装し、オンデマンドの TypeScript パーサ(Bun の auto-install で `import("typescript")`)を再利用する。具体設計(コマンド形・パーサ・目玉ルール `reactive-call-in-jsx` のセマンティック/シンタクティック 2 案・後続ルール・テスト方針・**先に確認すべき実現性**=マニフェスト記載なしで auto-install import が解決するか)は `docs/dx.md`(+`.ja.md`)§4「Design sketch」に記載。
 
@@ -54,6 +55,7 @@ Phase 6 のルーター・エラーバウンダリ・開発時警告・`on*` イ
 - **`examples/router` はメモリソース採用**。`file://`/CI でもアドレスバーに触れず動くようにするため。実アプリでは既定の browser source に差し替える。見た目確認は `snapshot` スキル(Link クリックで遷移後のスクショも撮る)。**コミット済み VRT ベースラインは未追加**(`tests/visual/` は counter/todomvc のみ。router を足すなら pinned Playwright コンテナでベースライン生成が必要 ── follow-up)。
 - **ルーターの破棄は「使い捨てスロット」(`disposableSlot`)で明示管理**。context ラップが影響して、ルートのサブツリーは安定した Router owner の下で走るため、insert effect の `disposeOwned` だけでは切替時に前ルートが破棄されずリークする。`<Route>`/`<Routes>` は内容を専用 `createRoot` で所有し、切替/アンマウントで前を dispose する(`<For>`/`mapArray` と同じ明示破棄)。回帰テスト: router.spec.ts「disposes the previous route's scope on switch」「standalone <Route> disposes ... when it stops matching」「disposing the render tears down the active route content」。
 - **`<Routes>` の排他は `<Route>` が返す thunk のプロパティ(`$matched`/`$content`)で実現**。即時 JSX 評価でも、関数にメタを載せて単独描画と排他選択を両立(Solid の `<Switch>`/`<Match>` 相当、名前は React Router 流 `<Routes fallback>`)。`<Routes>` 配下では各 `<Route>` 自身の `fallback` は無視される。
+- **ネストルーティングの落とし穴: ネストした `<Routes>` は必ずホスト要素の内側に置く**。`<Routes>`/`<Route>` は thunk(関数)を返すが、レイアウトがそれを**素のまま return** すると、親ルートの insert effect の `reconcile`→`normalize`(`dom.ts`)が関数を **一度だけ eager に呼ぶ**ため、ネスト側の `$matched` 読みが**親のトラッキングに混入**し、内側遷移ごとに親レイアウトが再構築される(`disposableSlot` の `createRoot` は untrack だが、戻り値の関数は slot を抜けた親 effect 側で平坦化されるのでそこが効かない)。`<div>` 等の要素で包めば、その要素の `insert` が専用 effect を張るので解決。フラット例も既に `<Routes>` を `<div class={shell}>` 内に置いており同じ規約。回帰テスト: router.spec.ts「switching a nested route disposes the previous child, keeps the layout」(レイアウトの onCleanup が内側遷移で呼ばれないことを確認)。
 
 ## 5. 主要ファイル早見
 

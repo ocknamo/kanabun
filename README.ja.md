@@ -338,6 +338,29 @@ function App() {
 (ルートを URL ハッシュに置くので、サーバの書き換え無しで直リンク・リロードが動く)、
 `createMemorySource()` はテスト/SSR 向け、または独自の `RouterSource`。
 
+**ネストルーティング。** ルートに `*` ワイルドカードの末尾(`path="/users/*"`)を付けると、
+プレフィックスでマッチする *レイアウト* になります。そのコンポーネントは余りパスに対して
+ネストした `<Routes>` を描画します ── ホスト要素(レイアウト自身の chrome)の内側に置けば、
+それが outlet になります(`<Outlet>` コンポーネントは不要)。params は連鎖でマージされ、
+子孫の `useParams()` はネスト全体の捕捉(`{ org, id }`)を読めます:
+
+```tsx
+<Routes>
+  <Route path="/users/*" component={() => <UsersLayout />} />
+</Routes>;
+
+function UsersLayout() {
+  return (
+    <div class="users-layout">
+      <UserList />                          {/* 詳細遷移をまたいで常駐 */}
+      <Routes fallback={<p>Pick a person.</p>}>
+        <Route path="/:id" children={() => <User />} />
+      </Routes>
+    </div>
+  );
+}
+```
+
 ---
 
 ## API リファレンス
@@ -374,8 +397,8 @@ function App() {
 | コンポーネント | `Router`, `Routes`, `Route`, `Link` |
 | フック | `useNavigate`, `useLocation`, `useParams` |
 | ソース | `createBrowserSource`, `createHashSource`, `createMemorySource` |
-| マッチング | `matchPath`, `parsePath` |
-| 型 | `RouterProps`, `RoutesProps`, `RouteProps`, `RouteHandle`, `RouteThunk`, `LinkProps`, `Navigate`, `NavigateOptions`, `RouterSource`, `MemorySource`, `WindowLike`, `RouterLocation`, `RouteParams` |
+| マッチング | `matchPath`, `matchRoute`, `parsePath` |
+| 型 | `RouterProps`, `RoutesProps`, `RouteProps`, `RouteHandle`, `RouteThunk`, `LinkProps`, `Navigate`, `NavigateOptions`, `RouterSource`, `MemorySource`, `WindowLike`, `RouterLocation`, `RouteParams`, `RouteMatch` |
 
 ---
 

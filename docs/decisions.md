@@ -336,6 +336,41 @@ client-side navigation (no reload), `:id` resolution, the live `useLocation`
 readout, and scoped CSS. (A committed VRT baseline for the example is a
 follow-up — it must be captured in the pinned Playwright container.)
 
+### Nested routing (Phase 6)
+
+Layouts + child routes, again with **no new machinery** — relative matching rides
+the same owner-tree context the flat router already uses.
+
+- **A wildcard tail makes a route a layout.** `matchRoute` (the matcher, now
+  exported alongside `matchPath`) returns, besides the params, a `rest`: for a
+  `*`-wildcard pattern (`/users/*`) that's the **prefix** match's leftover path,
+  kept *raw* so a nested router decodes its own params; for an exact pattern it's
+  `null`. A `<Route>` matches against the leftover its nearest matched ancestor
+  left (a new `RelPathContext`, default = the full pathname), so a route's
+  patterns are written **relative** to where it's nested.
+- **The nested router *is* the outlet.** Rather than a `<Outlet>` placeholder fed
+  by a child-route config (which would need the child `<Route>`s constructed
+  before their parent matched — the eager-children problem), a layout just renders
+  a nested `<Routes>`/`<Route>` *inside its own component body*, which runs under
+  the parent route's context, so the nested routes see the leftover path. This is
+  more consistent with kanabun's "components are functions placed where they
+  render" model, and needs no extra component.
+- **Params merge down the chain.** A nested `<Route>` unions its captures over its
+  ancestor's (`{ ...parent, ...local }`), so a descendant `useParams()` reads the
+  whole chain (`{ org, id }`). The stable empty reference is preserved at the top
+  level for unmatched reads.
+- **One caveat, the same one core already has.** The nested `<Routes>` must sit
+  inside a host element (a layout's chrome — `<div class="users-layout">`), so it
+  gets its own reactive insert boundary. A *bare* thunk returned straight up to
+  the parent route is flattened into the parent's tracking (functions reaching
+  `reconcile` are read once), which would rebuild the layout on every inner
+  navigation. The flat example already follows this (its `<Routes>` lives inside
+  `<div class={shell}>`); layouts naturally have a wrapper, so it costs nothing.
+
+`examples/router` demonstrates it: a `/users/*` layout keeps the master list
+mounted while a nested `<Routes>` swaps the detail pane. *Relative `<Link>` hrefs
+(resolving against the current route) remain a follow-up — hrefs are absolute.*
+
 ## Error boundaries (Phase 6)
 
 `catchError` (a core primitive) and `<ErrorBoundary>` (the component) let a

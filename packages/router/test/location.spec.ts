@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { parsePath, matchPath } from "../src/index";
+import { parsePath, matchPath, matchRoute } from "../src/index";
 
 describe("parsePath", () => {
   test("splits pathname, search, hash and query", () => {
@@ -73,5 +73,37 @@ describe("matchPath", () => {
   test("the root pattern matches the root path", () => {
     expect(matchPath("/", "/")).toEqual({});
     expect(matchPath("/", "/about")).toBeNull();
+  });
+});
+
+describe("matchRoute", () => {
+  test("an exact match leaves no rest", () => {
+    expect(matchRoute("/users/:id", "/users/42")).toEqual({
+      params: { id: "42" },
+      rest: null,
+    });
+  });
+
+  test("a non-match returns null", () => {
+    expect(matchRoute("/about", "/contact")).toBeNull();
+  });
+
+  test("a prefix (wildcard) match exposes the leftover path raw", () => {
+    expect(matchRoute("/users/*", "/users/42/posts")).toEqual({
+      params: {},
+      rest: "/42/posts",
+    });
+  });
+
+  test("a prefix that consumes everything leaves rest = '/'", () => {
+    expect(matchRoute("/users/*", "/users")).toEqual({ params: {}, rest: "/" });
+  });
+
+  test("rest is left undecoded so nested routes decode their own params", () => {
+    // The named capture is decoded; `rest` keeps the raw segments.
+    expect(matchRoute("/files/*rest", "/files/a%20b/c")).toEqual({
+      params: { rest: "a b/c" },
+      rest: "/a%20b/c",
+    });
   });
 });
