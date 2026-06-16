@@ -456,6 +456,60 @@ convention makes easy to get wrong.
 Held to the same bar: 100% line/function coverage and a clean `tsc`, zero
 dependencies, runtime independent.
 
+## SSR, hydration & SSG (Phase 6)
+
+The framing decision: **SSG is not a separate feature — it is SSR run at build
+time instead of request time.** The two share one server-side primitive
+(`renderToString`) and one client-side primitive (`hydrate`); the only
+difference is *when* `renderToString` runs and whether its output is cached to
+disk. Designing SSG as its own thing would mean a second render path. Instead:
+
+```
+core:  renderToString(() => <App/>)  → HTML string, no DOM, signals read once
+       hydrate(() => <App/>, root)   → attach events/reactivity to existing DOM
+SSR  = renderToString at request time, returned in the response
+SSG  = renderToString at build time, written to .html files (+ optional hydrate)
+```
+
+So the build order is SSR/hydration first; SSG then reduces to a thin CLI
+prerender loop, with **no new rendering logic**.
+
+- **`renderToString` lives in core and never touches `document`.** The live
+  `render` (`dom.ts`) walks the tree wrapping dynamic bits in `effect`s against
+  a real DOM. The server has no DOM and needs no reactivity — markup is produced
+  once — so `renderToString` is a separate walk that **reads a reactive value
+  exactly once** (calls the accessor, does not subscribe) and concatenates
+  strings. It is pure standard JS (no `Bun.*`/`fs`/`document`), so it stays in
+  `packages/core` and keeps the runtime-independence rule. Writing files for SSG
+  is the only step that needs `fs`, and that lives in the CLI/Bun layer.
+- **Markup must be hydration-compatible, not "VDOM-equal".** With no compiler
+  and no VDOM there is no node-by-node patch step: hydration **adopts** the
+  server DOM (it reuses existing nodes and attaches listeners + fine-grained
+  effects) rather than re-creating and diffing it. The string the server emits
+  therefore has to match what the client walk expects positionally. Dynamic text
+  slots are anchored the same way the live runtime anchors them (a comment
+  marker per reactive slot, `dom.ts:136`) so the client can find its place.
+- **Scoped CSS needs a collection sink — the shared gotcha.** `css`'s `inject`
+  (`css.ts:186`) appends a `<style>` to `doc().head`; on the server there is no
+  head. Rather than touch a live document, injection routes through a
+  **settable sink** (the same pattern as `setWarnHandler`): in the default
+  browser mode it appends to `<head>`; in a server collection mode it records
+  the emitted rules so `renderToString` can return them and the caller can place
+  them in the document `<head>`. This is shared by SSR *and* SSG — neither can
+  rely on a live `<head>`.
+- **Hydration is identical for SSR and SSG.** Nothing in the client path cares
+  whether the markup came from a request or a build. SSG adds no hydration code.
+- **SSG-only concerns** (deferred until the SSR primitives land): enumerating
+  *which* paths to prerender (a route list from the router, or an explicit array;
+  dynamic params want a `getStaticPaths`-style enumerator); and baking *data* at
+  build time, since there is no per-request server — this is where Async/Suspense
+  (`resource`) and a serialized data snapshot matter. A fully static page (events
+  only, no fetched data) needs neither. The existing hash-router / GitHub Pages
+  story composes cleanly with prerendering each route to an `index.html`.
+
+Held to the same bar: zero dependencies, `packages/core` runtime-independent,
+100% line/function coverage, `tsc` clean, docs bilingual.
+
 ## Roadmap (abridged)
 
 - **Phase 0 — scaffold:** Bun project, workspace split (`core` vs future
