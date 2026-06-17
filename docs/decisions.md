@@ -658,8 +658,8 @@ Held to the same bar: zero dependencies, `packages/core` runtime-independent,
 - **Phase 5 — Bun integration:** `create` / `dev` / `build` CLI; dev server with
   full-reload over WebSocket. Bun-only layer, 100% covered. ✅
 - **Phase 6 — hardening (optional):** **router + error boundaries + dev-time
-  warnings + SSR/hydration done** (above). Remaining: stateful HMR,
-  Async/Suspense, etc. (optional).
+  warnings + SSR/hydration + async (`resource`/`<Suspense>`) done** (above).
+  Remaining: stateful HMR, etc. (optional).
 - **Phase 7 — islands / partial hydration (planned):** an explicit `<Island>`
   boundary + client registry so only marked components hydrate; the per-island
   bundle split (the real payload win) lives in the CLI. Design memo above. 🔜
