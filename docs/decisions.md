@@ -519,6 +519,42 @@ prerender loop, with **no new rendering logic**.
   only, no fetched data) needs neither. The existing hash-router / GitHub Pages
   story composes cleanly with prerendering each route to an `index.html`.
 
+### `kanabun generate` — the SSG command
+
+The prerender loop promised above ships as **`kanabun generate [entry]`**
+(`packages/cli/src/generate.ts`): the Bun layer that turns the two core
+primitives into static files. It imports an SSG **config** module, and for each
+route calls `renderToString(() => render(path))`, wraps the markup in an HTML
+document, and writes `<outdir>/<route>/index.html` (`/` → `index.html`,
+`/about/` → `about/index.html`).
+
+- **The config is the SSG contract.** `{ routes?, render(path), client?, title?,
+  document? }`. `render` returns the view for a path; `routes` defaults to
+  `["/"]`; `client` (resolved relative to the config file) is bundled **once**
+  with `Bun.build` and referenced from every page so the static HTML hydrates; a
+  custom `document` overrides the built-in shell. A config with no `client` is
+  static-only — no client JS ships.
+- **No new render path — pure orchestration.** `generate` is just
+  `renderToString` (core) + `Bun.build` + `fs`, exactly the "thin CLI prerender
+  loop" framed above. The render stays runtime-independent in core; only the file
+  writing and client bundling live in the CLI.
+- **Never throws, like `build`.** A bad entry, a failed client bundle (`Bun.build`
+  throws an `AggregateError`, unpacked by `errorMessages` — the same path
+  `build` relies on), or a throwing `render` is reported as
+  `{ success: false, logs }`.
+- **Route enumeration is explicit (the `routes` array) for now.** Pulling the
+  list from `@kanabun/router` and a `getStaticPaths`-style enumerator for dynamic
+  params remain the documented follow-ups, as does build-time data baking (a
+  serialized `resource` snapshot). `examples/ssg` is the runnable demo — two
+  routes, scoped CSS, a hydrated counter.
+- **A `base` path makes the output deployable under a sub-path.** A project site
+  (e.g. GitHub Pages at `/repo/`) serves assets from a prefix, so the absolute
+  `/main.js` src would 404. `base` (config or the `--base` flag; the flag wins)
+  is normalized to a single leading + trailing slash and prefixes the client
+  `<script>` src; it's also exposed on `DocumentContext` so a custom `document`
+  can build correct asset/link URLs. App-internal links staying base-relative is
+  the app's (or a future router-relative-`<Link>`) concern, not `generate`'s.
+
 Held to the same bar: zero dependencies, `packages/core` runtime-independent,
 100% line/function coverage, `tsc` clean, docs bilingual.
 

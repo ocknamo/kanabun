@@ -18,9 +18,10 @@ dependency; see [below](#dependencies--minimal-by-design)).
 **Status:** early but usable. Reactive core, JSX runtime + `render`, control
 flow (`<Show>` / `<For>` keyed), DX primitives (`onMount`, `mergeProps`,
 `splitProps`, scoped `css`, `context`), error boundaries, SSR
-(`renderToString` / `hydrate`), async data (`resource` / `<Suspense>`), a router
-(`@kanabun/router`), and a CLI (`create` / `dev` / `build`) are implemented and
-tested. **TodoMVC runs; `kanabun dev` and `kanabun build` work.**
+(`renderToString` / `hydrate`) + SSG (`kanabun generate`), async data
+(`resource` / `<Suspense>`), a router (`@kanabun/router`), and a CLI
+(`create` / `dev` / `build` / `generate`) are implemented and tested.
+**TodoMVC runs; `kanabun dev` and `kanabun build` work.**
 
 ---
 
@@ -347,11 +348,11 @@ hydrate(() => <App />, document.getElementById("app")!);
 ```
 
 **SSG is the same `renderToString`, run at build time** and written to `.html`
-files instead of returned per request. `hydrate` mounts the live app over the
-server markup (the page already painted, so no flash); it does not adopt the
-existing nodes in place — that needs a compiler/markers, which the no-compiler
-constraint rules out. See
-[`docs/decisions.md`](docs/decisions.md#ssr-hydration--ssg-phase-6).
+files instead of returned per request — shipped as the **`kanabun generate`**
+command (see below). `hydrate` mounts the live app over the server markup (the
+page already painted, so no flash); it does not adopt the existing nodes in
+place — that needs a compiler/markers, which the no-compiler constraint rules
+out. See [`docs/decisions.md`](docs/decisions.md#ssr-hydration--ssg-phase-6).
 
 ---
 
@@ -365,11 +366,20 @@ runtime-independent.
 kanabun create my-app     # scaffold a new project
 kanabun dev               # dev server for ./index.html, full reload on change
 kanabun build             # bundle ./index.html to ./dist for the browser
+kanabun generate ssg.tsx  # prerender routes to static .html (SSG)
 ```
 
 `dev` serves the HTML entry, bundles TS/TSX on the fly, and live-reloads over a
 WebSocket (stateful HMR is deferred — full reload for now). `build` wraps
 `bun build --target browser`.
+
+`generate` is SSG: it imports an SSG config (`{ routes?, render(path), client?,
+title?, base?, document? }`), runs `renderToString` per route, and writes
+`<outdir>/<route>/index.html`. An optional `client` entry is bundled once and
+referenced from every page so the static HTML hydrates into a live app; without
+it the output is static-only. `base` (or `--base`, e.g. `/repo/`) prefixes the
+client `<script>` src so the output deploys under a sub-path (GitHub Pages). See
+[`examples/ssg/`](examples/ssg/).
 
 ---
 
@@ -491,8 +501,9 @@ function UsersLayout() {
 ## Roadmap
 
 Phases 0–5 are done (TodoMVC runs; CLI works), and Phase 6 ships a router
-(`@kanabun/router`), error boundaries, and dev-time warnings. What's left — SSR,
-stateful HMR, async / Suspense — and the open design decisions are tracked in
+(`@kanabun/router`), error boundaries, dev-time warnings, SSR/hydration, async /
+Suspense, and SSG (`kanabun generate`). What's left — stateful HMR — and the open
+design decisions are tracked in
 [`docs/roadmap.md`](docs/roadmap.md) ([日本語](docs/roadmap.ja.md)).
 
 Because there's no compiler, mistake-catching leans on three layers — typed

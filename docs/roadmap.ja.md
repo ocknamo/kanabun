@@ -15,7 +15,7 @@
 | 3 | 制御構文: `<Show>`、`<For>`(keyed); **TodoMVC 稼働** | ✅ 完了 |
 | 4 | コンポーネントモデルと DX | ✅ 完了 — `onMount`/`mergeProps`/`splitProps`/スコープド `css`/`context` |
 | 5 | Bun 連携: `create` / `dev` / `build` CLI | ✅ 完了 |
-| 6 | 堅牢化・周辺(ルーター、SSR 等) | 🟡 進行中 — **ルーター + エラーバウンダリ + 開発時警告 + SSR/ハイドレーション + 非同期(`resource`/`<Suspense>`)完了**;残りは任意 |
+| 6 | 堅牢化・周辺(ルーター、SSR 等) | 🟡 進行中 — **ルーター + エラーバウンダリ + 開発時警告 + SSR/ハイドレーション + 非同期(`resource`/`<Suspense>`)+ SSG(`kanabun generate`)完了**;残りは任意 |
 | 7 | アイランド / 部分ハイドレーション | 🔜 計画 — 設計メモは [`decisions.ja.md`](./decisions.ja.md#アイランド--部分ハイドレーションphase-7--設計メモ) |
 
 全期間で維持した品質基準: **ランタイム依存ゼロ**、`packages/core` のランタイム非依存、
@@ -50,11 +50,22 @@
   シリアライズ可能なサーバ DOM を設置して eager な JSX ランタイムを実 `document` 無しで
   走らせ、ツリーを一度組んで `{ html, head }`(スコープド CSS も収集)を返し dispose する ──
   サーバでは `onMount` は発火しない)。`hydrate`(クライアント)はサーバマークアップ上に
-  ライブなアプリをマウントする。SSG は同じ `renderToString` をビルド時に走らせれば出る
-  (decisions 参照)。例(`examples/ssr`)は動く Bun SSR サーバ + クライアントハイドレーション。
+  ライブなアプリをマウントする。SSG は同じ `renderToString` をビルド時に走らせれば出る ──
+  下の **SSG** 参照。例(`examples/ssr`)は動く Bun SSR サーバ + クライアントハイドレーション。
   ノード単位の引き取りは未実装で、コンパイラ/マーカーが要ると記録 ──
   [`decisions.md`](./decisions.md#ssr-hydration--ssg-phase-6) 参照。依存ゼロ・100% カバレッジ・
   `packages/core` はランタイム非依存を維持。
+- [x] **SSG(`kanabun generate`)。** 完了 ── SSR プリミティブに乗る薄い CLI prerender
+  ループ(`packages/cli/src/generate.ts`)。新しい描画経路は無い。SSG の **config**
+  (`{ routes?, render(path), client?, title?, document? }`)を import し、ルートごとに
+  `renderToString` を走らせて `<outdir>/<route>/index.html`(`/` → `index.html`、
+  `/about/` → `about/index.html`)に書き出す。任意の `client` エントリは一度だけバンドル
+  され全ページから参照される ── これで静的 HTML がハイドレートする。無ければ静的のみ。
+  `base`(config か `--base`)はクライアント script の src に前置され、サブパス配信
+  (GitHub Pages)に対応。`build` 同様 never-throw。ルート列挙は今のところ明示の `routes`
+  配列(router 連動の列挙・動的パラメータ向け `getStaticPaths`・ビルド時データ焼き込みは
+  follow-up)。動く例は `examples/ssg`。
+  [`decisions.md`](./decisions.md#kanabun-generate--ssg-コマンド) 参照。
 - [ ] **状態保持 HMR**(現状は全リロード ── Phase 5 で意図的に簡略化した部分)。
 - [x] **エラーバウンダリ。** 完了 ── `catchError`(コアのプリミティブ)+ `<ErrorBoundary
   fallback={…}>`。子の *生成時* または *リアクティブ更新時* に throw されたエラーを捕捉して

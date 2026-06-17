@@ -15,7 +15,7 @@ see [`decisions.md`](./decisions.md).
 | 3 | Control flow: `<Show>`, `<For>` (keyed); **TodoMVC runs** | ✅ done |
 | 4 | Component model & DX | ✅ done — `onMount`, `mergeProps`, `splitProps`, scoped `css`, `context` |
 | 5 | Bun integration: `create` / `dev` / `build` CLI | ✅ done |
-| 6 | Hardening & ecosystem (router, SSR, etc.) | 🟡 in progress — **router + error boundaries + dev-time warnings + SSR/hydration + async (`resource`/`<Suspense>`) done**; rest optional |
+| 6 | Hardening & ecosystem (router, SSR, etc.) | 🟡 in progress — **router + error boundaries + dev-time warnings + SSR/hydration + async (`resource`/`<Suspense>`) + SSG (`kanabun generate`) done**; rest optional |
 | 7 | Islands / partial hydration | 🔜 planned — design memo in [`decisions.md`](./decisions.md#islands--partial-hydration-phase-7--design-memo) |
 
 Quality bar held throughout: **zero runtime dependencies**, `packages/core`
@@ -54,11 +54,24 @@ clean, docs bilingual.
   real `document`, builds the tree once, returns `{ html, head }` with scoped-CSS
   collected, then disposes — `onMount` doesn't fire on the server). `hydrate`
   (client) mounts the live app over the server markup. SSG falls out of the same
-  `renderToString` run at build time (see decisions). The example
+  `renderToString` run at build time — see **SSG** below. The example
   (`examples/ssr`) is a runnable Bun SSR server + client hydration. Node-level
   node adoption is *not* done and is documented as needing a compiler/markers —
   see [`decisions.md`](./decisions.md#ssr-hydration--ssg-phase-6). Zero deps,
   100% covered, `packages/core` stays runtime-independent.
+- [x] **SSG (`kanabun generate`).** Done — a thin CLI prerender loop
+  (`packages/cli/src/generate.ts`) over the SSR primitives, no new render path.
+  It imports an SSG **config** (`{ routes?, render(path), client?, title?,
+  document? }`), runs `renderToString` per route, and writes
+  `<outdir>/<route>/index.html` (`/` → `index.html`, `/about/` →
+  `about/index.html`). An optional `client` entry is bundled once and referenced
+  from every page so the static HTML hydrates; without it the output is
+  static-only. A `base` (config or `--base`) prefixes the client script src for
+  sub-path deploys (GitHub Pages). Never throws (mirrors `build`). Route
+  enumeration is the explicit `routes` array for now (router-driven enumeration /
+  `getStaticPaths` for dynamic params + build-time data baking are follow-ups).
+  Runnable demo: `examples/ssg`. See
+  [`decisions.md`](./decisions.md#kanabun-generate--the-ssg-command).
 - [ ] **Stateful HMR** in the dev server (currently full reload — the deliberate
   Phase 5 simplification).
 - [x] **Error boundaries.** Done — `catchError` (core primitive) + `<ErrorBoundary

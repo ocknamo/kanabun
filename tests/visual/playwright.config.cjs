@@ -72,6 +72,16 @@ module.exports = {
       reuseExistingServer: !process.env.CI,
       timeout: 60_000,
     },
+    {
+      // SSG example: pages prebuilt by `kanabun generate`, then served as
+      // static files (the harness builds to a temp dir on start).
+      command: "bun examples/ssg/serve.ts",
+      cwd: repoRoot,
+      env: { PORT: "3103" },
+      url: "http://localhost:3103",
+      reuseExistingServer: !process.env.CI,
+      timeout: 60_000,
+    },
   ],
   projects: [
     { name: "pc", use: { viewport: { width: 1280, height: 900 } } },

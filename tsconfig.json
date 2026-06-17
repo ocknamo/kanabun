@@ -34,7 +34,8 @@
       "@kanabun/core": ["./packages/core/src/index.ts"],
       "@kanabun/core/jsx-runtime": ["./packages/core/src/jsx-runtime.ts"],
       "@kanabun/core/jsx-dev-runtime": ["./packages/core/src/jsx-dev-runtime.ts"],
-      "@kanabun/router": ["./packages/router/src/index.ts"]
+      "@kanabun/router": ["./packages/router/src/index.ts"],
+      "@kanabun/cli": ["./packages/cli/src/index.ts"]
     },
 
     // We type-check only; Bun handles execution and (later) bundling.
