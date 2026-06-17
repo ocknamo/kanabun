@@ -62,6 +62,16 @@ module.exports = {
       reuseExistingServer: !process.env.CI,
       timeout: 60_000,
     },
+    {
+      // SSR example: a real server (renderToString per request) + client
+      // hydration, not an HTML-entry dev server.
+      command: "bun examples/ssr/server.tsx",
+      cwd: repoRoot,
+      env: { PORT: "3102" },
+      url: "http://localhost:3102",
+      reuseExistingServer: !process.env.CI,
+      timeout: 60_000,
+    },
   ],
   projects: [
     { name: "pc", use: { viewport: { width: 1280, height: 900 } } },

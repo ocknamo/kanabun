@@ -15,7 +15,7 @@
 import { renderToString } from "@kanabun/core";
 import { App } from "./app";
 
-const PORT = 3000;
+const PORT = Number(process.env.PORT) || 3000;
 
 async function clientBundle(): Promise<string> {
   const built = await Bun.build({
