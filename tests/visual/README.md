@@ -60,8 +60,10 @@ npx playwright test -c tests/visual/playwright.config.cjs                     # 
 ```
 
 The config boots the example servers (`counter` on :3000, `todomvc` on :3101,
-and the `ssr` server — `renderToString` + hydration — on :3102) and screenshots
-each at PC (1280×900) and mobile (375×800) viewports.
+the `ssr` server — `renderToString` + hydration — on :3102, and the `ssg`
+preview — `kanabun generate` output served statically — on :3103) and
+screenshots each at PC (1280×900) and mobile (375×800) viewports. The `ssg`
+spec captures both prerendered routes (`/` and `/about/`).
 
 ## Tuning
 
