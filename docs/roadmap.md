@@ -15,7 +15,7 @@ see [`decisions.md`](./decisions.md).
 | 3 | Control flow: `<Show>`, `<For>` (keyed); **TodoMVC runs** | ✅ done |
 | 4 | Component model & DX | ✅ done — `onMount`, `mergeProps`, `splitProps`, scoped `css`, `context` |
 | 5 | Bun integration: `create` / `dev` / `build` CLI | ✅ done |
-| 6 | Hardening & ecosystem (router, SSR, etc.) | 🟡 in progress — **router + error boundaries + dev-time warnings + SSR/hydration done**; rest optional |
+| 6 | Hardening & ecosystem (router, SSR, etc.) | 🟡 in progress — **router + error boundaries + dev-time warnings + SSR/hydration + async (`resource`/`<Suspense>`) done**; rest optional |
 
 Quality bar held throughout: **zero runtime dependencies**, `packages/core`
 runtime-independent, 100% line/function coverage on all source files, `tsc`
@@ -67,7 +67,20 @@ clean, docs bilingual.
   private symbol; a throw walks up to the nearest one, else rethrows). Zero
   dependencies, 100% covered, runtime independent. See
   [`decisions.md`](./decisions.md#error-boundaries-phase-6).
-- [ ] **Async / Suspense** primitives (e.g. `resource`).
+- [x] **Async / Suspense** primitives. Done — `resource(fetcher)` /
+  `resource(source, fetcher)` turns an async function into reactive state: a value
+  accessor plus `loading`/`error` accessors and `{ mutate, refetch }` actions. It
+  is race-safe (a stale fetch never clobbers a newer one), re-runs when its
+  reactive `source` changes, and idles while the source is unready (`false`/
+  `null`/`undefined`). `<Suspense fallback>` shows the fallback while a child
+  resource loads *for the first time*, then reveals the children (built once under
+  the boundary, kept alive while hidden — like `<Show>` with an element child); a
+  later `refetch()` keeps the last value on screen (read `loading()` for an inline
+  spinner). Wrap the children in a **function** so the resources are created under
+  the boundary, same convention as `<Show>`/context. Errors surface via
+  `resource.error()` (not auto-routed to an `<ErrorBoundary>`). Rides core's
+  signals + owner-tree context; zero dependencies, 100% covered, runtime
+  independent. See [`decisions.md`](./decisions.md#async--suspense-phase-6).
 - [x] **Dev-time warnings.** Done — opt-in runtime diagnostics (`setDev(true)`;
   `kanabun dev` enables them automatically via `globalThis.__KANABUN_DEV__`).
   Flags owner-less `effect()`/`onMount()`/`onCleanup()` and signal writes inside

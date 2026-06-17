@@ -35,6 +35,17 @@ export type { RenderToStringResult } from "./server";
 export { Show, For, mapArray, ErrorBoundary } from "./control-flow";
 export type { ShowProps, ForProps, ErrorBoundaryProps } from "./control-flow";
 
+// Async: `resource` (fetch-into-a-signal) + `<Suspense>`.
+export { resource, Suspense } from "./async";
+export type {
+  Resource,
+  ResourceActions,
+  ResourceFetcher,
+  ResourceFetcherInfo,
+  ResourceReturn,
+  SuspenseProps,
+} from "./async";
+
 // Scoped CSS (runtime helper: hashes a class + injects a <style>).
 export { css } from "./css";
 

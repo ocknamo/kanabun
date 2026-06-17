@@ -17,7 +17,9 @@ dependency; see [below](#dependencies--minimal-by-design)).
 
 **Status:** early but usable. Reactive core, JSX runtime + `render`, control
 flow (`<Show>` / `<For>` keyed), DX primitives (`onMount`, `mergeProps`,
-`splitProps`, scoped `css`, `context`), and a CLI (`create` / `dev` / `build`) are implemented and
+`splitProps`, scoped `css`, `context`), error boundaries, SSR
+(`renderToString` / `hydrate`), async data (`resource` / `<Suspense>`), a router
+(`@kanabun/router`), and a CLI (`create` / `dev` / `build`) are implemented and
 tested. **TodoMVC runs; `kanabun dev` and `kanabun build` work.**
 
 ---
@@ -248,6 +250,41 @@ Under the hood the error handler is stored on the owner tree (like context); a
 throw walks up to the nearest boundary, or rethrows to the host if there is none.
 `catchError(tryFn, handler)` is the same mechanism as a primitive, for catching
 imperatively.
+
+### Async data: `resource` and `<Suspense>`
+
+`resource` turns an async function into reactive state — a value accessor plus
+`loading()` / `error()` accessors and `{ mutate, refetch }` actions. It is
+race-safe (a stale fetch never overwrites a newer one) and re-runs whenever its
+optional reactive `source` changes (a `false` / `null` / `undefined` source means
+"not ready — don't fetch yet").
+
+```tsx
+import { resource, Suspense } from "@kanabun/core";
+
+function Profile(props: { id: () => number }) {
+  // Refetches whenever id() changes; data() is undefined until it resolves.
+  const [user, { refetch }] = resource(props.id, (id) => fetchUser(id));
+  return (
+    <div>
+      <h1>{() => user()?.name ?? ""}</h1>
+      {() => (user.loading() ? <span>refreshing…</span> : null)}
+      <button onClick={refetch}>Reload</button>
+    </div>
+  );
+}
+
+// <Suspense> shows the fallback while a child resource loads for the *first*
+// time, then reveals the children. A later refetch() keeps the last value on
+// screen (read loading() for an inline spinner). Wrap children in a function so
+// the resources are created under the boundary.
+<Suspense fallback={<p>Loading…</p>}>
+  {() => <Profile id={id} />}
+</Suspense>;
+```
+
+Errors surface via `resource.error()` (they aren't auto-routed to an
+`<ErrorBoundary>`), so the UI can decide how to show them.
 
 ### Scoped CSS
 
