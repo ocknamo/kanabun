@@ -16,6 +16,7 @@ see [`decisions.md`](./decisions.md).
 | 4 | Component model & DX | ✅ done — `onMount`, `mergeProps`, `splitProps`, scoped `css`, `context` |
 | 5 | Bun integration: `create` / `dev` / `build` CLI | ✅ done |
 | 6 | Hardening & ecosystem (router, SSR, etc.) | 🟡 in progress — **router + error boundaries + dev-time warnings + SSR/hydration + async (`resource`/`<Suspense>`) done**; rest optional |
+| 7 | Islands / partial hydration | 🔜 planned — design memo in [`decisions.md`](./decisions.md#islands--partial-hydration-phase-7--design-memo) |
 
 Quality bar held throughout: **zero runtime dependencies**, `packages/core`
 runtime-independent, 100% line/function coverage on all source files, `tsc`
@@ -89,6 +90,24 @@ clean, docs bilingual.
   compiler — see [`decisions.md`](./decisions.md#dev-time-warnings-phase-6) for
   why, and for what *is* detectable. Zero dependencies, 100% covered, runtime
   independent.
+
+### Phase 7 — Islands (partial hydration) (planned)
+Explicit, manual islands (no compiler, no resumability) — only marked components
+hydrate; the static shell ships no client JS. Full rationale and scope
+boundaries in [`decisions.md`](./decisions.md#islands--partial-hydration-phase-7--design-memo).
+- [ ] **`<Island>` boundary + registry (core).** A boundary that serializes to a
+  `<div data-island data-props>` wrapper on the server; a client registry
+  (`name → Component`) + entry that queries `[data-island]`, deserializes props,
+  and mounts only those. Reuses `renderToString` (subtree) + `hydrate`
+  (container) — no third render path. Props are JSON-serializable only (no
+  closures/signals cross the boundary); each island is its own root (context /
+  owner tree do not cross — share state via a module-level singleton signal).
+- [ ] **Per-island bundle split (CLI).** The actual payload win: `packages/cli`
+  code-splits per island so a page loads only the chunks for the islands it
+  contains, plus a client bootstrap that mounts them. Bun/bundler work, so it
+  stays in the CLI layer; core remains runtime-independent.
+- Out of scope (documented): automatic island detection and node-level adoption
+  (both need a compiler), and resumability (contradicts the runtime-JSX design).
 
 ### DX & type precision
 - [~] Tighten `JSX.IntrinsicElements`. **Event handlers done** — `on*` props are

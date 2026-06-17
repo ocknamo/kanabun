@@ -576,6 +576,71 @@ fallback while it loads. Like the rest of Phase 6, both ride existing machinery
 Held to the same bar: zero dependencies, `packages/core` runtime-independent,
 100% line/function coverage, `tsc` clean, docs bilingual.
 
+## Islands / partial hydration (Phase 7) — design memo
+
+> Status: **planned, not built.** This records the approach and why it fits
+> before any code lands; revise it as the implementation forces choices.
+
+The framing decision: **partial hydration in kanabun is an explicit "islands"
+model, not automatic analysis or resumability.** A page is mostly static
+server-rendered HTML; only the components marked as *islands* ship and run on
+the client. Each island is its own independent mount point — the static shell
+around it has no client JS.
+
+- **Why islands fit this architecture better than full-page hydration does.**
+  Today `hydrate` clears the container and re-renders the whole tree (no
+  node-level adoption — see "SSR, hydration & SSG" above for why eager
+  bottom-up JSX rules adoption out without a compiler). Islands turn that
+  limitation into a non-issue: each island is a *small, independent* container
+  that clears and re-renders its own subtree against the identical server bytes
+  (no flash), while everything outside any island is never re-rendered and
+  never shipped. We sidestep the adoption problem instead of solving it — and
+  we do it **without a compiler**, honouring the founding constraint. The same
+  two primitives (`renderToString` on a subtree, `hydrate` on a container) are
+  reused; islands are a composition of them, not a third render path.
+- **The boundary is explicit and manual — by necessity, like the rest.** With
+  no compiler there is nothing to *detect* which components are interactive, so
+  the author marks them: an `<Island name="Counter" props={…}>…</Island>`
+  boundary (closer to Astro's `client:*` directives than to a framework that
+  infers islands). On the server it serializes to a wrapper element carrying
+  the island name and its props — e.g. `<div data-island="Counter"
+  data-props='{"start":0}'>…children…</div>` — and the children render normally
+  into it (so first paint / SEO are unchanged). A client **registry** maps
+  `name → Component`; the client entry queries every `[data-island]`,
+  deserializes its props, and mounts only those. Nothing else executes.
+- **Props cross the boundary as data, not closures.** The server→client gap is
+  a serialization gap: island props must be JSON-serializable. Closures,
+  signals, and DOM refs cannot cross it — an island that needs live data
+  imports/subscribes to it on the client side, or receives plain values and
+  builds its own reactive state. This is a real constraint to document loudly,
+  not a bug.
+- **Each island is its own root; context and owner tree do not cross.** Islands
+  mount independently, so an island cannot `useContext` a value a server-side
+  ancestor provided — the owner tree was torn down at the serialization
+  boundary. Cross-island shared state is expressed the ordinary JS way: a
+  module-level singleton signal/store that the islands import (module scope is
+  shared on the client even though the owner trees are not).
+- **The actual payload win lives in the CLI, not core.** Core can *express*
+  islands (boundary + registry + props (de)serialization) and that alone makes
+  hydration partial in *execution*. But the point of islands is to ship *less
+  JavaScript*, and that requires the build layer (`packages/cli`, the Bun-only
+  layer) to **code-split per island** so a page pulls only the chunks for the
+  islands it contains. Without that split you still ship all island code.
+  Bundle splitting is inherently Bun/bundler work, so the CLI is the correct
+  home for it; core stays runtime-independent.
+- **Scope boundaries.** *In core (small):* an `<Island>` boundary, a registry,
+  and JSON props (de)serialization, all reusing existing primitives. *In the
+  CLI:* per-island chunking + a client bootstrap that loads and mounts the
+  islands present on the page. *Explicitly out of scope:* automatic island
+  detection (needs a compiler), node-level adoption (same), and resumability
+  (no re-execution at all — a fundamentally compiler/serialization-heavy model
+  that contradicts the runtime-JSX design). The order mirrors Phase 6: the core
+  boundary first (with a runnable `examples/ssr` island demo), the CLI split
+  second.
+
+Held to the same bar: zero dependencies, `packages/core` runtime-independent,
+100% line/function coverage, `tsc` clean, docs bilingual.
+
 ## Roadmap (abridged)
 
 - **Phase 0 — scaffold:** Bun project, workspace split (`core` vs future
@@ -593,5 +658,8 @@ Held to the same bar: zero dependencies, `packages/core` runtime-independent,
 - **Phase 5 — Bun integration:** `create` / `dev` / `build` CLI; dev server with
   full-reload over WebSocket. Bun-only layer, 100% covered. ✅
 - **Phase 6 — hardening (optional):** **router + error boundaries + dev-time
-  warnings + SSR/hydration done** (above). Remaining: stateful HMR,
-  Async/Suspense, etc. (optional).
+  warnings + SSR/hydration + async (`resource`/`<Suspense>`) done** (above).
+  Remaining: stateful HMR, etc. (optional).
+- **Phase 7 — islands / partial hydration (planned):** an explicit `<Island>`
+  boundary + client registry so only marked components hydrate; the per-island
+  bundle split (the real payload win) lives in the CLI. Design memo above. 🔜
