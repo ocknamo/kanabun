@@ -25,6 +25,12 @@ Run the **"Update visual baselines"** GitHub Actions workflow
 pinned container, captures fresh PNGs under `__screenshots__/`, and commits them
 to the branch.
 
+**Adding a new `*.visual.cjs` spec also needs this.** The `visual` CI gate runs
+without `--update-snapshots`, so a spec whose baseline isn't committed yet fails
+with a missing-snapshot error (and turns the whole gate red, not just the new
+spec). Trigger the workflow **on the spec's branch** before opening/merging the
+PR — same order the `ssr` spec used (spec commit, then a baseline commit).
+
 > First-time bootstrap (merge procedure): until baselines exist, the `visual`
 > CI gate fails by design (Playwright errors on a missing snapshot), so **do not
 > make `visual` a required status check until baselines are committed**. The

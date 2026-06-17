@@ -11,7 +11,7 @@
  */
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { isAbsolute, join, relative } from "node:path";
 import { generate } from "@kanabun/cli";
 
 const PORT = Number(process.env.PORT) || 3103;
@@ -29,7 +29,14 @@ Bun.serve({
   async fetch(req) {
     let pathname = new URL(req.url).pathname;
     if (pathname.endsWith("/")) pathname += "index.html";
-    const file = Bun.file(outdir + pathname);
+    // Keep requests inside the build dir — `join` normalizes any `..`, then we
+    // confirm the result stays under `outdir` before reading it.
+    const filePath = join(outdir, pathname);
+    const rel = relative(outdir, filePath);
+    if (rel.startsWith("..") || isAbsolute(rel)) {
+      return new Response("Forbidden", { status: 403 });
+    }
+    const file = Bun.file(filePath);
     if (await file.exists()) return new Response(file);
     return new Response("Not found", { status: 404 });
   },
