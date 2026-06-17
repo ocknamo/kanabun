@@ -374,10 +374,12 @@ WebSocket (stateful HMR is deferred — full reload for now). `build` wraps
 `bun build --target browser`.
 
 `generate` is SSG: it imports an SSG config (`{ routes?, render(path), client?,
-title?, document? }`), runs `renderToString` per route, and writes
+title?, base?, document? }`), runs `renderToString` per route, and writes
 `<outdir>/<route>/index.html`. An optional `client` entry is bundled once and
 referenced from every page so the static HTML hydrates into a live app; without
-it the output is static-only. See [`examples/ssg/`](examples/ssg/).
+it the output is static-only. `base` (or `--base`, e.g. `/repo/`) prefixes the
+client `<script>` src so the output deploys under a sub-path (GitHub Pages). See
+[`examples/ssg/`](examples/ssg/).
 
 ---
 

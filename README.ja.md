@@ -358,10 +358,12 @@ kanabun generate ssg.tsx  # ルートを静的 .html に prerender(SSG)
 `bun build --target browser` のラッパーです。
 
 `generate` は SSG です。SSG config(`{ routes?, render(path), client?, title?,
-document? }`)を import し、ルートごとに `renderToString` を走らせて
+base?, document? }`)を import し、ルートごとに `renderToString` を走らせて
 `<outdir>/<route>/index.html` を書き出します。任意の `client` エントリは一度だけ
 バンドルされ全ページから参照されるので、静的 HTML がライブなアプリにハイドレートします
-(無ければ静的のみ)。[`examples/ssg/`](examples/ssg/) 参照。
+(無ければ静的のみ)。`base`(または `--base`、例 `/repo/`)はクライアント `<script>` の
+src に前置され、サブパス配信(GitHub Pages)で出力がそのまま動きます。
+[`examples/ssg/`](examples/ssg/) 参照。
 
 ---
 

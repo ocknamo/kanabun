@@ -26,6 +26,12 @@ export interface DocumentContext {
   path: string;
   /** The `<script>` tag for the client bundle, or `""` when there is no client. */
   script: string;
+  /**
+   * The normalized public base path (always leading + trailing slash, e.g.
+   * `"/"` or `"/repo/"`). Use it to prefix asset/link URLs in a custom
+   * template when the site is served from a sub-path.
+   */
+  base: string;
 }
 
 /** The shape a `generate` entry module default-exports (or exports directly). */
@@ -42,6 +48,13 @@ export interface SSGConfig {
   client?: string;
   /** `<title>` for the default document template. Defaults to `"kanabun"`. */
   title?: string;
+  /**
+   * Public base path the site is served from (e.g. `"/repo/"` for a GitHub
+   * Pages project site). Prefixes the client `<script>` src so it resolves
+   * under a sub-path. Defaults to `"/"`. A `base` passed in {@link
+   * GenerateOptions} (the `--base` flag) overrides this.
+   */
+  base?: string;
   /** Custom HTML document template; overrides the built-in one. */
   document?: (ctx: DocumentContext) => string;
 }
@@ -53,6 +66,8 @@ export interface GenerateOptions {
   outdir?: string;
   /** Minify the client bundle. Defaults to `true`. */
   minify?: boolean;
+  /** Public base path (overrides the config's `base`). See {@link SSGConfig.base}. */
+  base?: string;
 }
 
 export interface GenerateResult {
@@ -66,6 +81,12 @@ export interface GenerateResult {
 function routeToFile(path: string): string {
   const trimmed = path.replace(/^\/+|\/+$/g, "");
   return trimmed === "" ? "index.html" : join(trimmed, "index.html");
+}
+
+/** Normalize a base path to a single leading and trailing slash (`/` ⇒ `/`). */
+function normalizeBase(base: string): string {
+  const trimmed = base.replace(/^\/+|\/+$/g, "");
+  return trimmed === "" ? "/" : `/${trimmed}/`;
 }
 
 /** The built-in HTML document used when the config supplies no `document`. */
@@ -102,6 +123,7 @@ export async function generate(options: GenerateOptions): Promise<GenerateResult
     }
     const routes = config.routes ?? ["/"];
     const title = config.title ?? "kanabun";
+    const base = normalizeBase(options.base ?? config.base ?? "/");
 
     // Bundle the client entry once (if any) so every page can reference it.
     let script = "";
@@ -110,7 +132,8 @@ export async function generate(options: GenerateOptions): Promise<GenerateResult
       // A failed client build (syntax error, unresolved import) makes `Bun.build`
       // throw an `AggregateError`, which the outer `catch` unpacks via
       // `errorMessages` — the same path `build()` relies on. So success here
-      // means the bundle is written; take the entry chunk as the script src.
+      // means the bundle is written; take the entry chunk as the script src,
+      // prefixed with `base` so it resolves when served from a sub-path.
       const built = await Bun.build({
         entrypoints: [clientEntry],
         outdir,
@@ -118,7 +141,7 @@ export async function generate(options: GenerateOptions): Promise<GenerateResult
         minify: options.minify ?? true,
       });
       const out = built.outputs[0]!;
-      script = `<script type="module" src="/${relative(outdir, out.path)}"></script>`;
+      script = `<script type="module" src="${base}${relative(outdir, out.path)}"></script>`;
     }
 
     const written = new Set<string>();
@@ -141,7 +164,7 @@ export async function generate(options: GenerateOptions): Promise<GenerateResult
       written.add(file);
 
       const { html, head } = renderToString(() => config.render(path));
-      const ctx: DocumentContext = { html, head, path, script };
+      const ctx: DocumentContext = { html, head, path, script, base };
       const page = config.document ? config.document(ctx) : defaultDocument(ctx, title);
       await mkdir(dirname(file), { recursive: true });
       await writeFile(file, page);

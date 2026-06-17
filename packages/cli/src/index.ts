@@ -35,6 +35,7 @@ Usage:
 
 Options:
   --outdir <dir>            build output directory (default: dist)
+  --base <path>             public base path for generate (default: /)
   --no-minify               disable minification for build
   --port <n>                dev server port (default: 3000)
   -h, --help                show this help
@@ -133,6 +134,7 @@ export async function run(argv: string[]): Promise<DevServer | undefined> {
         entry,
         outdir,
         minify: flags["no-minify"] !== true,
+        base: typeof flags.base === "string" ? flags.base : undefined,
       });
       if (!result.success) {
         throw new Error(`kanabun: generate failed:\n${result.logs.join("\n")}`);

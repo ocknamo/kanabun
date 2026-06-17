@@ -66,10 +66,12 @@ clean, docs bilingual.
   `<outdir>/<route>/index.html` (`/` → `index.html`, `/about/` →
   `about/index.html`). An optional `client` entry is bundled once and referenced
   from every page so the static HTML hydrates; without it the output is
-  static-only. Never throws (mirrors `build`). Route enumeration is the explicit
-  `routes` array for now (router-driven enumeration / `getStaticPaths` for
-  dynamic params + build-time data baking are follow-ups). Runnable demo:
-  `examples/ssg`. See [`decisions.md`](./decisions.md#kanabun-generate--the-ssg-command).
+  static-only. A `base` (config or `--base`) prefixes the client script src for
+  sub-path deploys (GitHub Pages). Never throws (mirrors `build`). Route
+  enumeration is the explicit `routes` array for now (router-driven enumeration /
+  `getStaticPaths` for dynamic params + build-time data baking are follow-ups).
+  Runnable demo: `examples/ssg`. See
+  [`decisions.md`](./decisions.md#kanabun-generate--the-ssg-command).
 - [ ] **Stateful HMR** in the dev server (currently full reload — the deliberate
   Phase 5 simplification).
 - [x] **Error boundaries.** Done — `catchError` (core primitive) + `<ErrorBoundary

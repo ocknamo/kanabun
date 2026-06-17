@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { parseArgs, run } from "./index";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, rm, readFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -118,10 +118,14 @@ describe("run", () => {
           resolve(root, "examples/ssg/ssg.tsx"),
           "--outdir",
           join(dir, "site"),
+          "--base",
+          "/app/",
           "--no-minify",
         ]),
       );
       expect(out).toContain("Generated 2 page(s)");
+      const index = await readFile(join(dir, "site", "index.html"), "utf8");
+      expect(index).toContain('src="/app/main.js"');
 
       await expect(
         run(["generate", join(dir, "missing.tsx"), "--outdir", join(dir, "site")]),

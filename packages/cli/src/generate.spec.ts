@@ -47,6 +47,30 @@ describe("generate", () => {
     expect(existsSync(join(out, "main.js"))).toBe(true);
   });
 
+  test("prefixes the client script src with a normalized --base (sub-path deploy)", async () => {
+    const out = join(outdir, "based");
+    const result = await generate({
+      entry: resolve(root, "examples/ssg/ssg.tsx"),
+      outdir: out,
+      minify: false,
+      base: "repo", // missing slashes → normalized to "/repo/"
+    });
+    expect(result.success).toBe(true);
+    const index = await readFile(join(out, "index.html"), "utf8");
+    expect(index).toContain('<script type="module" src="/repo/main.js">');
+  });
+
+  test("exposes the normalized base to a custom document (default `/`)", async () => {
+    const entry = await fixture(
+      "base.ts",
+      `export default { base: "/site", document: (c) => "B:" + c.base, render: () => "x" };\n`,
+    );
+    const out = join(outdir, "basecustom");
+    const result = await generate({ entry, outdir: out });
+    expect(result.success).toBe(true);
+    expect(await readFile(join(out, "index.html"), "utf8")).toBe("B:/site/");
+  });
+
   test("defaults to a single `/` route and the built-in document", async () => {
     const entry = await fixture(
       "single.ts",

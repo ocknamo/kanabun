@@ -475,6 +475,12 @@ SSG  = ビルド時に renderToString し、.html に書き出す(+任意で hyd
   動的パラメータ向けの `getStaticPaths` 相当の列挙子、ビルド時のデータ焼き込み
   (`resource` の直列化スナップショット)は引き続き follow-up。`examples/ssg` が動く例
   ── 2 ルート・スコープド CSS・ハイドレートするカウンター。
+- **`base` パスでサブパス配信に対応。** プロジェクトサイト(例: GitHub Pages の
+  `/repo/`)はアセットをプレフィックス配下から配信するので、絶対パスの `/main.js` は 404
+  になる。`base`(config か `--base` フラグ。フラグが優先)は先頭・末尾スラッシュ1個に
+  正規化してクライアント `<script>` の src に前置する。`DocumentContext` にも公開するので
+  カスタム `document` が正しいアセット/リンク URL を組める。アプリ内リンクを base 相対に
+  保つのはアプリ側(将来の router 相対 `<Link>`)の責務で、`generate` の仕事ではない。
 
 これも同じ基準 ── 依存ゼロ・`packages/core` はランタイム非依存・全ソース カバレッジ 100%・
 `tsc` クリーン・ドキュメントはバイリンガル。

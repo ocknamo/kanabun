@@ -547,6 +547,13 @@ document, and writes `<outdir>/<route>/index.html` (`/` → `index.html`,
   params remain the documented follow-ups, as does build-time data baking (a
   serialized `resource` snapshot). `examples/ssg` is the runnable demo — two
   routes, scoped CSS, a hydrated counter.
+- **A `base` path makes the output deployable under a sub-path.** A project site
+  (e.g. GitHub Pages at `/repo/`) serves assets from a prefix, so the absolute
+  `/main.js` src would 404. `base` (config or the `--base` flag; the flag wins)
+  is normalized to a single leading + trailing slash and prefixes the client
+  `<script>` src; it's also exposed on `DocumentContext` so a custom `document`
+  can build correct asset/link URLs. App-internal links staying base-relative is
+  the app's (or a future router-relative-`<Link>`) concern, not `generate`'s.
 
 Held to the same bar: zero dependencies, `packages/core` runtime-independent,
 100% line/function coverage, `tsc` clean, docs bilingual.
