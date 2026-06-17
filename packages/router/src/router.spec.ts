@@ -585,6 +585,45 @@ describe("useLocation / useNavigate", () => {
     nav("/y", { replace: true });
     expect(src.location()).toBe("/y");
   });
+
+  test("useNavigate resolves a relative target against the current location", () => {
+    const src = createMemorySource("/users/1");
+    const container = createContainer();
+    let nav!: ReturnType<typeof useNavigate>;
+    render(
+      () =>
+        jsx(Router, {
+          source: src,
+          children: () => {
+            nav = useNavigate();
+            return null;
+          },
+        }),
+      asEl(container),
+    );
+    nav("2"); // sibling: replaces the last segment
+    expect(src.location()).toBe("/users/2");
+  });
+
+  test("useNavigate leaves an external/scheme target verbatim", () => {
+    // Symmetric with <Link>: resolving would strip the origin, so don't.
+    const src = createMemorySource("/users/1");
+    const container = createContainer();
+    let nav!: ReturnType<typeof useNavigate>;
+    render(
+      () =>
+        jsx(Router, {
+          source: src,
+          children: () => {
+            nav = useNavigate();
+            return null;
+          },
+        }),
+      asEl(container),
+    );
+    nav("https://example.com/p");
+    expect(src.location()).toBe("https://example.com/p");
+  });
 });
 
 describe("hooks outside a <Router>", () => {

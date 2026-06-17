@@ -33,8 +33,9 @@ export interface NavigateOptions {
 
 /**
  * Imperatively navigate to `to` (an absolute path like `/users/42`, or a path
- * relative to the current location like `edit` / `../list`). Returned by
- * {@link useNavigate}.
+ * relative to the current location like `edit` / `../list`). An external/scheme
+ * target (`https:`, `mailto:`, `//host`) is passed to the history source
+ * verbatim. Returned by {@link useNavigate}.
  */
 export type Navigate = (to: string, options?: NavigateOptions) => void;
 
@@ -90,8 +91,10 @@ export function Router(props: RouterProps): JSXChild {
     // Resolve relative targets (`edit`, `../x`, `?q`) against the current path,
     // exactly as a browser would — so `navigate("edit")` and `<Link href="edit">`
     // mean the same thing regardless of the history source. Absolute paths pass
-    // through unchanged.
-    const target = resolvePath(to, location().pathname);
+    // through unchanged. External/scheme targets (`https:`, `mailto:`, `//host`)
+    // are left verbatim — resolving would strip their origin — keeping this
+    // symmetric with `<Link>`, which guards external hrefs the same way.
+    const target = isExternal(to) ? to : resolvePath(to, location().pathname);
     if (options?.replace) source.replace(target);
     else source.push(target);
     path.set(source.location());

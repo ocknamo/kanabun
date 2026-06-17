@@ -134,6 +134,14 @@ export function matchPath(pattern: string, pathname: string): RouteParams | null
  * a slash, matching URL resolution. `from` is expected to be a pathname (what
  * `location().pathname` gives). The throwaway {@link BASE} keeps this a pure
  * path computation — the origin never surfaces in the result.
+ *
+ * Resolution follows the URL standard verbatim, so a few edges are worth noting:
+ * an empty `to` returns `from` unchanged; an encoded `..` (`%2e%2e`) still
+ * climbs; and a target carrying a **scheme** (`https:`, `mailto:`) resolves as an
+ * absolute URL and so loses its origin (`https://x.com/p` → `/p`). Callers that
+ * want to honour external links must therefore branch on them *before* calling
+ * this (as `<Link>` and `navigate` do) — `resolvePath` itself is purely about
+ * path resolution and assumes an in-app `to`.
  */
 export function resolvePath(to: string, from: string): string {
   const base = from.startsWith("/") ? from : "/" + from;

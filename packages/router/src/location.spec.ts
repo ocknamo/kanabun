@@ -140,4 +140,19 @@ describe("resolvePath", () => {
   test("tolerates a base without a leading slash", () => {
     expect(resolvePath("edit", "users/42")).toBe("/users/edit");
   });
+
+  // Boundary cases pinned so the URL-standard behaviour can't drift silently —
+  // see the function's doc for why callers guard external targets themselves.
+  test("an empty target keeps the current path", () => {
+    expect(resolvePath("", "/users/42")).toBe("/users/42");
+  });
+
+  test("an encoded `..` still climbs (URL-standard)", () => {
+    expect(resolvePath("%2e%2e/x", "/a/b/c")).toBe("/a/x");
+  });
+
+  test("a scheme target resolves as an absolute URL (origin dropped)", () => {
+    // Why callers must guard external links *before* resolving.
+    expect(resolvePath("https://example.com/p", "/users/42")).toBe("/p");
+  });
 });
