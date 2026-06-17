@@ -45,4 +45,42 @@ describe("JSX event-handler types", () => {
   });
 });
 
+type AnchorAttrs = JSX.IntrinsicElements["a"];
+type InputAttrs = JSX.IntrinsicElements["input"];
+type DivAttrs = JSX.IntrinsicElements["div"];
+
+describe("JSX attribute types", () => {
+  test("a typed attribute accepts its value or a reactive accessor of it", () => {
+    const stat: AnchorAttrs = { href: "/users/42" };
+    const reactive: AnchorAttrs = { href: () => "/users/42" };
+    const cls: DivAttrs = { class: () => (true ? "on" : "off") };
+    const checked: InputAttrs = { checked: () => true };
+    expect([stat, reactive, cls, checked]).toHaveLength(4);
+  });
+
+  test("a wrongly-typed attribute value is a type error", () => {
+    // @ts-expect-error `class` is a string attribute, not a number
+    const badClass: DivAttrs = { class: 5 };
+    // @ts-expect-error `disabled` is a boolean, not the string "yes"
+    const badDisabled: ButtonAttrs = { disabled: "yes" };
+    // @ts-expect-error `tabIndex` is a number, not a string
+    const badTab: DivAttrs = { tabIndex: "3" };
+    // @ts-expect-error a <button>'s type is the button-type union, not any string
+    const badType: ButtonAttrs = { type: "email" };
+    expect([badClass, badDisabled, badTab, badType]).toHaveLength(4);
+  });
+
+  test("per-element attributes are typed (input gets `checked`/`value`)", () => {
+    const ok: InputAttrs = { type: "checkbox", checked: true, value: "x" };
+    // @ts-expect-error `checked` is a boolean, not a string
+    const bad: InputAttrs = { checked: "true" };
+    expect([ok, bad]).toHaveLength(2);
+  });
+
+  test("unknown attributes (data-*/aria-*) stay permissive", () => {
+    const data: DivAttrs = { "data-id": 7, "aria-label": "x", whatever: true };
+    expect(data).toBeDefined();
+  });
+});
+
 function handleClick(): void {}

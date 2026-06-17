@@ -22,6 +22,7 @@ export type { Accessor, Signal, SignalOptions, Disposer, Context } from "./react
 
 // Component prop helpers.
 export { mergeProps, splitProps } from "./props";
+export type { SplitProps } from "./props";
 
 // DOM runtime (render + the low-level helpers the JSX runtime builds on).
 export { render, hydrate, createElement, insert, reconcileNodes } from "./dom";
@@ -54,4 +55,33 @@ export { setDev, setWarnHandler } from "./dev";
 
 // JSX runtime, also re-exported here for manual / hyperscript-style use.
 export { jsx, jsxs, Fragment } from "./jsx-runtime";
-export type { JSXChild, JSX, EventHandler, HTMLAttributes } from "./jsx-runtime";
+export type {
+  JSXChild,
+  JSX,
+  EventHandler,
+  DOMEventHandlers,
+  Reactive,
+  Attr,
+  StyleValue,
+  StyleObject,
+  Ref,
+  HTMLAttributes,
+  AnchorHTMLAttributes,
+  ButtonHTMLAttributes,
+  InputHTMLAttributes,
+  TextareaHTMLAttributes,
+  SelectHTMLAttributes,
+  OptionHTMLAttributes,
+  FormHTMLAttributes,
+  LabelHTMLAttributes,
+  ImgHTMLAttributes,
+  ScriptHTMLAttributes,
+  LinkHTMLAttributes,
+  MediaHTMLAttributes,
+  VideoHTMLAttributes,
+  OlHTMLAttributes,
+  TableCellHTMLAttributes,
+  ThHTMLAttributes,
+  ProgressHTMLAttributes,
+  CanvasHTMLAttributes,
+} from "./jsx-runtime";

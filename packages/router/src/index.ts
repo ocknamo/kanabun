@@ -20,5 +20,5 @@ export type {
 export { createBrowserSource, createHashSource, createMemorySource } from "./source";
 export type { RouterSource, MemorySource, WindowLike } from "./source";
 
-export { parsePath, matchPath, matchRoute } from "./location";
+export { parsePath, matchPath, matchRoute, resolvePath } from "./location";
 export type { RouterLocation, RouteParams, RouteMatch } from "./location";

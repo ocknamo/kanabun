@@ -119,3 +119,24 @@ export function matchPath(pattern: string, pathname: string): RouteParams | null
   const match = matchRoute(pattern, pathname);
   return match === null ? null : match.params;
 }
+
+/**
+ * Resolve a (possibly relative) `to` href against a `from` pathname, with the
+ * exact semantics a browser uses to resolve an `<a href>` against the document
+ * URL — so relative links behave the way authors already expect:
+ *
+ *   - **absolute**   `/about`        — returned unchanged
+ *   - **relative**   `edit`, `./edit`— replaces `from`'s last segment
+ *   - **parent**     `../sibling`    — climbs one level per `..`
+ *   - **query/hash** `?q=1`, `#top`  — keeps `from`'s path, swaps that part
+ *
+ * `from`'s last segment is treated as a "file" (replaced) unless `from` ends in
+ * a slash, matching URL resolution. `from` is expected to be a pathname (what
+ * `location().pathname` gives). The throwaway {@link BASE} keeps this a pure
+ * path computation — the origin never surfaces in the result.
+ */
+export function resolvePath(to: string, from: string): string {
+  const base = from.startsWith("/") ? from : "/" + from;
+  const url = new URL(to, BASE + base);
+  return url.pathname + url.search + url.hash;
+}

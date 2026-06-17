@@ -20,7 +20,7 @@ import {
   jsx,
 } from "@kanabun/core";
 import type { Accessor, JSXChild } from "@kanabun/core";
-import { parsePath, matchRoute } from "./location";
+import { parsePath, matchRoute, resolvePath } from "./location";
 import type { RouterLocation, RouteParams } from "./location";
 import { createBrowserSource } from "./source";
 import type { RouterSource } from "./source";
@@ -31,7 +31,11 @@ export interface NavigateOptions {
   replace?: boolean;
 }
 
-/** Imperatively navigate to `to`. Returned by {@link useNavigate}. */
+/**
+ * Imperatively navigate to `to` (an absolute path like `/users/42`, or a path
+ * relative to the current location like `edit` / `../list`). Returned by
+ * {@link useNavigate}.
+ */
 export type Navigate = (to: string, options?: NavigateOptions) => void;
 
 interface RouterContextValue {
@@ -83,8 +87,13 @@ export function Router(props: RouterProps): JSXChild {
 
   const location = computed(() => parsePath(path()));
   const navigate: Navigate = (to, options) => {
-    if (options?.replace) source.replace(to);
-    else source.push(to);
+    // Resolve relative targets (`edit`, `../x`, `?q`) against the current path,
+    // exactly as a browser would — so `navigate("edit")` and `<Link href="edit">`
+    // mean the same thing regardless of the history source. Absolute paths pass
+    // through unchanged.
+    const target = resolvePath(to, location().pathname);
+    if (options?.replace) source.replace(target);
+    else source.push(target);
     path.set(source.location());
   };
 
@@ -282,7 +291,12 @@ export function Routes(props: RoutesProps): () => JSXChild {
 }
 
 export interface LinkProps {
-  /** Destination path (e.g. `/users/42`). */
+  /**
+   * Destination path. Absolute (`/users/42`) or **relative to the current
+   * location** (`edit`, `./edit`, `../list`, `?tab=bio`), resolved with the same
+   * semantics a browser uses for an `<a href>`. External/scheme hrefs
+   * (`https:`, `mailto:`, `//host`) are left to the browser untouched.
+   */
   href: string;
   /** Replace the current history entry instead of pushing. */
   replace?: boolean;
@@ -304,6 +318,7 @@ function isExternal(href: string): boolean {
  */
 export function Link(props: LinkProps): JSXChild {
   const navigate = useNavigate();
+  const location = useLocation();
 
   const handleClick = (event: MouseEvent): void => {
     const onClick = props.onClick;
@@ -323,13 +338,20 @@ export function Link(props: LinkProps): JSXChild {
     }
   };
 
-  // Pass every prop through to the anchor except our own (`replace`), with our
-  // click handler wrapping any user-supplied one.
+  // Pass every prop through to the anchor except our own (`replace`, `href`),
+  // with our click handler wrapping any user-supplied one.
   const attrs: Record<string, unknown> = {};
   for (const key in props) {
-    if (key === "replace" || key === "onClick") continue;
+    if (key === "replace" || key === "onClick" || key === "href") continue;
     attrs[key] = props[key];
   }
   attrs.onClick = handleClick;
+  // The rendered `href` is the *resolved* absolute path (so middle-click, copy
+  // link, and the no-JS fallback all behave), and stays reactive for a relative
+  // href whose meaning shifts as the location changes. External hrefs are left
+  // verbatim — resolving would strip their origin.
+  attrs.href = isExternal(props.href)
+    ? props.href
+    : () => resolvePath(props.href, location().pathname);
   return jsx("a", attrs) as JSXChild;
 }

@@ -47,8 +47,12 @@ clean, docs bilingual.
   covered, runtime independent. See [`decisions.md`](./decisions.md#router-phase-6).
   **Nested routing** (layouts + child routes) is done — a `*`-wildcard route is a
   *layout* matched on a prefix; it renders a nested `<Routes>` against the leftover
-  path (no `<Outlet>`), and params merge down the chain. *Relative `<Link>` hrefs
-  remain a follow-up.*
+  path (no `<Outlet>`), and params merge down the chain. **Relative `<Link>` hrefs**
+  are done — `<Link href="edit">` / `"../list"` / `"?tab=bio"` resolve against the
+  current location with the same semantics a browser uses for an `<a href>` (a pure
+  `resolvePath` helper in `location.ts`; `useNavigate()` resolves relatives too, and
+  the rendered anchor shows the resolved absolute path while staying reactive).
+  External hrefs are left untouched.
 - [x] **SSR + hydration.** Done — `renderToString` (core, runtime-independent:
   installs a serializable server DOM so the eager JSX runtime can run with no
   real `document`, builds the tree once, returns `{ html, head }` with scoped-CSS
@@ -123,14 +127,21 @@ boundaries in [`decisions.md`](./decisions.md#islands--partial-hydration-phase-7
   (both need a compiler), and resumability (contradicts the runtime-JSX design).
 
 ### DX & type precision
-- [~] Tighten `JSX.IntrinsicElements`. **Event handlers done** — `on*` props are
+- [x] Tighten `JSX.IntrinsicElements`. **Event handlers** — `on*` props are
   typed as `EventHandler<E>` functions (a typed event), so "forgot the `() =>`"
   (`onClick={count.set(…)}`) is a compile error, while conditional handlers
-  (`undefined`) and the `void`/`undefined` distinction are handled precisely. See
-  [`dx.md`](./dx.md#1-type-level-checks-compile-time). **Remaining:** per-element
-  *attribute* types (still `[attr]: any`).
-- [ ] Precise `splitProps` return type (tuple of `Pick`/`Omit`) instead of the
-  current loose `Array<Partial<T>>`.
+  (`undefined`) and the `void`/`undefined` distinction are handled precisely.
+  **Per-element attributes** are now typed too — `IntrinsicElements` maps common
+  elements to their own shapes (`a`/`input`/`button`/…), every attribute typed
+  `Attr<T>` (the value *or* a reactive accessor, honouring the convention), so a
+  mistyped attribute (`disabled="yes"`, `<button type="email">`) is a compile
+  error with per-element autocomplete. Unlisted elements / unknown attributes
+  (`data-*`/`aria-*`) stay permissive via an `[attr]: any` fallback. See
+  [`dx.md`](./dx.md#1-type-level-checks-compile-time).
+- [x] Precise `splitProps` return type — a tuple of `Pick` per key group then a
+  trailing `Omit` for the rest (`SplitProps<T, K>`, via a `const` type parameter
+  so literal keys survive inference), instead of the old loose
+  `Array<Partial<T>>`.
 
 > The three layers that *do* catch mistakes (types, runtime dev warnings, tests)
 > are consolidated in [`dx.md`](./dx.md) — including what can't be caught without

@@ -697,6 +697,36 @@ describe("<Link>", () => {
     expect(clicked).toBe(true);
     expect(src.location()).toBe("/dest");
   });
+
+  test("a relative href resolves against the current location", () => {
+    const src = createMemorySource("/users/1");
+    const container = createContainer();
+    render(
+      () =>
+        jsx(Router, {
+          source: src,
+          children: () =>
+            jsx("div", {
+              children: [
+                jsx(Link, { href: "2", children: "sibling" }),
+                jsx(Route, { path: "/users/2", children: jsx("p", { children: "two" }) }),
+              ],
+            }),
+        }),
+      asEl(container),
+    );
+    const a = findTag(container, "a")!;
+    // The rendered href is the resolved absolute path.
+    expect(a.getAttribute("href")).toBe("/users/2");
+    a.dispatch("click", { ...leftClick });
+    expect(src.location()).toBe("/users/2");
+    expect(serialize(container)).toContain("<p>two</p>");
+  });
+
+  test("a rendered external href is left verbatim (not origin-stripped)", () => {
+    const { container } = renderWithLink({ href: "https://example.com/x", children: "out" });
+    expect(findTag(container, "a")!.getAttribute("href")).toBe("https://example.com/x");
+  });
 });
 
 // A structural stand-in for `window`, backed by an in-memory URL.
