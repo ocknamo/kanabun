@@ -7,13 +7,21 @@
 import { build } from "./build";
 import { create } from "./create";
 import { dev, type DevServer } from "./dev";
+import { generate } from "./generate";
 
 export { build } from "./build";
 export { create, templateFiles } from "./create";
 export { dev, createDevHandler } from "./dev";
+export { generate } from "./generate";
 export type { BuildOptions, BuildResult } from "./build";
 export type { CreateOptions } from "./create";
 export type { DevOptions, DevServer, DevHandlerOptions } from "./dev";
+export type {
+  GenerateOptions,
+  GenerateResult,
+  SSGConfig,
+  DocumentContext,
+} from "./generate";
 
 const VERSION = "0.0.0";
 
@@ -23,6 +31,7 @@ Usage:
   kanabun create <name>     scaffold a new app
   kanabun dev [entry]       start the dev server (default: index.html)
   kanabun build [entry]     bundle for the browser (default: index.html)
+  kanabun generate [entry]  prerender to static HTML (default: ssg.tsx)
 
 Options:
   --outdir <dir>            build output directory (default: dist)
@@ -115,6 +124,20 @@ export async function run(argv: string[]): Promise<DevServer | undefined> {
         throw new Error(`kanabun: build failed:\n${result.logs.join("\n")}`);
       }
       console.log(`Built ${result.outputs.length} file(s) to ${outdir}`);
+      return undefined;
+    }
+    case "generate": {
+      const entry = positionals[0] ?? "ssg.tsx";
+      const outdir = typeof flags.outdir === "string" ? flags.outdir : "dist";
+      const result = await generate({
+        entry,
+        outdir,
+        minify: flags["no-minify"] !== true,
+      });
+      if (!result.success) {
+        throw new Error(`kanabun: generate failed:\n${result.logs.join("\n")}`);
+      }
+      console.log(`Generated ${result.pages.length} page(s) to ${outdir}`);
       return undefined;
     }
     case "dev": {

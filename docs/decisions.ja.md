@@ -450,6 +450,32 @@ SSG  = ビルド時に renderToString し、.html に書き出す(+任意で hyd
   無し)ならどちらも不要。既存の hash ルーター / GitHub Pages 路線は、各ルートを `index.html`
   に prerender する話と綺麗に合成できる。
 
+### `kanabun generate` ── SSG コマンド
+
+上で約束した prerender ループは **`kanabun generate [entry]`**
+(`packages/cli/src/generate.ts`)として実装した:2 つのコアプリミティブを静的ファイルに
+変える Bun 層。SSG の **config** モジュールを import し、各ルートで
+`renderToString(() => render(path))` を呼び、マークアップを HTML ドキュメントで包んで
+`<outdir>/<route>/index.html` に書き出す(`/` → `index.html`、`/about/` →
+`about/index.html`)。
+
+- **config が SSG の契約。** `{ routes?, render(path), client?, title?, document? }`。
+  `render` はパスごとのビューを返す。`routes` は既定 `["/"]`。`client`(config ファイル
+  からの相対で解決)は `Bun.build` で **一度だけ** バンドルされ全ページから参照される ──
+  これで静的 HTML がハイドレートする。`document` を渡せば組み込みのシェルを上書きできる。
+  `client` 無しの config は静的のみ(クライアント JS を出さない)。
+- **新しい描画経路は無い ── 純粋なオーケストレーション。** `generate` は
+  `renderToString`(コア)+ `Bun.build` + `fs` だけで、上で示した「薄い CLI の prerender
+  ループ」そのもの。描画はコアでランタイム非依存のまま、ファイル書き出しとクライアント
+  バンドルだけが CLI に居る。
+- **`build` 同様 never-throw。** 不正なエントリ・クライアントバンドル失敗(`Bun.build` は
+  `AggregateError` を投げ、`build` と同じく `errorMessages` で展開)・`render` の throw は
+  すべて `{ success: false, logs }` として報告する。
+- **ルート列挙は今のところ明示(`routes` 配列)。** `@kanabun/router` からの一覧取得や
+  動的パラメータ向けの `getStaticPaths` 相当の列挙子、ビルド時のデータ焼き込み
+  (`resource` の直列化スナップショット)は引き続き follow-up。`examples/ssg` が動く例
+  ── 2 ルート・スコープド CSS・ハイドレートするカウンター。
+
 これも同じ基準 ── 依存ゼロ・`packages/core` はランタイム非依存・全ソース カバレッジ 100%・
 `tsc` クリーン・ドキュメントはバイリンガル。
 

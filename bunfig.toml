@@ -11,7 +11,14 @@ coverageSkipTestFiles = true
 # Test-only helpers (the DOM mock) and example apps are not product code.
 # Specs sit next to the source they cover, so the shared mock is ignored by
 # name rather than by directory.
-coveragePathIgnorePatterns = ["**/dom-mock.ts", "**/examples/**"]
+# `kanabun-generate-fix-*` is the tmp dir of throwaway config modules that
+# `generate.spec.ts` imports at runtime (so they'd otherwise count) — test
+# fixtures, not product code.
+coveragePathIgnorePatterns = [
+  "**/dom-mock.ts",
+  "**/examples/**",
+  "**/kanabun-generate-fix-*/**",
+]
 # Fail the run if coverage drops below this fraction (checked whenever
 # coverage is collected). The core is meant to stay fully covered.
 coverageThreshold = 0.9

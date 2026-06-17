@@ -109,6 +109,28 @@ describe("run", () => {
     }
   });
 
+  test("generate reports the page count, and a failure throws", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "kanabun-run-generate-"));
+    try {
+      const out = await capture(() =>
+        run([
+          "generate",
+          resolve(root, "examples/ssg/ssg.tsx"),
+          "--outdir",
+          join(dir, "site"),
+          "--no-minify",
+        ]),
+      );
+      expect(out).toContain("Generated 2 page(s)");
+
+      await expect(
+        run(["generate", join(dir, "missing.tsx"), "--outdir", join(dir, "site")]),
+      ).rejects.toThrow(/generate failed/);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
   test("dev rejects an invalid --port (non-numeric or out of range)", async () => {
     const html = resolve(root, "examples/counter/index.html");
     await expect(run(["dev", html, "--port", "abc"])).rejects.toThrow(/invalid --port/);
