@@ -453,6 +453,53 @@ SSG  = ビルド時に renderToString し、.html に書き出す(+任意で hyd
 これも同じ基準 ── 依存ゼロ・`packages/core` はランタイム非依存・全ソース カバレッジ 100%・
 `tsc` クリーン・ドキュメントはバイリンガル。
 
+## 非同期 / Suspense(Phase 6)
+
+`resource` は非同期関数をリアクティブな状態に変え、`<Suspense>` はそのロード中に
+fallback を表示します。Phase 6 の他と同様、どちらも既存の仕組み(signals + owner
+ツリーの context)に乗るだけで、コアに新しいプリミティブを足しません。
+
+- **resource は 3 つの signal + version カウンタ。** `value`・`loading`・`error` は
+  素の signal。resource を読む(`data()`)と `value` を読み、`data.loading()` /
+  `data.error()` は残り 2 つのアクセサ ── プロパティゲッターの魔法は使わず明示 getter
+  (フレームワークの規約)。load ごとに単調増加の `version` を捕捉し、fetch が決着しても
+  version が最新でなければ破棄する。この 1 つのチェックが resource を**レース安全**に
+  する:遅い先行リクエストは、より速い新しいリクエスト(や `mutate`)が既に書いた値を
+  上書きできない。
+- **source はリアクティブで、未準備なら待機。** `resource(source, fetcher)` は fetch を
+  `source()` を読む `effect` で包むので、source が変われば再取得する。source が
+  `false`/`null`/`undefined` は「未準備」を意味し、進行中の load をキャンセル
+  (`version` を進める)してアイドルする(Solid と同じ)。source 無しの
+  `resource(fetcher)` は一度だけロードする(source は定数 `true`)。
+- **fetcher 呼び出しは 1 microtask 遅延。** `load` は
+  `Promise.resolve().then(() => fetcher(…))` とするので、**同期**の throw も rejection に
+  なり(エラー処理を統一)、解決前に `loading` が確実に `true` に観測される ── 値を同期で
+  返す fetcher でも同様。
+- **エラーは owner ツリーではなく `error()` で公開。** 拒否された fetch はリアクティブ
+  グラフに throw せず `error` を立てる。最寄りの `<ErrorBoundary>` へ転送するには
+  リアクティブな*読み取り*中に throw する必要があり、eager・ボトムアップのランタイムでは
+  正しい境界へ綺麗に結び付けられない ── ハイドレーションを形作るのと同じ「カーソル無し」の
+  制約。`error()` の公開は予測可能で UI に選択を委ねられる;resource 専用の
+  `<ErrorBoundary>` 連携はコンパイラ/マーカーと共に将来。
+- **`<Suspense>` は子を一度だけ生成し、あとは*選ぶ*だけ ── `<ErrorBoundary>` と同じ。**
+  `SuspenseContext`(`pending` カウンタを増減する小さなレジストリ)を提供し、子を**その
+  context の下・専用 `createRoot` で一度だけ**生成する。サブツリーで作られた resource は
+  `useContext` でレジストリを見つけ、ロード中はそれを increment するので、描画 thunk は
+  `pending()` を読んで fallback か(既に生成済み・生かしてある)子かを返すだけ。一度だけ
+  生成するのが要:`pending` が 0 になってから子を遅延生成すると、隠すたびに resource が
+  破棄→decrement→再表示→resource 再生成…と無限ループする。隠れている間も生かすのは要素子を
+  持つ `<Show>` と同じ。
+- **初回ロードのみサスペンド。** resource は初回成功(`resolvedOnce`)まで境界に登録し、
+  以降の `refetch()` は `loading` を立てるが再 increment しないので、直前の値が画面に残る
+  (インラインのスピナーには `loading()` を読む)。これは「再検証中は古い内容を見せる」
+  一般的な挙動で、これも Solid と同じ。
+- **子は関数(遅延)── `<Show>`/context/`<ErrorBoundary>` と同じ。** thunk で包めば
+  resource が境界の*下で生成*され、context を見られる;素の eager な子は `<Suspense>` の
+  実行前に作られ、何にも登録されない。
+
+これも同じ基準 ── 依存ゼロ・`packages/core` はランタイム非依存・全ソース カバレッジ 100%・
+`tsc` クリーン・ドキュメントはバイリンガル。
+
 ## ロードマップ(要約)
 
 - **Phase 0 — 足場:** Bun プロジェクト、ワークスペース分割(`core` と将来の `cli`)、

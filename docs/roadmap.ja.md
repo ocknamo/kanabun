@@ -15,7 +15,7 @@
 | 3 | 制御構文: `<Show>`、`<For>`(keyed); **TodoMVC 稼働** | ✅ 完了 |
 | 4 | コンポーネントモデルと DX | ✅ 完了 — `onMount`/`mergeProps`/`splitProps`/スコープド `css`/`context` |
 | 5 | Bun 連携: `create` / `dev` / `build` CLI | ✅ 完了 |
-| 6 | 堅牢化・周辺(ルーター、SSR 等) | 🟡 進行中 — **ルーター + エラーバウンダリ + 開発時警告 + SSR/ハイドレーション 完了**;残りは任意 |
+| 6 | 堅牢化・周辺(ルーター、SSR 等) | 🟡 進行中 — **ルーター + エラーバウンダリ + 開発時警告 + SSR/ハイドレーション + 非同期(`resource`/`<Suspense>`)完了**;残りは任意 |
 
 全期間で維持した品質基準: **ランタイム依存ゼロ**、`packages/core` のランタイム非依存、
 全ソースファイルの行/関数カバレッジ 100%、`tsc` クリーン、ドキュメントのバイリンガル。
@@ -61,7 +61,18 @@
   (エラーハンドラを private シンボル下の context として保存し、throw は最も近いハンドラを
   上に辿る ── 無ければ再 throw)。依存ゼロ・カバレッジ 100%・ランタイム非依存。詳細は
   [`decisions.ja.md`](./decisions.ja.md#エラーバウンダリphase-6) を参照。
-- [ ] **非同期 / Suspense** プリミティブ(例: `resource`)。
+- [x] **非同期 / Suspense** プリミティブ。完了 ── `resource(fetcher)` /
+  `resource(source, fetcher)` が非同期関数をリアクティブな状態に変える:値アクセサ + 
+  `loading`/`error` アクセサ + `{ mutate, refetch }` アクション。レース安全(古い fetch が
+  新しい結果を上書きしない)、リアクティブな `source` 変化で再取得、source が未準備
+  (`false`/`null`/`undefined`)の間はアイドル。`<Suspense fallback>` は子の resource が
+  *初回ロード* 中は fallback を表示し、完了後に子を見せる(子は境界の下で一度だけ生成し、
+  隠れている間も生かしておく ── 要素子を持つ `<Show>` と同じ)。以降の `refetch()` は
+  直前の値を画面に残す(インラインのスピナーには `loading()` を読む)。子は **関数** で包み、
+  resource が境界の下で生成されるようにする(`<Show>`/context と同じ規約)。エラーは
+  `resource.error()` で公開(`<ErrorBoundary>` へ自動転送はしない)。コアの signals + 
+  owner ツリー context に乗る;依存ゼロ・カバレッジ 100%・ランタイム非依存。詳細は
+  [`decisions.ja.md`](./decisions.ja.md#非同期--suspensephase-6) を参照。
 - [x] **開発時の警告。** 完了 ── オプトインのランタイム診断(`setDev(true)`。
   `kanabun dev` は `globalThis.__KANABUN_DEV__` 経由で自動有効化)。owner 外の
   `effect()`/`onMount()`/`onCleanup()` と、computed 内のシグナル書き込みを検知。重複排除

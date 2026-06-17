@@ -522,6 +522,60 @@ prerender loop, with **no new rendering logic**.
 Held to the same bar: zero dependencies, `packages/core` runtime-independent,
 100% line/function coverage, `tsc` clean, docs bilingual.
 
+## Async / Suspense (Phase 6)
+
+`resource` turns an async function into reactive state, and `<Suspense>` shows a
+fallback while it loads. Like the rest of Phase 6, both ride existing machinery
+(signals + the owner-tree context) and add no new primitives to the core.
+
+- **A resource is three signals + a version counter.** `value`, `loading`, and
+  `error` are plain signals; reading the resource (`data()`) reads `value`, and
+  `data.loading()` / `data.error()` are accessors over the other two — explicit
+  getters, no property-getter magic (the framework's convention). A monotonically
+  increasing `version` is captured per load; when a fetch settles it is dropped
+  unless its version is still current. That single check makes the resource
+  **race-safe**: a slow first request can't clobber the value a faster, newer
+  request (or a `mutate`) already wrote.
+- **The source is reactive; an unready source idles.** `resource(source, fetcher)`
+  wraps the fetch in an `effect` that reads `source()`, so a changing source
+  refetches. A source of `false`/`null`/`undefined` means "not ready" — it cancels
+  any in-flight load (bump `version`) and stays idle, mirroring Solid. With no
+  source, `resource(fetcher)` loads once (the source is a constant `true`).
+- **The fetcher call is deferred a microtask.** `load` does
+  `Promise.resolve().then(() => fetcher(…))` so a *synchronous* throw becomes a
+  rejection (uniform error handling) and `loading` is observably `true` before the
+  resolution — even for a fetcher that returns a value synchronously.
+- **Errors surface via `error()`, not the owner tree.** A rejected fetch sets
+  `error` rather than throwing into the reactive graph. Routing it to the nearest
+  `<ErrorBoundary>` would mean throwing during a reactive *read*, which the eager,
+  bottom-up runtime can't tie back to the right boundary cleanly — the same
+  no-cursor limitation that shapes hydration. Exposing `error()` is predictable
+  and lets the UI choose; an explicit `<ErrorBoundary>` story for resources can
+  come with a compiler/markers later.
+- **`<Suspense>` builds its children once, then *chooses* — exactly like
+  `<ErrorBoundary>`.** It provides a `SuspenseContext` (a tiny
+  increment/decrement registry over a `pending` counter) and builds the children
+  **once, in their own `createRoot`, under that context**. A resource created in
+  the subtree finds the registry via `useContext` and increments it while loading,
+  so the render thunk merely reads `pending()` and returns the fallback or the
+  (already built, kept-alive) children. Building once is essential: were the
+  children rebuilt lazily when `pending` hit zero, hiding them would dispose the
+  resource, which would decrement, which would reveal them, which would recreate
+  the resource — an infinite loop. Keeping them alive while hidden is just `<Show>`
+  with an element child.
+- **Only the first load suspends.** A resource registers with the boundary only
+  until its first success (`resolvedOnce`); later `refetch()`s set `loading` but
+  don't re-increment, so the last value stays on screen (read `loading()` for an
+  inline spinner). This is the common "show stale content while revalidating"
+  behaviour, again matching Solid.
+- **Children are a function (lazy), same as `<Show>`/context/`<ErrorBoundary>`.**
+  Wrap them in a thunk so the resources are *created under* the boundary (and thus
+  see its context); a plain eager child is built before `<Suspense>` runs and
+  registers with nothing.
+
+Held to the same bar: zero dependencies, `packages/core` runtime-independent,
+100% line/function coverage, `tsc` clean, docs bilingual.
+
 ## Roadmap (abridged)
 
 - **Phase 0 — scaffold:** Bun project, workspace split (`core` vs future
