@@ -91,6 +91,29 @@ describe("generate", () => {
     );
   });
 
+  test("renders routes mapping to the same file once (pages reflects files written)", async () => {
+    const entry = await fixture(
+      "dupes.ts",
+      `export default { routes: ["/", "/", "/a", "/a/"], render: (p) => "x" };\n`,
+    );
+    const out = join(outdir, "dupes");
+    const result = await generate({ entry, outdir: out });
+    expect(result.success).toBe(true);
+    // "/" + "/" collapse to one, "/a" + "/a/" collapse to one → 2 unique files.
+    expect(result.pages.length).toBe(2);
+    expect(new Set(result.pages).size).toBe(2);
+  });
+
+  test("refuses a route that escapes the output directory", async () => {
+    const entry = await fixture(
+      "escape.ts",
+      `export default { routes: ["/../evil"], render: (p) => "x" };\n`,
+    );
+    const result = await generate({ entry, outdir: join(outdir, "escape") });
+    expect(result.success).toBe(false);
+    expect(result.logs.join("\n")).toMatch(/escapes the output directory/);
+  });
+
   test("reports failure when the config has no render function", async () => {
     const entry = await fixture("norender.ts", `export default { routes: ["/"] };\n`);
     const result = await generate({ entry, outdir: join(outdir, "norender") });

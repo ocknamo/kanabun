@@ -12,7 +12,7 @@
  * The render itself reuses core's primitive — no new rendering path.
  */
 import { mkdir, writeFile } from "node:fs/promises";
-import { dirname, join, relative, resolve } from "node:path";
+import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { renderToString } from "@kanabun/core";
 import { errorMessages } from "./errors";
 
@@ -121,11 +121,28 @@ export async function generate(options: GenerateOptions): Promise<GenerateResult
       script = `<script type="module" src="/${relative(outdir, out.path)}"></script>`;
     }
 
+    const written = new Set<string>();
     for (const path of routes) {
+      const file = join(outdir, routeToFile(path));
+      // Keep every page inside `outdir` — a route like `/../x` must not write
+      // above it. (Routes are build-time config, so this is a guardrail, not a
+      // trust boundary.)
+      const rel = relative(outdir, file);
+      if (rel.startsWith("..") || isAbsolute(rel)) {
+        return {
+          success: false,
+          pages,
+          logs: [`kanabun: route ${JSON.stringify(path)} escapes the output directory.`],
+        };
+      }
+      // Distinct routes that map to the same file (e.g. a duplicate, or `/a` and
+      // `/a/`) render once — so `pages` reflects the files actually written.
+      if (written.has(file)) continue;
+      written.add(file);
+
       const { html, head } = renderToString(() => config.render(path));
       const ctx: DocumentContext = { html, head, path, script };
       const page = config.document ? config.document(ctx) : defaultDocument(ctx, title);
-      const file = join(outdir, routeToFile(path));
       await mkdir(dirname(file), { recursive: true });
       await writeFile(file, page);
       pages.push(file);
