@@ -236,3 +236,27 @@ export function render(code: () => unknown, container: Element): Disposer {
     container.textContent = "";
   };
 }
+
+/**
+ * Mount the client app over server-rendered markup. Pair with
+ * {@link ../server!renderToString}: the server HTML paints first (fast first
+ * paint, SEO), then `hydrate` makes it interactive.
+ *
+ * It clears the container's server markup and mounts the live reactive tree in
+ * its place. Because the page already painted identical bytes, there is no
+ * visual flash. What this deliberately does **not** do is adopt the existing
+ * server nodes (reuse them in place, only attaching listeners/effects): with a
+ * runtime JSX that builds DOM *eagerly and bottom-up* — children before their
+ * parent, with no positional cursor and no compiler-emitted hydration markers —
+ * a child element is created before anything knows where in the server tree it
+ * belongs, so there is nothing to anchor node-level adoption to. True adoption
+ * needs markers or a compiler; that is out of scope by the founding "no
+ * compiler" constraint. See `docs/decisions.md` → "SSR, hydration & SSG".
+ *
+ * Returns a disposer that tears down reactivity and clears the container, like
+ * {@link render}.
+ */
+export function hydrate(code: () => unknown, container: Element): Disposer {
+  container.textContent = "";
+  return render(code, container);
+}

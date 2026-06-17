@@ -456,6 +456,72 @@ convention makes easy to get wrong.
 Held to the same bar: 100% line/function coverage and a clean `tsc`, zero
 dependencies, runtime independent.
 
+## SSR, hydration & SSG (Phase 6)
+
+The framing decision: **SSG is not a separate feature — it is SSR run at build
+time instead of request time.** The two share one server-side primitive
+(`renderToString`) and one client-side primitive (`hydrate`); the only
+difference is *when* `renderToString` runs and whether its output is cached to
+disk. Designing SSG as its own thing would mean a second render path. Instead:
+
+```
+core:  renderToString(() => <App/>)  → HTML string, no DOM, signals read once
+       hydrate(() => <App/>, root)   → mount the live tree over server markup
+                                       (clears + re-renders; no node adoption)
+SSR  = renderToString at request time, returned in the response
+SSG  = renderToString at build time, written to .html files (+ optional hydrate)
+```
+
+So the build order is SSR/hydration first; SSG then reduces to a thin CLI
+prerender loop, with **no new rendering logic**.
+
+- **`renderToString` lives in core and never touches `document`.** The live
+  `render` (`dom.ts`) walks the tree wrapping dynamic bits in `effect`s against
+  a real DOM. The server has no DOM and needs no reactivity — markup is produced
+  once — so `renderToString` is a separate walk that **reads a reactive value
+  exactly once** (calls the accessor, does not subscribe) and concatenates
+  strings. It is pure standard JS (no `Bun.*`/`fs`/`document`), so it stays in
+  `packages/core` and keeps the runtime-independence rule. Writing files for SSG
+  is the only step that needs `fs`, and that lives in the CLI/Bun layer.
+- **Hydration is "mount over markup", not node-level adoption — and that is a
+  consequence of the founding constraints, not laziness.** The server HTML
+  paints first (fast first paint, SEO); then `hydrate` clears it and mounts the
+  live reactive tree in its place. Because the bytes are identical there is no
+  visual flash. What it does *not* do is adopt the existing server nodes (reuse
+  them in place, only wiring listeners/effects). Here's why that's not feasible:
+  the JSX runtime builds DOM **eagerly and bottom-up** — `jsx("div", {children:
+  [jsx("span", …)]})` evaluates the inner `jsx` (and its `createElement`) before
+  the outer one, so a child node is constructed before anything knows where in
+  the server tree it belongs. Node-level adoption needs a top-down cursor over
+  the server DOM, which in turn needs either compiler-emitted hydration markers
+  or template cloning (how Solid does it). Both are ruled out by the "no
+  compiler" constraint, so adoption is documented future work, not a v1
+  promise. The cost we accept is losing in-place node reuse (and transient focus
+  state in the mounted subtree) — not correctness or first paint.
+- **Scoped CSS collects into the server `<head>` — the shared gotcha.** `css`'s
+  `inject` appends a `<style data-k>` to `document.head`. On the server the
+  installed `ServerDocument` *has* a `<head>`, so styles emitted **during** the
+  render collect there for free and `renderToString` returns them as its `head`
+  string. The wrinkle is import-time styles: a module-level `` css`…` `` runs
+  before `renderToString` installs its document, when there is no `document` at
+  all — so `inject` buffers those in a `pending` map instead of throwing, and
+  `renderToString` replays them (`flushStyles`) once its document is in place.
+  The `data-k` hash on each tag means the client dedupes against the
+  server-sent `<style>` on hydration rather than injecting a duplicate. Shared
+  by SSR *and* SSG — neither has a live browser `<head>` at module-eval time.
+- **Hydration is identical for SSR and SSG.** Nothing in the client path cares
+  whether the markup came from a request or a build. SSG adds no hydration code.
+- **SSG-only concerns** (deferred until the SSR primitives land): enumerating
+  *which* paths to prerender (a route list from the router, or an explicit array;
+  dynamic params want a `getStaticPaths`-style enumerator); and baking *data* at
+  build time, since there is no per-request server — this is where Async/Suspense
+  (`resource`) and a serialized data snapshot matter. A fully static page (events
+  only, no fetched data) needs neither. The existing hash-router / GitHub Pages
+  story composes cleanly with prerendering each route to an `index.html`.
+
+Held to the same bar: zero dependencies, `packages/core` runtime-independent,
+100% line/function coverage, `tsc` clean, docs bilingual.
+
 ## Roadmap (abridged)
 
 - **Phase 0 — scaffold:** Bun project, workspace split (`core` vs future
@@ -472,5 +538,6 @@ dependencies, runtime independent.
   function-children — see below). ✅
 - **Phase 5 — Bun integration:** `create` / `dev` / `build` CLI; dev server with
   full-reload over WebSocket. Bun-only layer, 100% covered. ✅
-- **Phase 6 — hardening (optional):** **router done** (`@kanabun/router`, above).
-  Remaining: SSR/hydration, stateful HMR, etc. (optional).
+- **Phase 6 — hardening (optional):** **router + error boundaries + dev-time
+  warnings + SSR/hydration done** (above). Remaining: stateful HMR,
+  Async/Suspense, etc. (optional).

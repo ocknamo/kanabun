@@ -1,5 +1,5 @@
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
-import { signal, render, jsx, Fragment, insert } from "./index";
+import { signal, render, hydrate, jsx, Fragment, insert } from "./index";
 import { jsxDEV } from "./jsx-dev-runtime";
 import {
   installDOM,
@@ -247,5 +247,35 @@ describe("render + dispose", () => {
 
     // Reactivity is torn down: further writes do nothing (and don't throw).
     expect(() => count.set(99)).not.toThrow();
+  });
+});
+
+describe("hydrate", () => {
+  test("clears server markup, mounts the interactive tree, then disposes", () => {
+    const count = signal(0);
+    const container = createContainer();
+    // Simulate server-rendered markup already in the container.
+    const serverMarkup = createContainer("button");
+    serverMarkup.textContent = "0";
+    container.appendChild(serverMarkup);
+    expect(serialize(container)).toBe("<div><button>0</button></div>");
+
+    const dispose = hydrate(
+      () =>
+        jsx("button", {
+          onClick: () => count.update((n) => n + 1),
+          children: count,
+        }),
+      asEl(container),
+    );
+
+    // Server markup is replaced by the live tree (no duplication).
+    expect(serialize(container)).toBe("<div><button>0</button></div>");
+    // The mounted tree is interactive (the server one was not).
+    el(container.firstChild).dispatch("click");
+    expect(serialize(container)).toBe("<div><button>1</button></div>");
+
+    dispose();
+    expect(serialize(container)).toBe("<div></div>");
   });
 });

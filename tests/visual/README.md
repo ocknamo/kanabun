@@ -59,8 +59,9 @@ npx playwright test -c tests/visual/playwright.config.cjs --update-snapshots  # 
 npx playwright test -c tests/visual/playwright.config.cjs                     # compare
 ```
 
-The config boots both example dev servers (`counter` on :3000, `todomvc` on
-:3101) and screenshots each at PC (1280×900) and mobile (375×800) viewports.
+The config boots the example servers (`counter` on :3000, `todomvc` on :3101,
+and the `ssr` server — `renderToString` + hydration — on :3102) and screenshots
+each at PC (1280×900) and mobile (375×800) viewports.
 
 ## Tuning
 
