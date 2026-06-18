@@ -48,6 +48,17 @@ export interface ParsedArgs {
   flags: Record<string, string | boolean>;
 }
 
+/** Return `flags[key]` if it is a string, otherwise `def` (default `undefined`). */
+function stringFlag(flags: ParsedArgs["flags"], key: string): string | undefined;
+function stringFlag(flags: ParsedArgs["flags"], key: string, def: string): string;
+function stringFlag(
+  flags: ParsedArgs["flags"],
+  key: string,
+  def?: string,
+): string | undefined {
+  return typeof flags[key] === "string" ? (flags[key] as string) : def;
+}
+
 /** Minimal argv parser: `command`, positionals, and `--flag [value]` / `-x`. */
 export function parseArgs(argv: string[]): ParsedArgs {
   const positionals: string[] = [];
@@ -115,7 +126,7 @@ export async function run(argv: string[]): Promise<DevServer | undefined> {
     }
     case "build": {
       const entry = positionals[0] ?? "index.html";
-      const outdir = typeof flags.outdir === "string" ? flags.outdir : "dist";
+      const outdir = stringFlag(flags, "outdir", "dist");
       const result = await build({
         entry,
         outdir,
@@ -129,12 +140,12 @@ export async function run(argv: string[]): Promise<DevServer | undefined> {
     }
     case "generate": {
       const entry = positionals[0] ?? "ssg.tsx";
-      const outdir = typeof flags.outdir === "string" ? flags.outdir : "dist";
+      const outdir = stringFlag(flags, "outdir", "dist");
       const result = await generate({
         entry,
         outdir,
         minify: flags["no-minify"] !== true,
-        base: typeof flags.base === "string" ? flags.base : undefined,
+        base: stringFlag(flags, "base"),
       });
       if (!result.success) {
         throw new Error(`kanabun: generate failed:\n${result.logs.join("\n")}`);
