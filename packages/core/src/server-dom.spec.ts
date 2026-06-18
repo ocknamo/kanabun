@@ -195,6 +195,32 @@ describe("serialize", () => {
     expect(serialize(style)).toBe("<style>.a > .b { content: '&' }</style>");
   });
 
+  test("raw-text bodies cannot break out of <style>/<script> (SSR XSS sink)", () => {
+    const d = new ServerDocument();
+    // S2 PoC: untrusted value interpolated into the `css` helper output.
+    const style = d.createElement("style");
+    style.textContent = ".k{}</style><img src=x onerror=alert(1)>";
+    const styleOut = serialize(style);
+    expect(styleOut).not.toContain("</style><img");
+    expect(styleOut).toBe(
+      "<style>.k{}<\\/style><img src=x onerror=alert(1)></style>",
+    );
+
+    // S7 PoC (shared raw-text sink): untrusted text as a <script> child.
+    const script = d.createElement("script");
+    script.textContent = "0;</script><img src=x onerror=alert(1)>";
+    const scriptOut = serialize(script);
+    expect(scriptOut).not.toContain("</script><img");
+    expect(scriptOut).toBe(
+      "<script>0;<\\/script><img src=x onerror=alert(1)></script>",
+    );
+
+    // Case-insensitive: the parser closes on `</STYLE` too.
+    const upper = d.createElement("style");
+    upper.textContent = "a</STYLE>b";
+    expect(serialize(upper)).toBe("<style>a<\\/STYLE>b</style>");
+  });
+
   test("comment node", () => {
     const d = new ServerDocument();
     expect(serialize(d.createComment(""))).toBe("<!---->");
