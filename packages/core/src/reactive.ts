@@ -542,8 +542,10 @@ const ERROR = Symbol("error-handler");
  * Create a non-tracking owner scope parented to `currentOwner` and registered
  * in its `owned` list, so it is disposed when the enclosing owner disposes.
  * Used by `catchError` and `createContextScope` — both need the same wiring.
- * Intentionally NOT used by `createRoot`, which keeps its scope isolated
- * (not pushed onto the parent's owned list) by design.
+ * Intentionally NOT used by `createRoot`, which is disposal-isolated (not
+ * pushed onto the parent's owned list, so lifetime is managed by the returned
+ * disposer) — but `createRoot` still links `owner.owner` for context and
+ * error-handler chain-walking.
  */
 function createDependentScope(): ReactiveNode {
   const owner = new ReactiveNode(undefined, false, defaultEquals, false);
