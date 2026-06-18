@@ -539,6 +539,22 @@ export function onMount(fn: () => void): void {
 const ERROR = Symbol("error-handler");
 
 /**
+ * Create a non-tracking owner scope parented to `currentOwner` and registered
+ * in its `owned` list, so it is disposed when the enclosing owner disposes.
+ * Used by `catchError` and `createContextScope` — both need the same wiring.
+ * Intentionally NOT used by `createRoot`, which is disposal-isolated (not
+ * pushed onto the parent's owned list, so lifetime is managed by the returned
+ * disposer) — but `createRoot` still links `owner.owner` for context and
+ * error-handler chain-walking.
+ */
+function createDependentScope(): ReactiveNode {
+  const owner = new ReactiveNode(undefined, false, defaultEquals, false);
+  owner.owner = currentOwner;
+  if (currentOwner !== null) (currentOwner.owned ??= []).push(owner);
+  return owner;
+}
+
+/**
  * Route `err` to the nearest error handler registered (via {@link catchError})
  * on the owner tree at or above `owner`. If none is found the error is rethrown,
  * so an unguarded failure still surfaces to the host rather than being swallowed.
@@ -567,10 +583,8 @@ export function catchError<T>(
   tryFn: () => T,
   handler: (err: unknown) => void,
 ): T | undefined {
-  const owner = new ReactiveNode(undefined, false, defaultEquals, false);
-  owner.owner = currentOwner;
+  const owner = createDependentScope();
   owner.context = { [ERROR]: handler };
-  if (currentOwner !== null) (currentOwner.owned ??= []).push(owner);
   const prevOwner = currentOwner;
   currentOwner = owner;
   try {
@@ -612,10 +626,8 @@ export interface Context<T> {
  * disposed when that owner is, and `useContext` reads find it by walking up.
  */
 function createContextScope(id: symbol, value: unknown): ReactiveNode {
-  const owner = new ReactiveNode(undefined, false, defaultEquals, false);
-  owner.owner = currentOwner;
+  const owner = createDependentScope();
   owner.context = { [id]: value };
-  if (currentOwner !== null) (currentOwner.owned ??= []).push(owner);
   return owner;
 }
 
