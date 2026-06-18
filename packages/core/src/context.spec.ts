@@ -9,9 +9,7 @@ import {
   jsx,
   For,
 } from "./index";
-import { installDOM, createContainer, serialize, type MockNode } from "./dom-mock";
-
-const asEl = (n: MockNode) => n as unknown as Element;
+import { installDOM, createContainer, serialize, asEl } from "./dom-mock";
 
 describe("createContext / useContext", () => {
   test("returns the default value when no Provider is above the reader", () => {

@@ -2,9 +2,7 @@ import { describe, expect, test, beforeEach, afterEach } from "bun:test";
 import { createRoot, effect, signal, render, jsx } from "./index";
 import { resource, Suspense } from "./async";
 import type { Resource, ResourceActions, ResourceFetcherInfo } from "./async";
-import { installDOM, createContainer, serialize, type MockNode } from "./dom-mock";
-
-const asEl = (n: MockNode) => n as unknown as Element;
+import { installDOM, createContainer, serialize, asEl } from "./dom-mock";
 
 // A promise whose settlement we control from the test.
 function deferred<T>() {

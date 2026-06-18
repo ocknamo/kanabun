@@ -16,6 +16,7 @@ import {
   installDOM,
   createContainer,
   serialize,
+  asEl,
   type MockNode,
 } from "../../core/src/dom-mock";
 
@@ -27,8 +28,6 @@ afterEach(() => {
   teardown();
   delete (globalThis as { window?: unknown }).window;
 });
-
-const asEl = (n: MockNode) => n as unknown as Element;
 
 /** Depth-first search for the first node matching `pred`. */
 function find(node: MockNode, pred: (n: MockNode) => boolean): MockNode | undefined {

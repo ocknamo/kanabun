@@ -198,3 +198,6 @@ export function createContainer(tag = "div"): MockNode {
   el.tagName = tag.toUpperCase();
   return el;
 }
+
+/** Cast a MockNode to Element for use in tests. */
+export const asEl = (n: MockNode): Element => n as unknown as Element;

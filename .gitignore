@@ -121,3 +121,6 @@ test-results/
 playwright-report/
 blob-report/
 package-lock.json
+
+# Claude Code worktrees (temporary directories created by the agent)
+.claude/worktrees/
