@@ -56,7 +56,8 @@ function stringFlag(
   key: string,
   def?: string,
 ): string | undefined {
-  return typeof flags[key] === "string" ? (flags[key] as string) : def;
+  const v = flags[key];
+  return typeof v === "string" ? v : def;
 }
 
 /** Minimal argv parser: `command`, positionals, and `--flag [value]` / `-x`. */
@@ -156,10 +157,11 @@ export async function run(argv: string[]): Promise<DevServer | undefined> {
     case "dev": {
       const entry = positionals[0] ?? "index.html";
       let port = 3000;
-      if (typeof flags.port === "string") {
-        port = Number(flags.port);
+      const portStr = stringFlag(flags, "port");
+      if (portStr !== undefined) {
+        port = Number(portStr);
         if (!Number.isInteger(port) || port < 0 || port > 65535) {
-          throw new Error(`kanabun: invalid --port \`${flags.port}\`.`);
+          throw new Error(`kanabun: invalid --port \`${portStr}\`.`);
         }
       }
       const server = dev({ entry, port });
