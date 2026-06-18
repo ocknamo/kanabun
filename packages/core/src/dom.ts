@@ -16,8 +16,9 @@
  * Only Web APIs are used. The `document` is resolved lazily so importing this
  * module never requires a DOM; tests install a mock on `globalThis.document`.
  */
-import { effect, createRoot } from "./reactive";
+import { effect } from "./reactive";
 import type { Disposer } from "./reactive";
+import { createRoot } from "./lifecycle";
 
 /** Props passed to an intrinsic element (or component). */
 export type Props = Record<string, unknown> & { children?: unknown };

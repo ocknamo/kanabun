@@ -34,7 +34,7 @@ import { warn } from "./dev";
 const CLEAN = 0; // up to date
 const CHECK = 1; // a transitive source may have changed — re-validate sources
 const DIRTY = 2; // a direct source changed — must recompute
-const DISPOSED = 3; // torn down — inert
+export const DISPOSED = 3; // torn down — inert
 
 type Color = 0 | 1 | 2 | 3;
 
@@ -47,7 +47,7 @@ let listener: ReactiveNode | null = null;
  * preserved, and `createRoot` establishes ownership without tracking. Owned
  * children are disposed when the owner re-runs or is disposed.
  */
-let currentOwner: ReactiveNode | null = null;
+export let currentOwner: ReactiveNode | null = null;
 /** Outermost-batch depth; while > 0 effects are deferred. */
 let batchDepth = 0;
 /** Guards against re-entrant flushes (an effect writing a signal). */
@@ -73,7 +73,7 @@ export interface SignalOptions<T> {
 
 type EqualsFn = (a: unknown, b: unknown) => boolean;
 
-const defaultEquals: EqualsFn = (a, b) => a === b;
+export const defaultEquals: EqualsFn = (a, b) => a === b;
 const neverEquals: EqualsFn = () => false;
 
 function resolveEquals<T>(options?: SignalOptions<T>): EqualsFn {
@@ -89,7 +89,7 @@ function resolveEquals<T>(options?: SignalOptions<T>): EqualsFn {
  * Keeping them one shape keeps the propagation logic free of branches
  * on "kind", which is where reactivity bugs love to hide.
  */
-class ReactiveNode {
+export class ReactiveNode {
   value: unknown;
   /** Derivation. `null` for plain signals. */
   fn: (() => unknown) | null;
@@ -351,6 +351,57 @@ function flush(): void {
   }
 }
 
+// ── Owner scope helpers ──────────────────────────────────────────
+/**
+ * Run `fn` with `owner` as the current owner *and tracking suspended*
+ * (`listener = null`), restoring both afterwards. Lets callers in sibling
+ * modules (lifecycle.ts) establish a scope without touching the engine's
+ * private tracking state directly. Used by `createRoot` and `onMount`.
+ */
+export function runWithOwner<R>(owner: ReactiveNode | null, fn: () => R): R {
+  const prevOwner = currentOwner;
+  const prevListener = listener;
+  currentOwner = owner;
+  listener = null;
+  try {
+    return fn();
+  } finally {
+    currentOwner = prevOwner;
+    listener = prevListener;
+  }
+}
+
+/**
+ * Run `fn` with `owner` as the current owner — ownership only. Tracking is left
+ * untouched, so reactive reads inside `fn` still subscribe the active listener
+ * (e.g. a `<For>` thunk re-run by an `insert` effect keeps its dependencies).
+ */
+export function runUnderOwner<R>(owner: ReactiveNode, fn: () => R): R {
+  const prev = currentOwner;
+  currentOwner = owner;
+  try {
+    return fn();
+  } finally {
+    currentOwner = prev;
+  }
+}
+
+/**
+ * Create a non-tracking owner scope parented to `currentOwner` and registered
+ * in its `owned` list, so it is disposed when the enclosing owner disposes.
+ * Used by `catchError` and `createContextScope` — both need the same wiring.
+ * Intentionally NOT used by `createRoot`, which is disposal-isolated (not
+ * pushed onto the parent's owned list, so lifetime is managed by the returned
+ * disposer) — but `createRoot` still links `owner.owner` for context and
+ * error-handler chain-walking.
+ */
+export function createDependentScope(): ReactiveNode {
+  const owner = new ReactiveNode(undefined, false, defaultEquals, false);
+  owner.owner = currentOwner;
+  if (currentOwner !== null) (currentOwner.owned ??= []).push(owner);
+  return owner;
+}
+
 // ── Public API ───────────────────────────────────────────────────
 /** A function that returns the current value and subscribes the caller. */
 export interface Accessor<T> {
@@ -425,7 +476,10 @@ export function effect(fn: () => void | (() => void)): Disposer {
   const node = new ReactiveNode(
     () => {
       const cleanup = fn();
-      if (typeof cleanup === "function") onCleanup(cleanup);
+      // Equivalent to onCleanup(cleanup): while this fn runs, currentOwner ===
+      // node, so the teardown is registered on the effect's own scope. Inlined
+      // to keep the engine independent of lifecycle.ts (where onCleanup lives).
+      if (typeof cleanup === "function") (node.cleanups ??= []).push(cleanup);
     },
     true,
     defaultEquals,
@@ -465,94 +519,9 @@ export function untrack<T>(fn: () => T): T {
   }
 }
 
-/**
- * Register a teardown callback for the current reactive owner (the running
- * effect/computed, or the enclosing `createRoot`). Runs before the owner's
- * next execution and on disposal. A no-op when called outside any owner.
- */
-export function onCleanup(fn: () => void): void {
-  if (currentOwner === null) {
-    warn(
-      "onCleanup() was called outside an owner; the cleanup will never run. " +
-        "Call it during a render or inside an effect/createRoot.",
-    );
-    return;
-  }
-  (currentOwner.cleanups ??= []).push(fn);
-}
-
-/**
- * Create a disposal scope. `fn` receives a `dispose` function that tears down
- * every effect/computed (and their cleanups) created within the scope. Use it
- * as the root of a render, or anywhere you need to own a subtree's reactivity.
- * Reactive reads inside `fn` itself are not tracked.
- */
-export function createRoot<T>(fn: (dispose: () => void) => T): T {
-  const owner = new ReactiveNode(undefined, false, defaultEquals, false);
-  const prevOwner = currentOwner;
-  const prevListener = listener;
-  // Link to the enclosing owner so context provided outside the root is still
-  // visible inside it (e.g. a `<For>` row, which runs in its own root).
-  owner.owner = prevOwner;
-  currentOwner = owner;
-  listener = null;
-  try {
-    return fn(() => owner.dispose());
-  } finally {
-    currentOwner = prevOwner;
-    listener = prevListener;
-  }
-}
-
-/**
- * Schedule `fn` to run once after the current synchronous render completes (on
- * the next microtask) — e.g. to measure laid-out DOM. It runs within the
- * calling owner, so `onCleanup` registered inside it is honoured, and its reads
- * are untracked. Skipped if the owner is disposed before the microtask fires.
- */
-export function onMount(fn: () => void): void {
-  if (currentOwner === null) {
-    warn(
-      "onMount() was called outside an owner. It will run, but isn't tied to a " +
-        "component lifecycle (onCleanup inside it won't be honoured). Call it " +
-        "during a render or inside an effect/createRoot.",
-    );
-  }
-  const owner = currentOwner;
-  queueMicrotask(() => {
-    if (owner !== null && owner.color === DISPOSED) return;
-    const prevOwner = currentOwner;
-    const prevListener = listener;
-    currentOwner = owner;
-    listener = null;
-    try {
-      fn();
-    } finally {
-      currentOwner = prevOwner;
-      listener = prevListener;
-    }
-  });
-}
-
 // ── Error handling ───────────────────────────────────────────────
 /** Key under which an error handler is stored on an owner's `context` map. */
 const ERROR = Symbol("error-handler");
-
-/**
- * Create a non-tracking owner scope parented to `currentOwner` and registered
- * in its `owned` list, so it is disposed when the enclosing owner disposes.
- * Used by `catchError` and `createContextScope` — both need the same wiring.
- * Intentionally NOT used by `createRoot`, which is disposal-isolated (not
- * pushed onto the parent's owned list, so lifetime is managed by the returned
- * disposer) — but `createRoot` still links `owner.owner` for context and
- * error-handler chain-walking.
- */
-function createDependentScope(): ReactiveNode {
-  const owner = new ReactiveNode(undefined, false, defaultEquals, false);
-  owner.owner = currentOwner;
-  if (currentOwner !== null) (currentOwner.owned ??= []).push(owner);
-  return owner;
-}
 
 /**
  * Route `err` to the nearest error handler registered (via {@link catchError})
@@ -595,100 +564,4 @@ export function catchError<T>(
   } finally {
     currentOwner = prevOwner;
   }
-}
-
-// ── Context ──────────────────────────────────────────────────────
-/**
- * A context handle created by {@link createContext}. Carry the value down the
- * tree with `<Ctx.Provider value={…}>` and read it back with
- * {@link useContext}. Like the rest of kanabun, this is runtime-only — there is
- * no compiler — so a Provider's children must be a **function** (a thunk), the
- * same "functions are lazy" convention `<Show>` uses:
- *
- *     <Ctx.Provider value={v}>{() => <App />}</Ctx.Provider>
- *
- * The thunk runs *after* the Provider has set the value, so descendants read
- * the provided value rather than the default. (Plain JSX children are evaluated
- * eagerly — before the Provider runs — and therefore only ever see the default.)
- */
-export interface Context<T> {
-  /** Unique key under which the value is stored on the owner tree. */
-  readonly id: symbol;
-  /** Returned by `useContext` when no Provider is found above the reader. */
-  readonly defaultValue: T;
-  /** Component that provides `value` to the descendants in its function child. */
-  readonly Provider: (props: { value: T; children: unknown }) => unknown;
-}
-
-/**
- * Create a fresh owner scope that provides `value` under `id`. The scope is
- * owned by the enclosing owner, so it (and anything created under it) is
- * disposed when that owner is, and `useContext` reads find it by walking up.
- */
-function createContextScope(id: symbol, value: unknown): ReactiveNode {
-  const owner = createDependentScope();
-  owner.context = { [id]: value };
-  return owner;
-}
-
-/**
- * Run `fn` with `owner` as the current owner — ownership only. Tracking is left
- * untouched, so reactive reads inside `fn` still subscribe the active listener
- * (e.g. a `<For>` thunk re-run by an `insert` effect keeps its dependencies).
- */
-function runUnderOwner<R>(owner: ReactiveNode, fn: () => R): R {
-  const prev = currentOwner;
-  currentOwner = owner;
-  try {
-    return fn();
-  } finally {
-    currentOwner = prev;
-  }
-}
-
-/**
- * Create a context with a default value. Returns a handle whose `Provider`
- * supplies a value to descendants and whose value is read with `useContext`.
- *
- * @example
- *   const Theme = createContext("light");
- *   // provide:  <Theme.Provider value="dark">{() => <App />}</Theme.Provider>
- *   // consume:  const theme = useContext(Theme);
- */
-export function createContext<T>(defaultValue: T): Context<T> {
-  const id = Symbol("context");
-  return {
-    id,
-    defaultValue,
-    Provider(props) {
-      // One owner scope, tied to the enclosing owner, holds the value.
-      const owner = createContextScope(id, props.value);
-      const children = props.children;
-      const view = runUnderOwner(owner, () =>
-        typeof children === "function" ? (children as () => unknown)() : children,
-      );
-      // A component child (e.g. `<For>`/`<Show>`) returns a thunk whose body
-      // runs *later*, inside an `insert` effect created outside this scope. Wrap
-      // it so every invocation re-enters the scope — otherwise those deferred
-      // reads would walk an owner chain that misses the provided value.
-      return typeof view === "function"
-        ? () => runUnderOwner(owner, view as () => unknown)
-        : view;
-    },
-  };
-}
-
-/**
- * Read the nearest provided value for `context`, walking up the owner tree from
- * the current scope. Returns the context's `defaultValue` if no Provider is
- * found above the caller. Call it while an owner is active (during a component's
- * synchronous render, or inside an effect/computed).
- */
-export function useContext<T>(context: Context<T>): T {
-  for (let o = currentOwner; o !== null; o = o.owner) {
-    if (o.context !== null && context.id in o.context) {
-      return o.context[context.id] as T;
-    }
-  }
-  return context.defaultValue;
 }

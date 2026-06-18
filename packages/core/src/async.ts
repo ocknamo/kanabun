@@ -18,16 +18,10 @@
  *
  *     <Suspense fallback={<p>loading…</p>}>{() => <Profile />}</Suspense>
  */
-import {
-  createContext,
-  createRoot,
-  effect,
-  onCleanup,
-  signal,
-  untrack,
-  useContext,
-} from "./reactive";
+import { effect, signal, untrack } from "./reactive";
 import type { Accessor } from "./reactive";
+import { createRoot, onCleanup } from "./lifecycle";
+import { createContext, useContext } from "./context";
 import type { JSXChild } from "./jsx-runtime";
 
 // ── Suspense wiring ──────────────────────────────────────────────

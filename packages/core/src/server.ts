@@ -17,7 +17,7 @@
  * caller (a server handler, or the CLI's prerender step) owns the surrounding
  * HTML document and writing files.
  */
-import { createRoot } from "./reactive";
+import { createRoot } from "./lifecycle";
 import { insert } from "./dom";
 import { flushStyles } from "./css";
 import { ServerDocument, serialize } from "./server-dom";
