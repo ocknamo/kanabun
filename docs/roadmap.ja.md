@@ -45,7 +45,11 @@
   非依存。詳細は [`decisions.ja.md`](./decisions.ja.md#ルーターphase-6) を参照。
   **ネストルーティング**(レイアウト + 子ルート)は完了 ── `*` ワイルドカードのルートが
   プレフィックスでマッチする *レイアウト* になり、余りパスに対してネストした `<Routes>` を
-  描画(`<Outlet>` 不要)、params は連鎖でマージ。*相対 `<Link>` href は follow-up。*
+  描画(`<Outlet>` 不要)、params は連鎖でマージ。**相対 `<Link>` href** は完了 ──
+  `<Link href="edit">` / `"../list"` / `"?tab=bio"` が現在地に対して、ブラウザが
+  `<a href>` を解決するのと同じ規約で解決される(`location.ts` の純関数 `resolvePath`。
+  `useNavigate()` も相対を解決し、描画される `<a>` は解決済みの絶対パスを表示しつつ
+  リアクティブに保つ)。外部 href はそのまま。
 - [x] **SSR + ハイドレーション。** 完了 ── `renderToString`(コア、ランタイム非依存:
   シリアライズ可能なサーバ DOM を設置して eager な JSX ランタイムを実 `document` 無しで
   走らせ、ツリーを一度組んで `{ html, head }`(スコープド CSS も収集)を返し dispose する ──
@@ -111,14 +115,18 @@
   resumability(ランタイム JSX 設計と矛盾)。
 
 ### DX と型の精緻化
-- [~] `JSX.IntrinsicElements` の厳密化。**イベントハンドラは完了** ── `on*` プロップを
+- [x] `JSX.IntrinsicElements` の厳密化。**イベントハンドラ** ── `on*` プロップを
   `EventHandler<E>`(型付きイベント)関数として型付け。よって「`() =>` 書き忘れ」
   (`onClick={count.set(…)}`)はコンパイルエラーになり、条件付きハンドラ(`undefined`)や
-  `void`/`undefined` の区別も正確に扱う。詳細は
-  [`dx.ja.md`](./dx.ja.md#1-型レベルのチェックコンパイル時)。**残り:** 要素ごとの *属性*
-  型(まだ `[attr]: any`)。
-- [ ] `splitProps` の戻り型を厳密化(`Pick`/`Omit` のタプル)。現状は緩い
-  `Array<Partial<T>>`。
+  `void`/`undefined` の区別も正確に扱う。**要素ごとの属性**も型付け済み ──
+  `IntrinsicElements` が主要要素を各自の形(`a`/`input`/`button`/…)にマップし、各属性は
+  `Attr<T>`(値 *または* リアクティブなアクセサ ── 規約を尊重)で型付け。よって誤った属性
+  (`disabled="yes"`、`<button type="email">`)はコンパイルエラーになり、要素ごとの補完が効く。
+  未掲載の要素・未知の属性(`data-*`/`aria-*`)は `[attr]: any` のフォールバックで緩いまま。
+  詳細は [`dx.ja.md`](./dx.ja.md#1-型レベルのチェックコンパイル時)。
+- [x] `splitProps` の戻り型を厳密化 ── キーグループごとの `Pick` + 末尾の rest 用 `Omit` の
+  タプル(`SplitProps<T, K>`。`const` 型引数でリテラルキーを推論に残す)。旧来の緩い
+  `Array<Partial<T>>` を置き換え。
 
 > ミスを *実際に* 捕まえる 3 層(型・実行時の開発警告・テスト)は
 > [`dx.ja.md`](./dx.ja.md) に集約 ── コンパイラ無しでは捕まえられないもの、そして

@@ -74,4 +74,23 @@ describe("splitProps", () => {
     expect(local.n).toBe(5);
     expect(rest.k).toBe(2);
   });
+
+  // Compile-time: the return type is a precise tuple (Pick per group, then Omit
+  // for the rest), checked by `bunx tsc` — each `@ts-expect-error` must mark a
+  // real type error or the typecheck fails. The runtime body just satisfies the
+  // suite and `noUnusedLocals`.
+  test("the return type is a precise tuple of Pick…Omit", () => {
+    const props = { a: 1, b: "x", c: true };
+    const [g1, g2, rest] = splitProps(props, ["a"], ["b"]);
+    // Picked keys are present and typed…
+    const a: number = g1.a;
+    const b: string = g2.b;
+    const c: boolean = rest.c;
+    // …and a non-picked key is *absent* from a group (not just `undefined`).
+    // @ts-expect-error `b` is not in the first group's Pick
+    void g1.b;
+    // @ts-expect-error `a` was taken, so it's Omit-ted from the rest
+    void rest.a;
+    expect([a, b, c]).toEqual([1, "x", true]);
+  });
 });

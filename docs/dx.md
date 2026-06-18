@@ -11,7 +11,7 @@ would. This page collects what *does* catch them, in three layers:
 
 | Layer | When | Catches | Cost |
 | --- | --- | --- | --- |
-| **Types** | edit / `tsc` | `on*` handler shape (wrong/forgotten function) | none (compile-time) |
+| **Types** | edit / `tsc` | `on*` handler shape (wrong/forgotten function), mistyped element attributes | none (compile-time) |
 | **Dev warnings** | runtime, opt-in | owner-less effects/lifecycle, impure computeds | ~0 when off |
 | **Tests / `snapshot`** | CI | "it doesn't update" symptoms | the test you write |
 
@@ -39,10 +39,20 @@ handler — even an optional one — so it's rejected, while a genuine `undefine
 types can. The event is typed too, so a handler reading `e.key` must sit on a
 keyboard event (`EventHandler<KeyboardEvent>`), enforced by `strictFunctionTypes`.
 
+**Per-element attributes are typed too.** `JSX.IntrinsicElements` maps common
+elements to their own attribute shapes (`<a href>`, `<input checked>`,
+`<button disabled>`, …), and every attribute is typed `Attr<T>` — its value
+**or** a reactive accessor of it (`class="x"` and `class={() => …}` both pass,
+`class={5}` doesn't), honouring the "a function is reactive" convention. So a
+mistyped attribute (`disabled="yes"`, `tabIndex="3"`, a `<button type="email">`)
+is a compile error, with editor autocomplete per element. Unlisted elements and
+unknown attributes (`data-*` / `aria-*`) stay permissive via an `[attr]: any`
+escape hatch — the same precedence the `on*` handlers rely on, so typed names are
+enforced while the rest stays loose.
+
 **Limits.** This only helps if you run `tsc` / use an editor, and an `any`-typed
-value defeats it. Per-element *attribute* types are still permissive
-(`[attr]: any`) — tightening them is a later DX phase (see
-[`roadmap.md`](./roadmap.md)). And crucially it **cannot** be extended to the
+value defeats it (including any attribute still covered only by the `[attr]: any`
+fallback). And crucially it **cannot** be extended to the
 `{count()}`-in-a-child/attribute slip: there, both `{count}` (reactive) and
 `{count()}` (static) are legitimate APIs, so the type must accept both. `on*` is
 special precisely because only one shape (a function) is ever valid.

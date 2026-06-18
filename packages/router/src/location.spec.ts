@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { parsePath, matchPath, matchRoute } from "./index";
+import { parsePath, matchPath, matchRoute, resolvePath } from "./index";
 
 describe("parsePath", () => {
   test("splits pathname, search, hash and query", () => {
@@ -105,5 +105,54 @@ describe("matchRoute", () => {
       params: { rest: "a b/c" },
       rest: "/a%20b/c",
     });
+  });
+});
+
+describe("resolvePath", () => {
+  test("an absolute path is returned unchanged", () => {
+    expect(resolvePath("/about", "/users/42")).toBe("/about");
+    expect(resolvePath("/", "/users/42")).toBe("/");
+  });
+
+  test("a bare relative path replaces the last segment", () => {
+    expect(resolvePath("edit", "/users/42")).toBe("/users/edit");
+    expect(resolvePath("./edit", "/users/42")).toBe("/users/edit");
+  });
+
+  test("a trailing slash in the base keeps the relative path nested", () => {
+    expect(resolvePath("edit", "/users/42/")).toBe("/users/42/edit");
+  });
+
+  test("`..` climbs one level per segment", () => {
+    expect(resolvePath("../list", "/users/42")).toBe("/list");
+    expect(resolvePath("../../x", "/a/b/c")).toBe("/x");
+  });
+
+  test("a query- or hash-only target keeps the current path", () => {
+    expect(resolvePath("?tab=bio", "/users/42")).toBe("/users/42?tab=bio");
+    expect(resolvePath("#top", "/users/42")).toBe("/users/42#top");
+  });
+
+  test("preserves the target's own query and hash", () => {
+    expect(resolvePath("/search?q=hi#r", "/users/42")).toBe("/search?q=hi#r");
+  });
+
+  test("tolerates a base without a leading slash", () => {
+    expect(resolvePath("edit", "users/42")).toBe("/users/edit");
+  });
+
+  // Boundary cases pinned so the URL-standard behaviour can't drift silently —
+  // see the function's doc for why callers guard external targets themselves.
+  test("an empty target keeps the current path", () => {
+    expect(resolvePath("", "/users/42")).toBe("/users/42");
+  });
+
+  test("an encoded `..` still climbs (URL-standard)", () => {
+    expect(resolvePath("%2e%2e/x", "/a/b/c")).toBe("/a/x");
+  });
+
+  test("a scheme target resolves as an absolute URL (origin dropped)", () => {
+    // Why callers must guard external links *before* resolving.
+    expect(resolvePath("https://example.com/p", "/users/42")).toBe("/p");
   });
 });

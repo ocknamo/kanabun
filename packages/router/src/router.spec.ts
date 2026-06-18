@@ -585,6 +585,45 @@ describe("useLocation / useNavigate", () => {
     nav("/y", { replace: true });
     expect(src.location()).toBe("/y");
   });
+
+  test("useNavigate resolves a relative target against the current location", () => {
+    const src = createMemorySource("/users/1");
+    const container = createContainer();
+    let nav!: ReturnType<typeof useNavigate>;
+    render(
+      () =>
+        jsx(Router, {
+          source: src,
+          children: () => {
+            nav = useNavigate();
+            return null;
+          },
+        }),
+      asEl(container),
+    );
+    nav("2"); // sibling: replaces the last segment
+    expect(src.location()).toBe("/users/2");
+  });
+
+  test("useNavigate leaves an external/scheme target verbatim", () => {
+    // Symmetric with <Link>: resolving would strip the origin, so don't.
+    const src = createMemorySource("/users/1");
+    const container = createContainer();
+    let nav!: ReturnType<typeof useNavigate>;
+    render(
+      () =>
+        jsx(Router, {
+          source: src,
+          children: () => {
+            nav = useNavigate();
+            return null;
+          },
+        }),
+      asEl(container),
+    );
+    nav("https://example.com/p");
+    expect(src.location()).toBe("https://example.com/p");
+  });
 });
 
 describe("hooks outside a <Router>", () => {
@@ -696,6 +735,36 @@ describe("<Link>", () => {
     findTag(container, "a")!.dispatch("click", { ...leftClick });
     expect(clicked).toBe(true);
     expect(src.location()).toBe("/dest");
+  });
+
+  test("a relative href resolves against the current location", () => {
+    const src = createMemorySource("/users/1");
+    const container = createContainer();
+    render(
+      () =>
+        jsx(Router, {
+          source: src,
+          children: () =>
+            jsx("div", {
+              children: [
+                jsx(Link, { href: "2", children: "sibling" }),
+                jsx(Route, { path: "/users/2", children: jsx("p", { children: "two" }) }),
+              ],
+            }),
+        }),
+      asEl(container),
+    );
+    const a = findTag(container, "a")!;
+    // The rendered href is the resolved absolute path.
+    expect(a.getAttribute("href")).toBe("/users/2");
+    a.dispatch("click", { ...leftClick });
+    expect(src.location()).toBe("/users/2");
+    expect(serialize(container)).toContain("<p>two</p>");
+  });
+
+  test("a rendered external href is left verbatim (not origin-stripped)", () => {
+    const { container } = renderWithLink({ href: "https://example.com/x", children: "out" });
+    expect(findTag(container, "a")!.getAttribute("href")).toBe("https://example.com/x");
   });
 });
 
