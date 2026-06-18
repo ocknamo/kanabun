@@ -24,6 +24,14 @@ const VOID = new Set([
 // Elements whose text content is raw (not HTML), so it must not be escaped.
 const RAWTEXT = new Set(["style", "script"]);
 
+// A conservative HTML/XML attribute-name production. The real DOM's
+// `setAttribute` throws `InvalidCharacterError` on names outside this set; we
+// mirror that so the server can't be coerced into emitting an attribute name
+// that closes the tag (e.g. `x><img onerror=...>`) — an SSR XSS sink, since
+// `serialize` emits the name verbatim. Matching real-DOM behaviour also removes
+// the client/server asymmetry that hid the bug.
+const VALID_ATTR_NAME = /^[A-Za-z_:][-A-Za-z0-9_:.]*$/;
+
 function escapeText(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
@@ -133,6 +141,11 @@ export class ServerNode {
   }
 
   setAttribute(name: string, value: string): void {
+    // Reject invalid names like the real DOM (fail-safe), so an attacker-
+    // controlled spread key can't inject markup during SSR serialization.
+    if (!VALID_ATTR_NAME.test(name)) {
+      throw new Error(`InvalidCharacterError: invalid attribute name "${name}"`);
+    }
     this.attributes.set(name, String(value));
   }
   getAttribute(name: string): string | null {

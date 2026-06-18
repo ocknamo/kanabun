@@ -83,6 +83,29 @@ describe("attributes & properties", () => {
     expect(el.getAttribute("href")).toBeNull();
   });
 
+  test("setAttribute accepts valid names (data-/aria-/namespaced/dotted)", () => {
+    const el = new ServerNode(1);
+    el.tagName = "DIV";
+    for (const name of ["data-k", "aria-label", "xlink:href", "x.y", "_x", ":x"]) {
+      expect(() => el.setAttribute(name, "v")).not.toThrow();
+      expect(el.getAttribute(name)).toBe("v");
+    }
+  });
+
+  test("setAttribute rejects invalid names (real-DOM fail-safe, no SSR injection)", () => {
+    const el = new ServerNode(1);
+    el.tagName = "DIV";
+    // The spread-prop attribute-name injection PoC: a key that closes the tag.
+    expect(() => el.setAttribute("x><img src=x onerror=alert(1)", "y")).toThrow(
+      "InvalidCharacterError",
+    );
+    expect(() => el.setAttribute("a b", "y")).toThrow("InvalidCharacterError");
+    expect(() => el.setAttribute("1abc", "y")).toThrow("InvalidCharacterError");
+    expect(() => el.setAttribute("", "y")).toThrow("InvalidCharacterError");
+    // The injected name never reaches serialization.
+    expect(serialize(el)).toBe("<div></div>");
+  });
+
   test("value / checked / selected reflect into attributes", () => {
     const el = new ServerNode(1);
     el.tagName = "INPUT";

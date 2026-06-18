@@ -14,7 +14,7 @@
 
 | ID | 重大度 | 領域 | 概要 |
 | --- | --- | --- | --- |
-| [S1](#s1--ssrspread-props-経由の属性名インジェクション) | 🔴 | XSS (SSR) | spread props の属性**名**が無検証・無エスケープで出力される |
+| [S1](#s1--ssrspread-props-経由の属性名インジェクション) | ✅ 🔴 | XSS (SSR) | spread props の属性**名**が無検証・無エスケープで出力される — **修正済み** |
 | [S2](#s2--css-の補間による-style-脱出) | 🔴 | XSS (SSR) | `css` の補間値が `<style>` raw-text を脱出できる |
 | [S3](#s3--hrefsrc-の-url-スキーム未検証) | 🟡 | XSS | `href`/`src` の URL スキーム未検証（`javascript:` が素通し） |
 | [S4](#s4--servernode-が実-dom-と乖離している) | 🟡 | Web API 独自実装 | `ServerNode` が実 DOM の検証を省略し、サーバ側で防御をすり抜ける |
@@ -94,6 +94,16 @@ out:  <div x><img src=x onerror=alert(1)="y"></div>   ← タグ脱出・XSS 成
 **修正方針:** `serialize`（または `setAttribute`）で属性名を安全な集合
 （例 `/^[A-Za-z_:][-A-Za-z0-9_:.]*$/`）に制限し、不正名はスキップ／例外化して
 実 DOM の挙動に揃える。
+
+**✅ 修正済み。** `ServerNode.setAttribute` で属性名を `VALID_ATTR_NAME`
+（`/^[A-Za-z_:][-A-Za-z0-9_:.]*$/`）で検証し、不正名は実 DOM の失敗安全に倣って
+`InvalidCharacterError` を投げるようにした。攻撃者が制御する spread キーは
+シリアライザに到達できず、タグを閉じられない。このパターンは**保守的**で、
+実 DOM が拒否する名前はすべて拒否（XSS シンクを塞ぐ）した上で、実 DOM なら通る
+稀な正当名（先頭ハイフンや非 ASCII 文字など）も安全側に倒して拒否する。バグを
+隠していたクライアント／サーバの非対称性は注入ケースについては解消した。これは
+共通の根本原因 S4 を属性名のケースについて狭めるもので、タグ名検証（S6）は
+未対応のまま。
 
 ## S2 — `css` の補間による `<style>` 脱出
 
