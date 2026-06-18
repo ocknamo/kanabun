@@ -19,6 +19,13 @@
 | [S3](#s3--hrefsrc-の-url-スキーム未検証) | 🟡 | XSS | `href`/`src` の URL スキーム未検証（`javascript:` が素通し） |
 | [S4](#s4--servernode-が実-dom-と乖離している) | 🟡 | Web API 独自実装 | `ServerNode` が実 DOM の検証を省略し、サーバ側で防御をすり抜ける |
 | [S5](#s5--dev-サーバdecodeuricomponent-の未捕捉例外) | 🟡 | dev サーバ | パスの `decodeURIComponent` が未捕捉の `URIError` を投げうる |
+| [S6](#s6--ssrタグ名インジェクション動的要素型経由) | 🟡 | XSS (SSR) | 信頼できない**タグ名**（`jsx(tag, …)`）が無検証で出力される |
+| [S7](#s7--scriptstyle-要素の中身が無エスケープ) | 🟡 | XSS | `<script>` / `<style>` 要素の子テキストが raw 出力される（クライアントでは実行される） |
+
+S6/S7 は**2 周目**の調査——他フレームワークの近年の脆弱性事例を調べた上での再診断
+（[参考文献](#参考文献)）——で発見した。いずれも S1/S4 と根本原因を共有する:
+ランタイムが実 DOM なら拒否する入力を信頼し、SSR シリアライザが一部の位置を raw
+として扱う点。
 
 対象外（意図的に追跡しない）: CSS ハッシュ衝突時の「先勝ち」挙動と、dev 専用で
 理論上無制限の `seen` 警告集合。いずれも実用上のセキュリティ影響なしと判断。
@@ -37,6 +44,23 @@
 - **dev サーバのパストラバーサル。** `cli/src/dev.ts` は字句的な `..` チェックと
   `realpath` による包含チェックの二段構え（配信ルート外を指すシンボリックリンクも
   捕捉）。
+- **イベントハンドラは決して直列化されない（vs Svelte [CVE-2026-27121]）。**
+  `on*` props は `addEventListener` で登録され属性としては書き出されず、サーバ DOM
+  の `addEventListener` は no-op。よって攻撃者制御の `onclick`/`onerror` を含む
+  データを spread してもインラインハンドラは出力されない——これは Svelte の spread
+  属性 SSR XSS のまさにシンク。検証済み: `<div {...{onclick:"alert(1)"}}>` は
+  `<div>x</div>` を出力。
+- **プロトタイプ汚染なし（vs Vue [CVE-2024-6783]、qs 風マージ）。**
+  `mergeProps`/`splitProps` は `Object.keys` + `Object.defineProperty`（自身のキー
+  のみ。`__proto__` は own プロパティになりプロトタイプ書き込みにならない）を使い、
+  router は標準の `URLSearchParams` でクエリを解析する（`a[b]=c` のネスト解析なし）。
+  検証済み: `{"__proto__":{"polluted":1}}` ソースと `?__proto__[x]=y` クエリの双方で
+  `Object.prototype` は無傷。
+- **ReDoS なし。** 唯一の正規表現（`isExternal`, `SCOPED_AT`, dev の `MODULE_RE`）は
+  いずれもアンカー付きでネストした量化子を持たず、破滅的バックトラックは起きない。
+- **属性値は `<` をエスケープする（vs SolidJS の `escapeHTML` の欠落）。**
+  `escapeAttr` は `< > & "` をエスケープするため、「属性内で `<` が
+  エスケープされない」という既知のトリックは通用しない。
 
 ---
 
@@ -128,3 +152,75 @@ const pathname = decodeURIComponent(new URL(req.url).pathname);
 `URIError` を投げ、ハンドラ内で未捕捉になる。dev 限定かつリクエスト単位の失敗
 （サーバ自体は落ちない）だが、デコードを `try/catch` で囲み 404 にフォールバック
 させるのが堅実。トラバーサルの包含チェック自体は妥当。
+
+## S6 — SSR：タグ名インジェクション（動的要素型経由）
+
+**箇所:** `packages/core/src/server-dom.ts`（`ServerDocument.createElement`, `serialize`）
+
+`ServerDocument.createElement(tag)` は `tag.toUpperCase()` を無検証で保存し、
+`serialize` は `` `<${tag}…>` `` をそのまま出力する。実 DOM の `createElement` は
+不正なタグ名で `InvalidCharacterError` を投げるため、悪意あるタグはクライアントでは
+失敗安全になるがサーバではマークアップを注入できる。これは Svelte の
+[CVE-2026-27122]（`<svelte:element this={tag}>`）と同じクラス。
+
+kanabun には組み込みの動的タグコンポーネントがないため、これは開発者が信頼できない
+値を要素型として渡す（例 `jsx(userTag, props)` やそれを行うラッパー）必要があり、
+S1 より発生確率は低いが根本原因（S4）は同じ。
+
+**PoC（再現済み）:**
+
+```
+jsx("img src=x onerror=alert(1)", …)
+out: <img src=x onerror=alert(1)></img src=x onerror=alert(1)>   ← XSS 成立
+```
+
+**修正方針:** `ServerDocument.createElement` でタグ名を実 DOM 同様に検証し
+（例 `/^[a-zA-Z][a-zA-Z0-9-]*$/`）、不正なら直列化せず例外を投げる。
+
+## S7 — `<script>`/`<style>` 要素の中身が無エスケープ
+
+**箇所:** `packages/core/src/server-dom.ts`（`serialize` の raw-text 経路）, `dom.ts`（クライアント）
+
+`serialize` は `<script>`/`<style>` を raw-text として扱い、子テキストを**無
+エスケープ**で出力する（HTML 仕様上は正しい）。よって `<script>{userData}</script>`
+や `<style>{userData}</style>` は SSR でマークアップを注入する。S2 と異なりこれは
+`css` ヘルパ固有ではなく、`<script>`/`<style>` の子に置かれた任意の信頼できない
+テキストが対象。**クライアント**でも問題になる: `createElement` で生成し DOM に挿入
+された `<script>` 要素はその中身を実行する。
+
+**PoC（再現済み・SSR）:**
+
+```
+jsx("script", { children: "0;</script><img src=x onerror=alert(1)>" })
+out: <script>0;</script><img src=x onerror=alert(1)></script>   ← XSS 成立
+```
+
+これは S2（同じ raw-text シンク）と密接に関連する。多くのフレームワークは信頼でき
+ないデータをここに置くのを構造的に難しくしている（例: React にはプレーンテキストの
+`<script>` 子要素の経路がない）が、kanabun はガードも警告も提供しない。
+
+**修正方針:** 最低限、直列化する raw-text 内の `</script` / `</style` を無害化し
+（S2 と共通の修正）、信頼できないデータを `<script>`/`<style>` の子にしてはならない
+ことを明記する。任意で、リアクティブ/文字列の子が raw-text 要素内に置かれた場合の
+dev 時警告も検討。
+
+## 参考文献
+
+2 周目の再診断（S6/S7 と「すでに堅牢な点」の比較）の手がかりとなった、他フレーム
+ワークにおける近年の脆弱性クラス:
+
+- Svelte — spread 属性（イベントハンドラ）による SSR XSS: [CVE-2026-27121] /
+  advisory [GHSA-f7gr-6p89-r883]。
+- Svelte — `<svelte:element this={tag}>`（タグ名インジェクション）による SSR XSS:
+  [CVE-2026-27122]。
+- Svelte — ハイドレーションマーカーへの HTML コメント注入による SSR XSS:
+  CVE-2026-27902。
+- Vue — プロトタイプ汚染（`Object.prototype.staticClass/staticStyle`）による XSS:
+  [CVE-2024-6783]。
+- SolidJS — JSX フラグメントの無エスケープ / `escapeHTML` が属性内の `<` を
+  エスケープしない XSS: advisory GHSA-3qxh-p7jc-5xh6 および SolidJS セキュリティガイド。
+
+[CVE-2026-27121]: https://github.com/sveltejs/svelte/security/advisories/GHSA-f7gr-6p89-r883
+[GHSA-f7gr-6p89-r883]: https://github.com/sveltejs/svelte/security/advisories/GHSA-f7gr-6p89-r883
+[CVE-2026-27122]: https://www.sentinelone.com/vulnerability-database/cve-2026-27122/
+[CVE-2024-6783]: https://www.sentinelone.com/vulnerability-database/cve-2024-6783/
