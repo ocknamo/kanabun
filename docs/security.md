@@ -14,7 +14,7 @@ Severity follows the project convention: 🔴 must-fix / 🟡 recommended / 🔵
 
 | ID | Severity | Area | One-line |
 | --- | --- | --- | --- |
-| [S1](#s1--ssr-attribute-name-injection-via-spread-props) | 🔴 | XSS (SSR) | Spread-prop attribute **names** are emitted unescaped and unvalidated |
+| [S1](#s1--ssr-attribute-name-injection-via-spread-props) | ✅ 🔴 | XSS (SSR) | Spread-prop attribute **names** are emitted unescaped and unvalidated — **fixed** |
 | [S2](#s2--style-escape-via-css-interpolation) | 🔴 | XSS (SSR) | `css` interpolation can break out of the `<style>` raw-text body |
 | [S3](#s3--unsanitized-url-schemes-on-hrefsrc) | 🟡 | XSS | No URL-scheme check on `href`/`src` (`javascript:` passes through) |
 | [S4](#s4--servernode-diverges-from-the-real-dom) | 🟡 | Web-API reimpl. | `ServerNode` omits the real DOM's validation, hiding bugs server-side |
@@ -97,6 +97,17 @@ throws on an invalid name (fail-safe), but the server silently accepts it.
 **Fix direction:** restrict attribute names to a safe set (e.g.
 `/^[A-Za-z_:][-A-Za-z0-9_:.]*$/`) in `serialize` (or `setAttribute`), skipping or
 throwing on invalid names so the server matches real-DOM behaviour.
+
+**✅ Fixed.** `ServerNode.setAttribute` now validates the name against
+`VALID_ATTR_NAME` (`/^[A-Za-z_:][-A-Za-z0-9_:.]*$/`) and throws
+`InvalidCharacterError` on an invalid name, like the real DOM's fail-safe. An
+attacker-controlled spread key can no longer reach the serializer, so it cannot
+close the tag. The pattern is **conservative**: it rejects every name the real
+DOM rejects (and so closes the XSS sink), plus a few rare-but-legal names the
+real DOM would accept (e.g. a leading hyphen, or non-ASCII letters) — erring on
+the safe side. The client/server asymmetry that hid the bug is gone for the
+injection cases. Note this narrows S4 (the shared root cause) for the
+attribute-name case; tag-name validation (S6) is still open.
 
 ## S2 — `<style>` escape via `css` interpolation
 
