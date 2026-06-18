@@ -19,6 +19,7 @@
 import { effect } from "./reactive";
 import type { Disposer } from "./reactive";
 import { createRoot } from "./lifecycle";
+import { warn } from "./dev";
 
 /** Props passed to an intrinsic element (or component). */
 export type Props = Record<string, unknown> & { children?: unknown };
@@ -46,6 +47,11 @@ function isText(node: Node): node is Text {
   return node.nodeType === 3;
 }
 
+// Elements whose text content the browser treats as raw (CSS/JS), not HTML — so
+// a child placed here is NOT escaped and untrusted data becomes an injection
+// (and a `<script>` body executes). Used only to nudge with a dev-time warning.
+const RAW_TEXT_TAGS = new Set(["script", "style"]);
+
 // ── Element creation ─────────────────────────────────────────────
 export function createElement(tag: string, props: Props | null): Element {
   const el = doc().createElement(tag);
@@ -55,9 +61,27 @@ export function createElement(tag: string, props: Props | null): Element {
       applyProp(el, key, props[key]);
     }
     if (props.ref !== undefined) applyRef(props.ref, el);
-    if ("children" in props) insert(el, props.children);
+    if ("children" in props) {
+      warnRawTextChild(tag, props.children);
+      insert(el, props.children);
+    }
   }
   return el;
+}
+
+// `<script>`/`<style>` children are raw text — never HTML-escaped — so untrusted
+// data here is an XSS sink (and a `<script>` body executes). The css helper sets
+// `style.textContent` directly (not via children), so legitimate scoped styles
+// don't trip this. Dev-only and deduped, so it's silent in production.
+function warnRawTextChild(tag: string, children: unknown): void {
+  if (children == null || children === "") return;
+  if (Array.isArray(children) && children.length === 0) return;
+  if (!RAW_TEXT_TAGS.has(tag.toLowerCase())) return;
+  warn(
+    `a child of <${tag.toLowerCase()}> is treated as raw text and is not ` +
+      "HTML-escaped — never place untrusted data here (it can execute or " +
+      "inject markup); use the css helper for styles.",
+  );
 }
 
 function applyRef(ref: unknown, el: Element): void {

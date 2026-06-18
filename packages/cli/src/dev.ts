@@ -60,7 +60,15 @@ export function createDevHandler(
   const escapesRoot = (p: string): boolean => p !== root && !p.startsWith(root + sep);
 
   return async (req: Request): Promise<Response> => {
-    const pathname = decodeURIComponent(new URL(req.url).pathname);
+    // A malformed percent-escape (`/%ZZ`, a lone `%`) makes decodeURIComponent
+    // throw a URIError; treat such a request as a 404 rather than letting it
+    // bubble out of the handler.
+    let pathname: string;
+    try {
+      pathname = decodeURIComponent(new URL(req.url).pathname);
+    } catch {
+      return notFound();
+    }
 
     if (pathname === "/" || pathname === "/index.html") {
       const html = await Bun.file(htmlPath).text();

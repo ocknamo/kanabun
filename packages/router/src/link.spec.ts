@@ -134,4 +134,26 @@ describe("<Link>", () => {
     const { container } = renderWithLink({ href: "https://example.com/x", children: "out" });
     expect(findTag(container, "a")!.getAttribute("href")).toBe("https://example.com/x");
   });
+
+  test("a script-executing scheme renders an inert anchor (no href)", () => {
+    // S3: javascript:/data:/vbscript: must not reach the browser as an href,
+    // or a click would execute it. Whitespace/control chars don't sneak past.
+    const vectors = [
+      "javascript:alert(1)",
+      "JavaScript:alert(1)",
+      "  javascript:alert(1)",
+      "java\tscript:alert(1)",
+      "data:text/html,<script>alert(1)</script>",
+      "vbscript:msgbox(1)",
+    ];
+    for (const href of vectors) {
+      const { src, container } = renderWithLink({ href, children: "x" });
+      const a = findTag(container, "a")!;
+      expect(a.getAttribute("href")).toBeNull();
+      const event = a.dispatch("click", { ...leftClick });
+      // Nothing to navigate to; the click does not route client-side.
+      expect(event.defaultPrevented).toBe(false);
+      expect(src.location()).toBe("/");
+    }
+  });
 });

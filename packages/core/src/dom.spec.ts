@@ -8,6 +8,7 @@ import {
   asEl,
   type MockNode,
 } from "./dom-mock";
+import { setDev, setWarnHandler, __resetDev } from "./dev";
 
 // The runtime resolves `globalThis.document` lazily, so install the mock first.
 let teardown: () => void;
@@ -277,5 +278,44 @@ describe("hydrate", () => {
 
     dispose();
     expect(serialize(container)).toBe("<div></div>");
+  });
+});
+
+describe("raw-text child dev warning (S7)", () => {
+  afterEach(() => __resetDev());
+
+  function warningsFor(tag: string, children: unknown): string[] {
+    const messages: string[] = [];
+    setDev(true);
+    setWarnHandler((m) => messages.push(m));
+    jsx(tag, { children });
+    return messages;
+  }
+
+  test("warns when a child is placed inside <script> or <style>", () => {
+    for (const tag of ["script", "style", "SCRIPT"]) {
+      const messages = warningsFor(tag, "alert(1)");
+      __resetDev(); // reset dedupe between tags
+      expect(messages.length).toBe(1);
+      expect(messages[0]).toContain(`<${tag.toLowerCase()}>`);
+      expect(messages[0]).toContain("raw text");
+    }
+  });
+
+  test("does not warn for ordinary elements or empty raw-text children", () => {
+    expect(warningsFor("div", "hi")).toEqual([]);
+    __resetDev();
+    expect(warningsFor("style", "")).toEqual([]);
+    __resetDev();
+    expect(warningsFor("script", null)).toEqual([]);
+    __resetDev();
+    expect(warningsFor("style", [])).toEqual([]);
+  });
+
+  test("is silent when dev mode is off", () => {
+    const messages: string[] = [];
+    setWarnHandler((m) => messages.push(m));
+    jsx("script", { children: "alert(1)" });
+    expect(messages).toEqual([]);
   });
 });

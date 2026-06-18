@@ -298,7 +298,9 @@ export interface LinkProps {
    * Destination path. Absolute (`/users/42`) or **relative to the current
    * location** (`edit`, `./edit`, `../list`, `?tab=bio`), resolved with the same
    * semantics a browser uses for an `<a href>`. External/scheme hrefs
-   * (`https:`, `mailto:`, `//host`) are left to the browser untouched.
+   * (`https:`, `mailto:`, `//host`) are left to the browser untouched. A
+   * script-executing scheme (`javascript:`, `data:`, `vbscript:`) is rejected —
+   * the link renders inert (no `href`) so it can't run on click.
    */
   href: string;
   /** Replace the current history entry instead of pushing. */
@@ -311,6 +313,21 @@ export interface LinkProps {
 // carries a scheme (`mailto:`, `https:`) or is protocol-relative (`//host`).
 function isExternal(href: string): boolean {
   return /^[a-z][a-z0-9+.-]*:/i.test(href) || href.startsWith("//");
+}
+
+// Schemes that run script (or carry an executable payload) when a browser
+// follows them. `isExternal` would otherwise classify these as "external" and
+// fall through to the browser's default — so a click on `<Link href="javascript:…">`
+// would execute it (an XSS sink, S3). `<Link>` instead renders an inert anchor.
+const UNSAFE_SCHEME = /^(?:javascript|data|vbscript):/i;
+
+/**
+ * Whether `href` uses a script-executing scheme. Browsers ignore embedded ASCII
+ * whitespace/control characters when parsing the scheme (`java\tscript:` runs),
+ * so they are stripped before matching.
+ */
+function isUnsafeHref(href: string): boolean {
+  return UNSAFE_SCHEME.test(href.replace(/[\u0000-\u0020]/g, ""));
 }
 
 /**
@@ -328,6 +345,7 @@ export function Link(props: LinkProps): JSXChild {
     if (typeof onClick === "function") (onClick as (e: MouseEvent) => void)(event);
     if (
       !event.defaultPrevented &&
+      !isUnsafeHref(props.href) &&
       event.button === 0 &&
       !event.metaKey &&
       !event.ctrlKey &&
@@ -349,6 +367,13 @@ export function Link(props: LinkProps): JSXChild {
     attrs[key] = props[key];
   }
   attrs.onClick = handleClick;
+  // A script-executing scheme (`javascript:`, `data:`, `vbscript:`) is rendered
+  // as an inert anchor — no `href` — so a click can't run it. `handleClick` still
+  // runs the user's `onClick`, but skips `navigate` for an unsafe href, and with
+  // no href the browser default does nothing either.
+  if (isUnsafeHref(props.href)) {
+    return jsx("a", attrs) as JSXChild;
+  }
   // The rendered `href` is the *resolved* absolute path (so middle-click, copy
   // link, and the no-JS fallback all behave), and stays reactive for a relative
   // href whose meaning shifts as the location changes. External hrefs are left

@@ -2,8 +2,9 @@
 
 *English | [日本語](./security.ja.md)*
 
-A record of the security findings from a whole-framework audit. These are
-**not yet fixed** — they are tracked here so we can address them deliberately.
+A record of the security findings from a whole-framework audit. **All tracked
+findings are now addressed** (S1–S7); each section keeps the original
+proof-of-concept and records the fix, so the history stays auditable.
 The threat model covers (1) common web risks such as XSS, (2) memory leaks, and
 (3) latent risks from re-implementing a Web API ourselves.
 
@@ -16,11 +17,11 @@ Severity follows the project convention: 🔴 must-fix / 🟡 recommended / 🔵
 | --- | --- | --- | --- |
 | [S1](#s1--ssr-attribute-name-injection-via-spread-props) | ✅ 🔴 | XSS (SSR) | Spread-prop attribute **names** are emitted unescaped and unvalidated — **fixed** |
 | [S2](#s2--style-escape-via-css-interpolation) | ✅ 🔴 | XSS (SSR) | `css` interpolation can break out of the `<style>` raw-text body — **fixed** |
-| [S3](#s3--unsanitized-url-schemes-on-hrefsrc) | 🟡 | XSS | No URL-scheme check on `href`/`src` (`javascript:` passes through) |
-| [S4](#s4--servernode-diverges-from-the-real-dom) | 🟡 | Web-API reimpl. | `ServerNode` omits the real DOM's validation, hiding bugs server-side |
-| [S5](#s5--dev-server-uncaught-decodeuricomponent-error) | 🟡 | Dev server | `decodeURIComponent` on the path can throw an uncaught `URIError` |
-| [S6](#s6--ssr-tag-name-injection-via-dynamic-element-type) | 🟡 | XSS (SSR) | An untrusted **tag name** (`jsx(tag, …)`) is emitted unvalidated |
-| [S7](#s7--unescaped-script-and-style-element-content) | 🟡 | XSS | `<script>` / `<style>` element children are emitted raw (and execute on the client) |
+| [S3](#s3--unsanitized-url-schemes-on-hrefsrc) | ✅ 🟡 | XSS | `<Link>` now rejects `javascript:`/`data:`/`vbscript:`; core `href`/`src` documented as the dev's responsibility — **fixed** |
+| [S4](#s4--servernode-diverges-from-the-real-dom) | ✅ 🟡 | Web-API reimpl. | `ServerNode` now validates attribute **and** tag names like the real DOM — **fixed** |
+| [S5](#s5--dev-server-uncaught-decodeuricomponent-error) | ✅ 🟡 | Dev server | `decodeURIComponent` is now wrapped; a malformed escape 404s instead of throwing — **fixed** |
+| [S6](#s6--ssr-tag-name-injection-via-dynamic-element-type) | ✅ 🟡 | XSS (SSR) | `createElement` now validates the tag name; an untrusted tag throws — **fixed** |
+| [S7](#s7--unescaped-script-and-style-element-content) | ✅ 🟡 | XSS | SSR breakout neutralised (shared with S2) + a dev-time warning on raw-text children — **fixed** |
 
 S6/S7 were found in the **second pass**, after surveying recent vulnerability
 classes in other frameworks (see [References](#references)). Both share a root
@@ -106,8 +107,8 @@ close the tag. The pattern is **conservative**: it rejects every name the real
 DOM rejects (and so closes the XSS sink), plus a few rare-but-legal names the
 real DOM would accept (e.g. a leading hyphen, or non-ASCII letters) — erring on
 the safe side. The client/server asymmetry that hid the bug is gone for the
-injection cases. Note this narrows S4 (the shared root cause) for the
-attribute-name case; tag-name validation (S6) is still open.
+injection cases. This narrows S4 (the shared root cause) for the attribute-name
+case; the tag-name case is closed by S6.
 
 ## S2 — `<style>` escape via `css` interpolation
 
@@ -157,6 +158,17 @@ default**, so a click executes it.
 **Fix direction:** document the responsibility clearly, and in `<Link>` reject
 dangerous schemes (`javascript:`, `data:`) rather than treating them as external.
 
+**✅ Fixed.** `<Link>` now detects a script-executing scheme
+(`javascript:`/`data:`/`vbscript:`, after stripping the embedded ASCII
+whitespace/control characters a browser would ignore) and renders an **inert
+anchor** — no `href` is emitted, and the click handler skips `navigate` — so a
+click can no longer reach the dangerous URL. Ordinary external links
+(`https:`, `mailto:`, `//host`) are unaffected. The lower-level core sinks
+(`setAttr` on a raw `href`/`src`, and `useNavigate`'s programmatic target) remain
+the developer's responsibility, as in Solid/Svelte — documented on `LinkProps`
+and here — but the one place the framework itself follows a URL on the user's
+behalf (`<Link>`) is now guarded.
+
 ## S4 — `ServerNode` diverges from the real DOM
 
 **Where:** `packages/core/src/server-dom.ts`
@@ -167,6 +179,12 @@ etc.). This is the classic "re-implemented a Web API" risk — client and server
 behaviour diverge, and the server is the one that skips the guard. A small
 validation layer before serialisation, matching the real DOM's minimum checks,
 would close this class of issue.
+
+**✅ Fixed.** Both concrete divergences that mattered are closed:
+`ServerNode.setAttribute` validates the attribute name (S1) and
+`ServerDocument.createElement` now validates the tag name (S6), each throwing
+`InvalidCharacterError` like the real DOM. The server no longer accepts a name
+the client would reject, so the asymmetry that hid these XSS sinks is gone.
 
 ## S5 — Dev server: uncaught `decodeURIComponent` error
 
@@ -181,6 +199,10 @@ a `URIError` that is not caught in the handler. This is dev-only and fails per
 request (the server stays up), but wrapping the decode in a `try/catch` that
 falls back to a 404 is the robust fix. The traversal containment checks
 themselves are sound.
+
+**✅ Fixed.** `createDevHandler` now wraps `decodeURIComponent` in a `try/catch`
+that returns a 404 on a malformed escape (`/%ZZ`, a lone `%`), so a bad request
+can no longer throw out of the handler.
 
 ## S6 — SSR tag-name injection via dynamic element type
 
@@ -207,6 +229,14 @@ out: <img src=x onerror=alert(1)></img src=x onerror=alert(1)>   ← XSS
 **Fix direction:** validate the tag name (e.g. `/^[a-zA-Z][a-zA-Z0-9-]*$/`) in
 `ServerDocument.createElement`, matching the real DOM, so an invalid tag throws
 rather than serializing.
+
+**✅ Fixed.** `ServerDocument.createElement` now validates the tag against
+`VALID_TAG_NAME` (`/^[A-Za-z][A-Za-z0-9_:.-]*$/`) and throws
+`InvalidCharacterError` on an illegal name, like the real DOM's fail-safe. The
+PoC tag can no longer reach the serializer, so it cannot close the tag. The
+pattern is conservative (it accepts ordinary and custom-element names while
+rejecting everything the real DOM rejects), and it closes the tag-name facet of
+S4 — the shared root cause.
 
 ## S7 — Unescaped script and style element content
 
@@ -235,12 +265,22 @@ raw-text (shared fix with S2), and document that untrusted data must never be a
 `<script>`/`<style>` child. Optionally, a dev-time warning when a reactive/string
 child is placed inside a raw-text element.
 
-**Partially addressed.** The S2 fix (`escapeRawText` in `serialize`) neutralises
-`</script` / `</style` for the SSR raw-text path, so the **markup-breakout** PoC
-above no longer escapes the element. The remaining facets are unchanged: a
-`<script>` element created on the **client** still executes its text content
-(this is true DOM behaviour, not a serializer issue), and there is still no
-dev-time guardrail/warning for placing untrusted data in a raw-text child.
+**✅ Fixed.** Two layers now cover this:
+
+1. **SSR breakout** — the S2 fix (`escapeRawText` in `serialize`) neutralises
+   `</script` / `</style` for the SSR raw-text path, so the markup-breakout PoC
+   above no longer escapes the element.
+2. **Dev-time guardrail** — `createElement` now emits a deduped dev-time warning
+   (opt-in, via `isDev()` / `kanabun dev`) whenever a child is placed inside a
+   `<script>`/`<style>` element, since that content is raw text and is never
+   HTML-escaped. The scoped `css` helper sets `style.textContent` directly (not
+   via children), so legitimate styles don't trip the warning.
+
+The one remaining facet is **inherent DOM behaviour, not a framework bug**: a
+`<script>` element created on the client and inserted into the document executes
+its text content — that is what the real DOM does for any `<script>` node, so the
+fix is the dev warning that steers untrusted data away from this position rather
+than a silent behaviour change.
 
 ## References
 
