@@ -4,6 +4,7 @@ import {
   installDOM,
   createContainer,
   serialize,
+  asEl,
   type MockNode,
 } from "./dom-mock";
 
@@ -14,8 +15,6 @@ beforeEach(() => {
 afterEach(() => {
   teardown();
 });
-
-const asEl = (n: MockNode) => n as unknown as Element;
 
 /** Find a child element of `parent` by id (skips comment markers). */
 function byId(parent: MockNode, id: string): MockNode | undefined {

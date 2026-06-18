@@ -5,6 +5,7 @@ import {
   installDOM,
   createContainer,
   serialize,
+  asEl,
   type MockNode,
 } from "./dom-mock";
 
@@ -18,7 +19,6 @@ afterEach(() => {
 });
 
 // Helpers to bridge the mock types to the DOM types the API expects.
-const asEl = (n: MockNode) => n as unknown as Element;
 const asNode = (n: MockNode) => n as unknown as Node;
 const el = (v: unknown) => v as unknown as MockNode;
 

@@ -1,6 +1,6 @@
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
 import { render, jsx, onMount, onCleanup, createRoot } from "./index";
-import { installDOM, createContainer, type MockNode } from "./dom-mock";
+import { installDOM, createContainer, asEl } from "./dom-mock";
 
 let teardown: () => void;
 beforeEach(() => {
@@ -9,8 +9,6 @@ beforeEach(() => {
 afterEach(() => {
   teardown();
 });
-
-const asEl = (n: MockNode) => n as unknown as Element;
 
 describe("onMount", () => {
   test("runs once on the next microtask, after synchronous render", async () => {

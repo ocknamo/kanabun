@@ -7,7 +7,7 @@
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
 import { render, jsx } from "./index";
 import { TodoApp } from "../../../examples/todomvc/app";
-import { installDOM, createContainer, type MockNode } from "./dom-mock";
+import { installDOM, createContainer, asEl, type MockNode } from "./dom-mock";
 
 let teardown: () => void;
 beforeEach(() => {
@@ -16,8 +16,6 @@ beforeEach(() => {
 afterEach(() => {
   teardown();
 });
-
-const asEl = (n: MockNode) => n as unknown as Element;
 
 // Recursive query helpers (the mock has no querySelector).
 function walk(node: MockNode, out: MockNode[] = []): MockNode[] {
