@@ -16,6 +16,7 @@ coverageSkipTestFiles = true
 # fixtures, not product code.
 coveragePathIgnorePatterns = [
   "**/dom-mock.ts",
+  "**/router-test-utils.ts",
   "**/examples/**",
   "**/kanabun-generate-fix-*/**",
 ]

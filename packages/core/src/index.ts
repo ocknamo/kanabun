@@ -5,20 +5,11 @@
  * safe to ship to any browser. Bun is used only by the (future) CLI/dev
  * layer, never here.
  */
-export {
-  signal,
-  computed,
-  effect,
-  batch,
-  untrack,
-  onCleanup,
-  onMount,
-  createRoot,
-  createContext,
-  useContext,
-  catchError,
-} from "./reactive";
-export type { Accessor, Signal, SignalOptions, Disposer, Context } from "./reactive";
+export { signal, computed, effect, batch, untrack, catchError } from "./reactive";
+export type { Accessor, Signal, SignalOptions, Disposer } from "./reactive";
+export { onCleanup, onMount, createRoot } from "./lifecycle";
+export { createContext, useContext } from "./context";
+export type { Context } from "./context";
 
 // Component prop helpers.
 export { mergeProps, splitProps } from "./props";

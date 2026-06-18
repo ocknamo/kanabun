@@ -3,7 +3,8 @@
  * on. These are ordinary components: they run once and return a reactive thunk
  * that the DOM runtime inserts and keeps up to date.
  */
-import { batch, catchError, computed, createRoot, onCleanup, signal } from "./reactive";
+import { batch, catchError, computed, signal } from "./reactive";
+import { createRoot, onCleanup } from "./lifecycle";
 import type { JSXChild } from "./jsx-runtime";
 
 /**
