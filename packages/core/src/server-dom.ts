@@ -44,6 +44,18 @@ function escapeAttr(s: string): string {
     .replace(/>/g, "&gt;");
 }
 
+// Inside a raw-text element (`<style>`/`<script>`) the body is emitted verbatim
+// (HTML-escaping would corrupt CSS/JS), so a literal `</style`/`</script` in the
+// text would close the element early and let whatever follows escape into HTML —
+// an SSR XSS sink (e.g. untrusted data interpolated into the `css` helper, or
+// placed directly as a `<script>`/`<style>` child). The HTML spec forbids that
+// sequence inside raw text, so breaking the `</` with a backslash — a no-op in
+// both CSS (`\/` is an escaped solidus) and JS (`<\/script>` is a valid escape) —
+// neutralises the breakout while leaving well-formed CSS/JS unchanged.
+function escapeRawText(s: string): string {
+  return s.replace(/<\/(style|script)/gi, "<\\/$1");
+}
+
 /** Inline-style bag, mirroring the sliver of `CSSStyleDeclaration` we use. */
 class Style {
   // An explicit (rather than synthesized) constructor: coverage tools can mark
@@ -222,11 +234,12 @@ export function serialize(node: ServerNode): string {
   let inner = "";
   if (RAWTEXT.has(tag)) {
     // Raw-text bodies (CSS/JS) are emitted verbatim, never HTML-escaped — the
-    // browser parses them as raw text, so escaping would corrupt them. In
-    // practice these come from the `css` helper (developer-authored CSS); never
-    // interpolate untrusted input into a `<style>`/`<script>` body (it would be
-    // emitted unescaped). Use a normal element for user data — that path escapes.
-    for (const c of node.childNodes) if (c.nodeType === 3) inner += c.data;
+    // browser parses them as raw text, so escaping would corrupt them. Only the
+    // element-closing sequence is neutralised (see `escapeRawText`) so untrusted
+    // text (e.g. via the `css` helper) can't break out of the `<style>`/
+    // `<script>`. Still prefer a normal element for user data — that path fully
+    // escapes; raw-text bodies are meant for developer-authored CSS/JS.
+    for (const c of node.childNodes) if (c.nodeType === 3) inner += escapeRawText(c.data);
   } else {
     for (const c of node.childNodes) inner += serialize(c);
   }

@@ -15,7 +15,7 @@ Severity follows the project convention: 🔴 must-fix / 🟡 recommended / 🔵
 | ID | Severity | Area | One-line |
 | --- | --- | --- | --- |
 | [S1](#s1--ssr-attribute-name-injection-via-spread-props) | ✅ 🔴 | XSS (SSR) | Spread-prop attribute **names** are emitted unescaped and unvalidated — **fixed** |
-| [S2](#s2--style-escape-via-css-interpolation) | 🔴 | XSS (SSR) | `css` interpolation can break out of the `<style>` raw-text body |
+| [S2](#s2--style-escape-via-css-interpolation) | ✅ 🔴 | XSS (SSR) | `css` interpolation can break out of the `<style>` raw-text body — **fixed** |
 | [S3](#s3--unsanitized-url-schemes-on-hrefsrc) | 🟡 | XSS | No URL-scheme check on `href`/`src` (`javascript:` passes through) |
 | [S4](#s4--servernode-diverges-from-the-real-dom) | 🟡 | Web-API reimpl. | `ServerNode` omits the real DOM's validation, hiding bugs server-side |
 | [S5](#s5--dev-server-uncaught-decodeuricomponent-error) | 🟡 | Dev server | `decodeURIComponent` on the path can throw an uncaught `URIError` |
@@ -133,6 +133,16 @@ SSR**. The doc comment already warns against interpolating untrusted input into
 neutralise the case-insensitive sequences `</style` and `</script`. The HTML
 spec forbids those inside raw text, so neutralising them is safe.
 
+**✅ Fixed.** `serialize`'s raw-text path now passes the body through
+`escapeRawText`, which breaks the case-insensitive `</style` / `</script`
+sequences by inserting a backslash (`<\/style` / `<\/script`). That backslash is
+a harmless no-op in both CSS (`\/` is an escaped solidus) and JS (`<\/script>`
+is a valid escape), so well-formed developer CSS/JS is unchanged, but an
+interpolated value can no longer close the `<style>`/`<script>` and escape into
+HTML. The client path (`style.textContent = …`) was already safe. This is a
+shared sink with **S7**, so it also closes S7's **SSR** breakout (the client-side
+`<script>`-execution facet of S7 is separate; see S7).
+
 ## S3 — Unsanitized URL schemes on `href`/`src`
 
 **Where:** `packages/core/src/dom.ts` (`setAttr`), `packages/router/src/router.ts` (`Link`)
@@ -224,6 +234,13 @@ untrusted data here awkward by construction (cf. React, which has no plain-text
 raw-text (shared fix with S2), and document that untrusted data must never be a
 `<script>`/`<style>` child. Optionally, a dev-time warning when a reactive/string
 child is placed inside a raw-text element.
+
+**Partially addressed.** The S2 fix (`escapeRawText` in `serialize`) neutralises
+`</script` / `</style` for the SSR raw-text path, so the **markup-breakout** PoC
+above no longer escapes the element. The remaining facets are unchanged: a
+`<script>` element created on the **client** still executes its text content
+(this is true DOM behaviour, not a serializer issue), and there is still no
+dev-time guardrail/warning for placing untrusted data in a raw-text child.
 
 ## References
 

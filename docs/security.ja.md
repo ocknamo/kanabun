@@ -15,7 +15,7 @@
 | ID | 重大度 | 領域 | 概要 |
 | --- | --- | --- | --- |
 | [S1](#s1--ssrspread-props-経由の属性名インジェクション) | ✅ 🔴 | XSS (SSR) | spread props の属性**名**が無検証・無エスケープで出力される — **修正済み** |
-| [S2](#s2--css-の補間による-style-脱出) | 🔴 | XSS (SSR) | `css` の補間値が `<style>` raw-text を脱出できる |
+| [S2](#s2--css-の補間による-style-脱出) | ✅ 🔴 | XSS (SSR) | `css` の補間値が `<style>` raw-text を脱出できる — **修正済み** |
 | [S3](#s3--hrefsrc-の-url-スキーム未検証) | 🟡 | XSS | `href`/`src` の URL スキーム未検証（`javascript:` が素通し） |
 | [S4](#s4--servernode-が実-dom-と乖離している) | 🟡 | Web API 独自実装 | `ServerNode` が実 DOM の検証を省略し、サーバ側で防御をすり抜ける |
 | [S5](#s5--dev-サーバdecodeuricomponent-の未捕捉例外) | 🟡 | dev サーバ | パスの `decodeURIComponent` が未捕捉の `URIError` を投げうる |
@@ -128,6 +128,16 @@ head: <style data-k="...">.k-...{</style><img src=x onerror=alert(1)>}</style>  
 `</style` / `</script` の出現を無害化する。HTML 仕様上 raw-text 内にこれらを含めて
 はならないため、中和は安全に行える。
 
+**✅ 修正済み。** `serialize` の raw-text 経路で本体を `escapeRawText` に通すように
+した。これは大小文字を無視して `</style` / `</script` の間にバックスラッシュを挿入し
+（`<\/style` / `<\/script`）、当該シーケンスを中和する。このバックスラッシュは CSS
+（`\/` はエスケープされたスラッシュ）でも JS（`<\/script>` は妥当なエスケープ）でも
+無害な no-op なので、正しく書かれた開発者の CSS/JS は変わらず、補間値は
+`<style>`/`<script>` を閉じて HTML へ脱出できなくなる。クライアント経路
+（`style.textContent = …`）は元々安全。これは **S7** と共通のシンクのため、S7 の
+**SSR** 脱出も同時に塞ぐ（S7 のクライアント側 `<script>` 実行という側面は別問題。
+S7 を参照）。
+
 ## S3 — `href`/`src` の URL スキーム未検証
 
 **箇所:** `packages/core/src/dom.ts`（`setAttr`）, `packages/router/src/router.ts`（`Link`）
@@ -213,6 +223,12 @@ out: <script>0;</script><img src=x onerror=alert(1)></script>   ← XSS 成立
 （S2 と共通の修正）、信頼できないデータを `<script>`/`<style>` の子にしてはならない
 ことを明記する。任意で、リアクティブ/文字列の子が raw-text 要素内に置かれた場合の
 dev 時警告も検討。
+
+**一部対応済み。** S2 の修正（`serialize` 内の `escapeRawText`）が SSR raw-text 経路の
+`</script` / `</style` を中和するため、上記の**マークアップ脱出** PoC はもう要素を
+脱出できない。残る側面は未変更: **クライアント**で生成された `<script>` 要素は依然
+その中身を実行する（これは直列化の問題ではなく実 DOM の挙動）。また raw-text の子に
+信頼できないデータを置くことへの dev 時ガード/警告も依然として無い。
 
 ## 参考文献
 
