@@ -15,7 +15,7 @@
 | 3 | 制御構文: `<Show>`、`<For>`(keyed); **TodoMVC 稼働** | ✅ 完了 |
 | 4 | コンポーネントモデルと DX | ✅ 完了 — `onMount`/`mergeProps`/`splitProps`/スコープド `css`/`context` |
 | 5 | Bun 連携: `create` / `dev` / `build` CLI | ✅ 完了 |
-| 6 | 堅牢化・周辺(ルーター、SSR 等) | 🟡 進行中 — **ルーター + エラーバウンダリ + 開発時警告 + SSR/ハイドレーション + 非同期(`resource`/`<Suspense>`)+ SSG(`kanabun generate`)完了**;残りは任意 |
+| 6 | 堅牢化・周辺(ルーター、SSR 等) | 🟡 進行中 — **ルーター + エラーバウンダリ + 開発時警告 + SSR/ハイドレーション + 非同期(`resource`/`<Suspense>`)+ SSG(`kanabun generate`)+ CSS HMR 完了**;残りは任意 |
 | 7 | アイランド / 部分ハイドレーション | 🔜 計画 — 設計メモは [`decisions.ja.md`](./decisions.ja.md#アイランド--部分ハイドレーションphase-7--設計メモ) |
 
 全期間で維持した品質基準: **ランタイム依存ゼロ**、`packages/core` のランタイム非依存、
@@ -70,7 +70,16 @@
   配列(router 連動の列挙・動的パラメータ向け `getStaticPaths`・ビルド時データ焼き込みは
   follow-up)。動く例は `examples/ssg`。
   [`decisions.md`](./decisions.md#kanabun-generate--ssg-コマンド) 参照。
-- [ ] **状態保持 HMR**(現状は全リロード ── Phase 5 で意図的に簡略化した部分)。
+- [x] **CSS ホットリプレース(HMR)。** 完了 ── `.css` の変更はホットスワップ(dev サーバが
+  ターゲットメッセージ `css:<path>` を送り、クライアントが該当する `<link rel="stylesheet">`
+  だけをその場で再フェッチ ── アプリの状態は全て保持される。一致するスタイルシートが無ければ
+  全リロードにフォールバック)。CSS 以外の変更は従来どおり **全リロード**。メッセージ判定は純粋・
+  単体テスト済みのヘルパー(`changeMessage`)。
+  [`decisions.md`](./decisions.md#css-hmr-phase-6) 参照。
+- [ ] **コンポーネント単位の状態保持 HMR**(*コード* 編集をまたいで状態を保持)。この runtime-JSX・
+  VDOM 無し設計では **コンパイラ無しに実現不可** ── モジュールを差し替えて当てるための
+  コンポーネント境界や描画マーカーが存在しない。CSS 以外の編集は全リロードのまま(Phase 5 の
+  意図的な簡略化)、CSS 編集は上記でホットスワップ。[`decisions.md`](./decisions.md#css-hmr-phase-6) 参照。
 - [x] **エラーバウンダリ。** 完了 ── `catchError`(コアのプリミティブ)+ `<ErrorBoundary
   fallback={…}>`。子の *生成時* または *リアクティブ更新時* に throw されたエラーを捕捉して
   クラッシュさせず fallback を描画し、`reset` でサブツリーを作り直す。owner ツリーに乗る

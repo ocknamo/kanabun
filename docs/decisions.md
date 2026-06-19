@@ -269,10 +269,10 @@ Bun/Node APIs. The `kanabun` command has three subcommands:
   `{ success: false, logs }`.
 - `dev` is a thin server on Bun's built-in `Bun.serve`: it serves the HTML
   entry (injecting a live-reload snippet), bundles TS/TSX on demand, and pushes
-  a **full reload** over a WebSocket on file change. Stateful HMR is deferred
-  (per the roadmap's "reload first") because it's the heaviest, least-leveraged
-  piece. The request handler is factored out (`createDevHandler`) so it's unit
-  tested without standing up a socket.
+  an update over a WebSocket on file change — a targeted **CSS hot-swap** for
+  `.css` edits, a **full reload** for everything else (see
+  [CSS HMR](#css-hmr-phase-6)). The request handler is factored out
+  (`createDevHandler`) so it's unit tested without standing up a socket.
 - `create` scaffolds a runnable project from an embedded template (no network).
 
 The CLI is held to the same bar as the core: 100% coverage, including a live
@@ -612,6 +612,47 @@ fallback while it loads. Like the rest of Phase 6, both ride existing machinery
 Held to the same bar: zero dependencies, `packages/core` runtime-independent,
 100% line/function coverage, `tsc` clean, docs bilingual.
 
+## CSS HMR (Phase 6)
+
+The dev server used to do one thing on any file change: a **full reload**. The
+common inner-loop edit — tweaking styles — therefore threw away the very app
+state you were styling against (an open menu, a filled form, a deep route). CSS
+hot-replacement fixes exactly that case without crossing the line the design
+draws elsewhere.
+
+- **Why CSS only, and not component HMR.** True stateful HMR re-evaluates a
+  changed *module* and swaps it into the live tree while preserving state. That
+  needs **component boundaries and render markers** to know *what* to swap and
+  *where* — which is precisely what a compiler/transform provides (React Fast
+  Refresh, Vite). kanabun is runtime JSX with **no compiler** and **no VDOM**:
+  the render is eager and bottom-up, so there are no boundaries to swap against
+  (the same reason node-level hydration adoption is out — see
+  [SSR](#ssr-hydration--ssg-phase-6)). A `.css` file, by contrast, isn't tied to
+  any of that — it's a `<link>` the browser can simply re-fetch. So CSS HMR is
+  the slice of "stateful HMR" that is *actually reachable* here, and it covers
+  the highest-frequency edit.
+- **Mechanism.** The file watcher classifies each change with a pure
+  `changeMessage(filename)` helper: a `.css` path becomes `css:/<path>`
+  (OS separators normalised to URL form), anything else stays `reload`. The
+  injected client runtime, on a `css:` message, walks `link[rel="stylesheet"]`,
+  and for each whose URL **pathname** matches the changed path, clones it with a
+  fresh cache-busting query and removes the old link once the clone loads (no
+  flash). App state is untouched because nothing re-executes. **Fallback:** if no
+  stylesheet matches (e.g. the `.css` is imported through a JS module rather than
+  linked), it falls back to a full reload, so an edit is never silently dropped.
+- **Why a pure helper.** Pulling the decision out of the watcher callback into
+  `changeMessage` keeps it unit-testable without standing up a socket or a real
+  file-system event (the socket path is still covered by a live test that writes
+  a `.css` and asserts the `css:` message arrives), matching how
+  `createDevHandler` is factored out from the server.
+- **Scoped `css\`…\`` is intentionally not hot-swapped.** It's content-hashed to
+  a class, so editing the body changes the class — which requires re-running the
+  module, i.e. the component HMR that needs a compiler. Those edits remain a full
+  reload. External stylesheets are the part that can be swapped statefully.
+
+Held to the same bar: zero dependencies, the CLI is the only Bun-dependent
+layer, 100% line/function coverage, `tsc` clean, docs bilingual.
+
 ## Islands / partial hydration (Phase 7) — design memo
 
 > Status: **planned, not built.** This records the approach and why it fits
@@ -694,8 +735,9 @@ Held to the same bar: zero dependencies, `packages/core` runtime-independent,
 - **Phase 5 — Bun integration:** `create` / `dev` / `build` CLI; dev server with
   full-reload over WebSocket. Bun-only layer, 100% covered. ✅
 - **Phase 6 — hardening (optional):** **router + error boundaries + dev-time
-  warnings + SSR/hydration + async (`resource`/`<Suspense>`) done** (above).
-  Remaining: stateful HMR, etc. (optional).
+  warnings + SSR/hydration + async (`resource`/`<Suspense>`) + SSG + CSS HMR
+  done** (above). Remaining: component-level stateful HMR (needs a compiler),
+  etc. (optional).
 - **Phase 7 — islands / partial hydration (planned):** an explicit `<Island>`
   boundary + client registry so only marked components hydrate; the per-island
   bundle split (the real payload win) lives in the CLI. Design memo above. 🔜

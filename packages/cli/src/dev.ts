@@ -2,9 +2,12 @@
  * `kanabun dev` — a zero-config dev server on top of Bun's built-in HTTP server.
  *
  * It serves an HTML entry, bundles referenced TS/TSX modules on the fly with
- * `Bun.build`, and does a **full reload** on file changes over a WebSocket
- * (stateful HMR is deliberately deferred — see docs/decisions.md). All Bun/Node
- * APIs are confined to this CLI layer.
+ * `Bun.build`, and pushes an update over a WebSocket on file change. A change to
+ * a `.css` file is **hot-swapped** (the matching `<link rel="stylesheet">` is
+ * re-fetched in place, preserving all app state); any other change is a **full
+ * reload**. Component-level HMR with state preservation is out of reach without
+ * a compiler (see docs/decisions.md). All Bun/Node APIs are confined to this
+ * CLI layer.
  */
 import { realpathSync, watch } from "node:fs";
 import { realpath } from "node:fs/promises";
@@ -29,11 +32,35 @@ const CONTENT_TYPES: Record<string, string> = {
 const DEV_FLAG_SNIPPET = `
 <script>globalThis.__KANABUN_DEV__ = true;</script>`;
 
+// On a "css:<path>" message, re-fetch only the matching stylesheet link
+// (cache-busted) so style edits apply without a reload and app state survives;
+// the old link is removed once the replacement loads, avoiding a flash. A
+// "reload" message (any non-CSS change) does a full reload. If no stylesheet
+// matches the changed path, fall back to a reload so the edit is never missed.
 const LIVE_RELOAD_SNIPPET = `
 <script>
   (() => {
+    const swapCss = (path) => {
+      let found = false;
+      for (const link of document.querySelectorAll('link[rel="stylesheet"]')) {
+        const url = new URL(link.href, location.href);
+        if (url.pathname !== path) continue;
+        found = true;
+        url.searchParams.set("k-hmr", Date.now());
+        const next = link.cloneNode();
+        next.href = url.href;
+        next.addEventListener("load", () => link.remove());
+        next.addEventListener("error", () => link.remove());
+        link.parentNode.insertBefore(next, link.nextSibling);
+      }
+      if (!found) location.reload();
+    };
     const ws = new WebSocket(\`ws://\${location.host}${LIVE_RELOAD_PATH}\`);
-    ws.onmessage = (e) => { if (e.data === "reload") location.reload(); };
+    ws.onmessage = (e) => {
+      const data = String(e.data);
+      if (data === "reload") location.reload();
+      else if (data.slice(0, 4) === "css:") swapCss(data.slice(4));
+    };
     ws.onclose = () => setTimeout(() => location.reload(), 1000);
   })();
 </script>`;
@@ -119,6 +146,20 @@ export function createDevHandler(
   };
 }
 
+/**
+ * Decide the WebSocket message for a changed file: a targeted `css:<url-path>`
+ * hot-swap for `.css` files (the client re-fetches just that stylesheet, so app
+ * state is preserved), otherwise a full `reload`. `filename` is the watcher's
+ * path relative to the served root (OS separators are normalised to `/`); a
+ * missing filename falls back to a reload. Exported for testing.
+ */
+export function changeMessage(filename: string | null | undefined): string {
+  if (typeof filename === "string" && filename.toLowerCase().endsWith(".css")) {
+    return "css:/" + filename.split(sep).join("/");
+  }
+  return "reload";
+}
+
 export interface DevOptions {
   /** HTML entry. Defaults to `index.html`. */
   entry?: string;
@@ -161,8 +202,9 @@ export function dev(options: DevOptions = {}): DevServer {
     },
   });
 
-  const watcher = watch(root, { recursive: true }, () => {
-    for (const ws of clients) ws.send("reload");
+  const watcher = watch(root, { recursive: true }, (_event, filename) => {
+    const message = changeMessage(filename);
+    for (const ws of clients) ws.send(message);
   });
 
   return {

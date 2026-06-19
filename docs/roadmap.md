@@ -15,7 +15,7 @@ see [`decisions.md`](./decisions.md).
 | 3 | Control flow: `<Show>`, `<For>` (keyed); **TodoMVC runs** | ✅ done |
 | 4 | Component model & DX | ✅ done — `onMount`, `mergeProps`, `splitProps`, scoped `css`, `context` |
 | 5 | Bun integration: `create` / `dev` / `build` CLI | ✅ done |
-| 6 | Hardening & ecosystem (router, SSR, etc.) | 🟡 in progress — **router + error boundaries + dev-time warnings + SSR/hydration + async (`resource`/`<Suspense>`) + SSG (`kanabun generate`) done**; rest optional |
+| 6 | Hardening & ecosystem (router, SSR, etc.) | 🟡 in progress — **router + error boundaries + dev-time warnings + SSR/hydration + async (`resource`/`<Suspense>`) + SSG (`kanabun generate`) + CSS HMR done**; rest optional |
 | 7 | Islands / partial hydration | 🔜 planned — design memo in [`decisions.md`](./decisions.md#islands--partial-hydration-phase-7--design-memo) |
 
 Quality bar held throughout: **zero runtime dependencies**, `packages/core`
@@ -76,8 +76,19 @@ clean, docs bilingual.
   `getStaticPaths` for dynamic params + build-time data baking are follow-ups).
   Runnable demo: `examples/ssg`. See
   [`decisions.md`](./decisions.md#kanabun-generate--the-ssg-command).
-- [ ] **Stateful HMR** in the dev server (currently full reload — the deliberate
-  Phase 5 simplification).
+- [x] **CSS hot-replacement (HMR)** in the dev server. Done — a `.css` change is
+  hot-swapped (the dev server pushes a targeted `css:<path>` message and the
+  client re-fetches just the matching `<link rel="stylesheet">` in place, so all
+  app state survives; if no stylesheet matches it falls back to a reload). Any
+  non-CSS change is still a **full reload**. The message decision is a pure,
+  unit-tested helper (`changeMessage`). See
+  [`decisions.md`](./decisions.md#css-hmr-phase-6).
+- [ ] **Component-level stateful HMR** in the dev server (state preserved across a
+  *code* edit). Out of reach without a compiler in this runtime-JSX, no-VDOM
+  design — there are no component boundaries or render markers to swap a module
+  in against. Non-CSS edits stay a full reload (the deliberate Phase 5
+  simplification); CSS edits are now hot-swapped (above). See
+  [`decisions.md`](./decisions.md#css-hmr-phase-6).
 - [x] **Error boundaries.** Done — `catchError` (core primitive) + `<ErrorBoundary
   fallback={…}>`. Catches errors thrown while *creating* or *reactively updating*
   children and renders a fallback instead of crashing; `reset` rebuilds the

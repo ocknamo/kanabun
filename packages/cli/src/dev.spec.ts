@@ -1,8 +1,8 @@
 import { describe, expect, test, beforeAll, afterAll, afterEach } from "bun:test";
-import { createDevHandler, dev, type DevServer } from "./dev";
+import { changeMessage, createDevHandler, dev, type DevServer } from "./dev";
 import { mkdtemp, mkdir, rm, writeFile, symlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, sep } from "node:path";
 
 let fixture: string;
 let site: string; // the served root, nested so a sibling "secret" is outside it
@@ -43,6 +43,7 @@ describe("createDevHandler", () => {
     expect(res.headers.get("content-type")).toContain("text/html");
     const body = await res.text();
     expect(body).toContain("__kanabun_livereload");
+    expect(body).toContain("swapCss"); // the CSS hot-swap client runtime
     expect(body).toContain("</body>");
   });
 
@@ -126,6 +127,20 @@ describe("createDevHandler", () => {
   });
 });
 
+describe("changeMessage", () => {
+  test("hot-swaps a .css change instead of reloading", () => {
+    expect(changeMessage("styles.css")).toBe("css:/styles.css");
+    expect(changeMessage(["sub", "theme.CSS"].join(sep))).toBe("css:/sub/theme.CSS");
+  });
+
+  test("reloads for non-CSS changes or a missing filename", () => {
+    expect(changeMessage("main.tsx")).toBe("reload");
+    expect(changeMessage("notes.txt")).toBe("reload");
+    expect(changeMessage(null)).toBe("reload");
+    expect(changeMessage(undefined)).toBe("reload");
+  });
+});
+
 describe("dev server", () => {
   let server: DevServer | undefined;
   afterEach(() => server?.stop());
@@ -168,6 +183,28 @@ describe("dev server", () => {
       ),
     ]);
     expect(message).toBe("reload");
+    ws.close();
+  });
+
+  test("pushes a targeted css hot-swap over the websocket when a .css file changes", async () => {
+    server = dev({ entry: htmlPath, port: 0 });
+    const ws = new WebSocket(`${server.url.replace("http", "ws")}__kanabun_livereload`);
+    await new Promise<void>((resolve, reject) => {
+      ws.onopen = () => resolve();
+      ws.onerror = () => reject(new Error("ws failed to open"));
+    });
+
+    const update = new Promise<string>((resolve) => {
+      ws.onmessage = (e) => resolve(String(e.data));
+    });
+    await writeFile(join(site, "styles.css"), `body { color: blue; }`);
+    const message = await Promise.race([
+      update,
+      new Promise<string>((_, reject) =>
+        setTimeout(() => reject(new Error("no css update within 3s")), 3000),
+      ),
+    ]);
+    expect(message).toBe("css:/styles.css");
     ws.close();
   });
 });
