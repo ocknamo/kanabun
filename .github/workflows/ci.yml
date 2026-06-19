@@ -120,6 +120,12 @@ jobs:
       - name: Run visual regression tests
         run: npx playwright test -c tests/visual/playwright.config.cjs
 
+      # Behavioural E2E: drives the real dev server in Chromium to verify CSS
+      # hot-swap (style applies without a reload; non-CSS edits reload). Reuses
+      # the Playwright + Bun already set up above; spawns its own dev server.
+      - name: Run end-to-end tests
+        run: npx playwright test -c tests/e2e/playwright.config.cjs
+
       # On a diff, publish expected/actual/diff PNGs so reviewers can eyeball it.
       - name: Upload diff report
         if: ${{ failure() }}
