@@ -32,34 +32,67 @@ const CONTENT_TYPES: Record<string, string> = {
 const DEV_FLAG_SNIPPET = `
 <script>globalThis.__KANABUN_DEV__ = true;</script>`;
 
-// On a "css:<path>" message, re-fetch only the matching stylesheet link
-// (cache-busted) so style edits apply without a reload and app state survives;
-// the old link is removed once the replacement loads, avoiding a flash. A
-// "reload" message (any non-CSS change) does a full reload. If no stylesheet
-// matches the changed path, fall back to a reload so the edit is never missed.
+// Minimal structural shapes of the browser objects `swapCss` touches, so the
+// function can be a real (unit-tested) function here without pulling in the DOM
+// lib — it runs in the browser via `.toString()` (below), and in tests against
+// hand-rolled mocks.
+interface SwapLink {
+  href: string;
+  nextSibling: unknown;
+  parentNode: { insertBefore(node: SwapLink, ref: unknown): void } | null;
+  cloneNode(): SwapLink;
+  addEventListener(type: "load" | "error", listener: () => void): void;
+  remove(): void;
+}
+interface SwapDoc {
+  querySelectorAll(selector: string): Iterable<SwapLink>;
+}
+interface SwapLoc {
+  href: string;
+  reload(): void;
+}
+
+/**
+ * Client-side CSS hot-swap: re-fetch every `<link rel="stylesheet">` whose URL
+ * **pathname** matches `path` (a fresh cache-busting query forces the refetch),
+ * removing each old link once its replacement loads so there's no flash. App
+ * state survives because nothing else re-executes. If no stylesheet matches
+ * (e.g. the `.css` is imported through a JS module, or served under a `<base>` /
+ * sub-path so pathnames differ), fall back to a full reload so the edit is never
+ * silently dropped. The match is a case-sensitive exact pathname compare; the
+ * server keeps the changed file's original casing (see {@link changeMessage}).
+ *
+ * Defined as a real function (not inline source) so it's unit-tested; it is
+ * serialised into the dev page via `swapCss.toString()` in {@link LIVE_RELOAD_SNIPPET},
+ * where `document`/`location` are passed as the browser globals.
+ */
+export function swapCss(doc: SwapDoc, loc: SwapLoc, path: string): void {
+  let found = false;
+  for (const link of doc.querySelectorAll('link[rel="stylesheet"]')) {
+    const url = new URL(link.href, loc.href);
+    if (url.pathname !== path) continue;
+    found = true;
+    url.searchParams.set("k-hmr", String(Date.now()));
+    const next = link.cloneNode();
+    next.href = url.href;
+    next.addEventListener("load", () => link.remove());
+    next.addEventListener("error", () => link.remove());
+    link.parentNode!.insertBefore(next, link.nextSibling);
+  }
+  if (!found) loc.reload();
+}
+
+// A "css:<path>" message hot-swaps via swapCss (state preserved); a "reload"
+// message (any non-CSS change) does a full reload.
 const LIVE_RELOAD_SNIPPET = `
 <script>
+  ${swapCss.toString()}
   (() => {
-    const swapCss = (path) => {
-      let found = false;
-      for (const link of document.querySelectorAll('link[rel="stylesheet"]')) {
-        const url = new URL(link.href, location.href);
-        if (url.pathname !== path) continue;
-        found = true;
-        url.searchParams.set("k-hmr", Date.now());
-        const next = link.cloneNode();
-        next.href = url.href;
-        next.addEventListener("load", () => link.remove());
-        next.addEventListener("error", () => link.remove());
-        link.parentNode.insertBefore(next, link.nextSibling);
-      }
-      if (!found) location.reload();
-    };
     const ws = new WebSocket(\`ws://\${location.host}${LIVE_RELOAD_PATH}\`);
     ws.onmessage = (e) => {
       const data = String(e.data);
       if (data === "reload") location.reload();
-      else if (data.slice(0, 4) === "css:") swapCss(data.slice(4));
+      else if (data.slice(0, 4) === "css:") swapCss(document, location, data.slice(4));
     };
     ws.onclose = () => setTimeout(() => location.reload(), 1000);
   })();
