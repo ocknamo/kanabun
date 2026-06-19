@@ -16,7 +16,7 @@ see [`decisions.md`](./decisions.md).
 | 4 | Component model & DX | ✅ done — `onMount`, `mergeProps`, `splitProps`, scoped `css`, `context` |
 | 5 | Bun integration: `create` / `dev` / `build` CLI | ✅ done |
 | 6 | Hardening & ecosystem (router, SSR, etc.) | 🟡 in progress — **router + error boundaries + dev-time warnings + SSR/hydration + async (`resource`/`<Suspense>`) + SSG (`kanabun generate`) + CSS HMR done**; rest optional |
-| 7 | Islands / partial hydration | 🔜 planned — design memo in [`decisions.md`](./decisions.md#islands--partial-hydration-phase-7--design-memo) |
+| 7 | Islands / partial hydration + authoring tooling (`kanabun lint`) | 🔜 planned — design memos: [`decisions.md`](./decisions.md#islands--partial-hydration-phase-7--design-memo) (islands), [`dx.md`](./dx.md#4-future-an-in-house-linter) (linter) |
 
 Quality bar held throughout: **zero runtime dependencies**, `packages/core`
 runtime-independent, 100% line/function coverage on all source files, `tsc`
@@ -119,8 +119,9 @@ clean, docs bilingual.
   why, and for what *is* detectable. Zero dependencies, 100% covered, runtime
   independent.
 
-### Phase 7 — Islands (partial hydration) (planned)
-Explicit, manual islands (no compiler, no resumability) — only marked components
+### Phase 7 — Islands (partial hydration) + authoring tooling (planned)
+
+**Islands.** Explicit, manual islands (no compiler, no resumability) — only marked components
 hydrate; the static shell ships no client JS. Full rationale and scope
 boundaries in [`decisions.md`](./decisions.md#islands--partial-hydration-phase-7--design-memo).
 - [ ] **`<Island>` boundary + registry (core).** A boundary that serializes to a
@@ -136,6 +137,17 @@ boundaries in [`decisions.md`](./decisions.md#islands--partial-hydration-phase-7
   stays in the CLI layer; core remains runtime-independent.
 - Out of scope (documented): automatic island detection and node-level adoption
   (both need a compiler), and resumability (contradicts the runtime-JSX design).
+
+**Authoring tooling.**
+- [ ] **In-house linter (`kanabun lint`).** Static analysis to catch the slips
+  the runtime can't — chiefly `{count()}` where `{count}` was meant in a
+  child/attribute (needs to see the source before the call collapses to a value),
+  plus related convention violations. **Not** an ESLint plugin (ESLint is an
+  external dependency; kanabun ships zero deps) — a first-party CLI command in the
+  Bun layer, reusing the on-demand TypeScript parser already used for
+  typechecking. Opt-in, dev-only authoring tooling, *not* a runtime compiler
+  (keeps the founding constraint intact). See
+  [`dx.md`](./dx.md#4-future-an-in-house-linter).
 
 ### DX & type precision
 - [x] Tighten `JSX.IntrinsicElements`. **Event handlers** — `on*` props are
@@ -163,15 +175,9 @@ boundaries in [`decisions.md`](./decisions.md#islands--partial-hydration-phase-7
   `create`-scaffolded `package.json` references `^0.0.0` placeholders and the
   quickstart runs from this repo.
 - [ ] Versioning / release strategy.
-- [ ] **In-house linter (`kanabun lint`).** Static analysis to catch the slips
-  the runtime can't — chiefly `{count()}` where `{count}` was meant in a
-  child/attribute (needs to see the source before the call collapses to a value),
-  plus related convention violations. **Not** an ESLint plugin (ESLint is an
-  external dependency; kanabun ships zero deps) — a first-party CLI command in the
-  Bun layer, reusing the on-demand TypeScript parser already used for
-  typechecking. Opt-in, dev-only authoring tooling, *not* a runtime compiler
-  (keeps the founding constraint intact). See
-  [`dx.md`](./dx.md#4-future-an-in-house-linter).
+
+> The in-house linter (`kanabun lint`) now lives in **Phase 7** (authoring
+> tooling), alongside islands — see above.
 
 ### Known minor items (from reviews)
 - [ ] Dev server does a `realpath` stat per request for containment, in addition
