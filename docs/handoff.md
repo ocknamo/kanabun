@@ -3,12 +3,12 @@
 > このファイルは作業の引き継ぎ用メモです(プロダクト文書ではないので日本語のみ)。
 > 規約は [`../CLAUDE.md`](../CLAUDE.md)、残作業は [`roadmap.md`](./roadmap.md) が一次情報。
 > ここは「いまの状態」と「今セッションで得た知見・落とし穴」に絞ります。
-> 最終更新: 2026-06-17 / 最終コミット: Phase 6 残タスク(相対 `<Link>` href + `splitProps` タプル型 + JSX 属性型)
+> 最終更新: 2026-06-19 / 最終コミット: CSS HMR(dev サーバの `.css` ホットスワップ、PR #23)
 
 ## 1. いまどこにいるか
 
-- **ブランチ**: `claude/phase-6-remaining-tasks-fcfmfn` で開発(`main` 直push しない / PR は指示があるまで作らない)。`main` には PR 経由で scoped CSS・VRT・context・ルーター・エラーバウンダリ・SSR/ハイドレーション・非同期・SSG までマージ済み。
-- **進捗**: 要求定義の **Phase 0〜5 完了**。**Phase 6 は ルーター(`@kanabun/router`)+ エラーバウンダリ + 開発時警告 + SSR/ハイドレーション + 非同期(`resource`/`<Suspense>`)を実装済み**。
+- **ブランチ**: 現在は `claude/task-roadmap-inventory-doyffg`(`main` 直push しない / PR は指示があるまで作らない)。`main` には PR 経由で scoped CSS・VRT・context・ルーター・エラーバウンダリ・SSR/ハイドレーション・非同期・SSG・**CSS HMR**(PR #23)までマージ済み。加えて **セキュリティ監査の修正**(SSR XSS S1/S2・残り S3–S7、PR #15–#22)と **大規模リファクタ**(500行超ファイル/400行超 spec の分割・`createDependentScope`/`stringFlag`/`asEl` 共通化、PR #18–#21)もマージ済み。
+- **進捗**: 要求定義の **Phase 0〜5 完了**。**Phase 6 は ルーター(`@kanabun/router`)+ エラーバウンダリ + 開発時警告 + SSR/ハイドレーション + 非同期(`resource`/`<Suspense>`)+ SSG(`kanabun generate`)+ CSS HMR を実装済み**(残るは状態保持 HMR のみ=コンパイラ無しでは到達不可)。
   - ルーター ── history ベース、`<Router>`/`<Routes>`(排他+404 fallback)/`<Route>`/`<Link>` + `useNavigate`/`useLocation`/`useParams`、差し替え可能な history ソース(browser / **hash**(GitHub Pages 向け)/ memory)。
   - **開発時警告(今セッション)** ── `packages/core/src/dev.ts`。オプトイン(`setDev(true)`、`kanabun dev` は `globalThis.__KANABUN_DEV__` で自動 ON)。owner 外の `effect()`/`onMount()`/`onCleanup()` と computed 内のシグナル書き込みを検知。重複排除 + 差し替え可能シンク(`setWarnHandler`)。詳細は `decisions.md`「Dev-time warnings (Phase 6)」。
   - **`on*` イベントハンドラの型付け(今セッション)** ── `JSX.IntrinsicElements` の部分厳密化。`packages/core/src/jsx-runtime.ts` に `EventHandler<E>` と `HTMLAttributes`(typed `on*` + `[attr]: any`)を追加し、`IntrinsicElements` を `[name]: HTMLAttributes` に。`onClick={count.set(…)}`(アロー書き忘れ=`void`)や非関数がコンパイルエラーに。条件付きハンドラ(`undefined`)は許す。型レベルテストは `packages/core/src/jsx-types.spec.ts`(`@ts-expect-error` で自己検証)。**残り**:要素ごとの *属性* 型はまだ緩い。
@@ -20,8 +20,9 @@
   - **相対 `<Link>` href(今セッション)** ── `packages/router/src/location.ts` に純関数 `resolvePath(to, from)` を追加(`new URL(to, BASE+from)` で、ブラウザが `<a href>` を解決するのと同じ規約)。`Router` の `navigate` が相対ターゲットを現在地に対して解決(絶対パスは素通り)するので `<Link>` と `useNavigate()` の両方で相対が効く。`<Link>` は描画する `<a href>` を解決済み絶対パスに(リアクティブ。中クリック/コピー/no-JS フォールバック用)。外部 href は `isExternal` 判定でそのまま(解決すると origin が剥がれるため)。`resolvePath` は index から re-export。テスト: location.spec.ts「resolvePath」群、router.spec.ts「a relative href resolves…」。
   - **`splitProps` タプル型(今セッション)** ── 戻り型を `Array<Partial<T>>` から精密タプル `SplitProps<T, K>`(キーグループごとの `Pick` + 末尾 `Omit`)へ。`const K extends ReadonlyArray<ReadonlyArray<keyof T>>` でリテラルキーを推論に残すのが肝。実装は不変、`return groups as unknown as SplitProps<T, K>`。コンパイル時テストは props.spec.ts「precise tuple」(`@ts-expect-error`)。
   - **JSX 属性型の厳密化(今セッション)** ── `packages/core/src/jsx-runtime.ts`。`on*` を `DOMEventHandlers` に切り出し、`HTMLAttributes`(グローバル基底:typed なグローバル属性 + events + `[attr]: any` の逃げ道)を拡張する要素別インターフェース(`AnchorHTMLAttributes`/`InputHTMLAttributes`/…)を追加。各属性は `Attr<T> = T | null | undefined | (() => T|null|undefined)`(値 or リアクティブアクセサ ── 規約尊重)。`IntrinsicElements` を主要要素にマップし、`[name: string]: HTMLAttributes` で残りをフォールバック。`[attr]: any` を残すので未知属性・未掲載要素は無破壊。型は core index から re-export。型テストは jsx-types.spec.ts「JSX attribute types」。
-  - 残る Phase 6(状態保持 HMR)は未着手。
-- **品質**: **313 テスト / 0 fail、全ソース 100% カバレッジ、`tsc` クリーン**。依存ゼロ(dev は `@types/bun` のみ)、`packages/{core,router}` はランタイム非依存を維持。
+  - **CSS HMR(PR #23・handoff 後にマージ)** ── dev サーバが `.css` 変更をホットスワップ(`css:<path>` メッセージ → クライアントが該当 `<link rel="stylesheet">` だけ再フェッチ、アプリ状態は保持。一致無しは全リロードにフォールバック)。CSS 以外は従来どおり全リロード。判定は純粋・単体テスト済みヘルパー(`changeMessage`)。E2E(実ブラウザでホットスワップ検証)もカバー。詳細は `decisions.md`「CSS HMR (Phase 6)」。
+  - 残る Phase 6(**状態保持 HMR**=コード編集をまたいで状態保持)は未着手 ── runtime-JSX・VDOM 無し設計ではコンパイラ無しに到達不可(コンポーネント境界/描画マーカーが無い)。
+- **品質**: **334 テスト / 0 fail、全ソース 100% カバレッジ、`tsc` クリーン**。依存ゼロ(dev は `@types/bun` のみ)、`packages/{core,router}` はランタイム非依存を維持。
 - **成果物**: `@kanabun/core`、`@kanabun/cli`(`create`/`dev`/`build`/**`generate`**)、**`@kanabun/router`**、`examples/{counter,todomvc,router,ssr,ssg}`、VRT(スクショ回帰)ゲート、バイリンガル docs。
 
 ## 2. 必須ワークフロー(CLAUDE.md より)
@@ -39,7 +40,12 @@
 
 ## 3. 次にやるなら(roadmap.md 参照)
 
-Phase 6 のルーター・**ネストルーティング**・エラーバウンダリ・開発時警告・`on*` イベントハンドラ型付け・SSR + ハイドレーション・**非同期(`resource`/`<Suspense>`)** は **完了**。残るは Phase 6 / DX(任意): 状態保持 HMR、相対 `<Link>` href、`JSX.IntrinsicElements` の **属性** 型(イベントは済)、`splitProps` タプル型化、npm 公開。
+Phase 6 のルーター・**ネストルーティング**・**相対 `<Link>` href**・エラーバウンダリ・開発時警告・`on*` イベント + **要素ごとの属性**型付け・**`splitProps` タプル型**・SSR + ハイドレーション・**非同期(`resource`/`<Suspense>`)**・**SSG(`kanabun generate`)**・**CSS HMR** は **完了**。残るは(いずれも任意):
+  - **状態保持 HMR** ── コンパイラ無しでは到達不可(非CSS編集は全リロードのまま)。
+  - **Phase 7 アイランド(部分ハイドレーション)** ── `<Island>` 境界+レジストリ(core)/ アイランド単位のバンドル分割(CLI)。設計メモは `decisions.md`。コード未着手。
+  - **npm 公開**(`@kanabun/core`・`@kanabun/cli`)+ **バージョニング/リリース戦略** ── 未公開のため `create` は `^0.0.0` プレースホルダ。
+  - **自前 linter(`kanabun lint`)** ── 下記の通り設計のみ。
+  - 軽微: dev サーバの `realpath` 二重 stat / `parseArgs` の `--a --b` 挙動(note のみ)。
 
 **自前 linter(`kanabun lint`)** は方針合意済み・**設計のみ記録**(未実装)。ESLint は外部依存ゆえ不可 → CLI/Bun レイヤーで自前実装し、オンデマンドの TypeScript パーサ(Bun の auto-install で `import("typescript")`)を再利用する。具体設計(コマンド形・パーサ・目玉ルール `reactive-call-in-jsx` のセマンティック/シンタクティック 2 案・後続ルール・テスト方針・**先に確認すべき実現性**=マニフェスト記載なしで auto-install import が解決するか)は `docs/dx.md`(+`.ja.md`)§4「Design sketch」に記載。
 
