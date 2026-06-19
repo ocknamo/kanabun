@@ -1,3 +1,5 @@
+const path = require("node:path");
+
 /**
  * End-to-end config for behavioural (non-visual) browser tests.
  *
@@ -20,6 +22,16 @@ module.exports = {
   testMatch: "**/*.e2e.cjs",
   fullyParallel: false,
   forbidOnly: !!process.env.CI,
+  // Own output dir so a failing run's artifacts don't collide with the visual
+  // lane's `test-results/` (both run in sequence in the same CI job). Absolute
+  // (repo root) because Playwright resolves a relative `outputDir` against the
+  // config file's dir — this keeps it at `<repo>/test-results-e2e`, matching the
+  // CI upload path and the `.gitignore` entry.
+  outputDir: path.resolve(__dirname, "..", "..", "test-results-e2e"),
+  // The watcher → WebSocket → re-fetch path is asynchronous; on a slow CI runner
+  // a single poll window can miss. A couple of retries absorbs that flake
+  // without masking a real regression (locally, no retries — fail fast).
+  retries: process.env.CI ? 2 : 0,
   // Hot-swap goes through a file watcher → WebSocket round-trip, so assertions
   // poll for the effect rather than asserting once. Give them headroom on slow
   // CI runners.

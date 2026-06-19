@@ -135,4 +135,5 @@ jobs:
           path: |
             playwright-report/
             test-results/
+            test-results-e2e/
           if-no-files-found: warn

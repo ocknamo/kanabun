@@ -52,6 +52,7 @@ const INDEX_HTML = `<!doctype html>
 
 let tmp;
 let server;
+let serverLog = ""; // captured dev-server output, surfaced if startup fails
 const stylesPath = () => path.join(tmp, "styles.css");
 
 /** Resolve once the dev server answers, or reject after `timeoutMs`. */
@@ -64,7 +65,11 @@ async function waitForServer(timeoutMs = 20_000) {
     } catch {
       // not up yet
     }
-    if (Date.now() > deadline) throw new Error("dev server did not start");
+    if (Date.now() > deadline) {
+      // Include the captured output so a CI failure (e.g. port in use) is
+      // diagnosable rather than just "did not start".
+      throw new Error(`dev server did not start:\n${serverLog || "(no output)"}`);
+    }
     await new Promise((r) => setTimeout(r, 200));
   }
 }
@@ -82,8 +87,10 @@ test.beforeAll(async () => {
       "--port",
       String(PORT),
     ],
-    { stdio: "ignore" },
+    { stdio: ["ignore", "pipe", "pipe"] },
   );
+  server.stdout.on("data", (d) => (serverLog += d));
+  server.stderr.on("data", (d) => (serverLog += d));
   await waitForServer();
 });
 
