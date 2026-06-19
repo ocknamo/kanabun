@@ -32,6 +32,15 @@ const RAWTEXT = new Set(["style", "script"]);
 // the client/server asymmetry that hid the bug.
 const VALID_ATTR_NAME = /^[A-Za-z_:][-A-Za-z0-9_:.]*$/;
 
+// A conservative HTML tag-name production. The real DOM's `createElement` throws
+// `InvalidCharacterError` on an illegal name; we mirror that so an untrusted tag
+// (`jsx(userTag, …)`) can't be coerced into emitting markup that closes the tag —
+// the same SSR XSS sink as S1, since `serialize` emits the tag verbatim. The set
+// is conservative: it rejects every name the real DOM rejects (closing the sink),
+// and accepts ordinary element and custom-element names (letters, digits, and
+// `-` `_` `.` `:` after a leading letter).
+const VALID_TAG_NAME = /^[A-Za-z][A-Za-z0-9_:.-]*$/;
+
 function escapeText(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
@@ -203,6 +212,11 @@ export class ServerDocument {
     this.head.tagName = "HEAD";
   }
   createElement(tag: string): ServerNode {
+    // Reject invalid tag names like the real DOM (fail-safe), so an untrusted
+    // element type can't inject markup that escapes the tag during SSR.
+    if (!VALID_TAG_NAME.test(tag)) {
+      throw new Error(`InvalidCharacterError: invalid tag name "${tag}"`);
+    }
     const el = new ServerNode(1);
     el.tagName = tag.toUpperCase();
     return el;

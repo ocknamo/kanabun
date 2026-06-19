@@ -19,6 +19,24 @@ describe("ServerDocument factories", () => {
     expect(d.head.nodeType).toBe(1);
     expect(d.head.tagName).toBe("HEAD");
   });
+
+  test("createElement accepts valid tag names (plain/custom/namespaced)", () => {
+    const d = new ServerDocument();
+    for (const tag of ["div", "my-widget", "svg:path", "h1", "x.y", "x_y"]) {
+      expect(() => d.createElement(tag)).not.toThrow();
+    }
+  });
+
+  test("createElement rejects invalid tag names (real-DOM fail-safe, no SSR injection)", () => {
+    const d = new ServerDocument();
+    // S6 PoC: an untrusted element type that closes the tag and injects markup.
+    expect(() => d.createElement("img src=x onerror=alert(1)")).toThrow(
+      "InvalidCharacterError",
+    );
+    expect(() => d.createElement("a>b")).toThrow("InvalidCharacterError");
+    expect(() => d.createElement("1abc")).toThrow("InvalidCharacterError");
+    expect(() => d.createElement("")).toThrow("InvalidCharacterError");
+  });
 });
 
 describe("tree mutation", () => {

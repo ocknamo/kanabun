@@ -99,6 +99,14 @@ describe("createDevHandler", () => {
     }
   });
 
+  test("404s for a malformed percent-escape instead of throwing a URIError", async () => {
+    const h = handler();
+    for (const path of ["/%ZZ", "/%", "/a%2"]) {
+      const res = await h(new Request(`http://localhost${path}`));
+      expect(res.status).toBe(404);
+    }
+  });
+
   test("rejects a symlink that escapes the root (static file)", async () => {
     const res = await handler()(new Request("http://localhost/leak.txt"));
     expect(res.status).toBe(404);
