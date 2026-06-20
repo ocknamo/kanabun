@@ -43,8 +43,10 @@
 Phase 6 のルーター・**ネストルーティング**・**相対 `<Link>` href**・エラーバウンダリ・開発時警告・`on*` イベント + **要素ごとの属性**型付け・**`splitProps` タプル型**・SSR + ハイドレーション・**非同期(`resource`/`<Suspense>`)**・**SSG(`kanabun generate`)**・**CSS HMR** は **完了**。残るは(いずれも任意):
   - **状態保持 HMR** ── コンパイラ無しでは到達不可(非CSS編集は全リロードのまま)。
   - **Phase 7** ── アイランド + **エコシステムプリミティブ** + **作成支援ツール**。`<Island>` 境界+レジストリ(core)/ アイランド単位のバンドル分割(CLI)/ **`lazy()`**(Suspense と統合・コード分割)/ **`<Portal>`** / **`<Dynamic>`** / **head・メタ API**(`renderToString` の `head` channel に乗せる)/ **自前 linter(`kanabun lint`)** / **dev オーバーレイ**(`setWarnHandler` の消費側)。設計メモは `decisions.md`(アイランド)/ `dx.md`(linter、下記)。コード未着手。
+  - **Phase 8** ── 重量級エコシステム(Phase 7 から先送り)。**SSR ストリーミング(`renderToStream`)**(eager 同期とは別の非同期描画経路 + チャンク縫合クライアントが要る)/ **リアクティブ store(`createStore`)**(プロキシベースのネスト store・パス単位細粒度更新)/ **`@kanabun/testing`**(リポジトリ内 DOM モック上の単体テスト補助、別パッケージ)。いずれも大物。
   - **npm 公開**(`@kanabun/core`・`@kanabun/cli`)+ **バージョニング/リリース戦略** ── 未公開のため `create` は `^0.0.0` プレースホルダ。
-  - 軽微: dev サーバの `realpath` 二重 stat / `parseArgs` の `--a --b` 挙動(note のみ)。
+  - **SSG 動的パラメータ**(`getStaticPaths` + ビルド時データ焼き込み)── Phase 6(SSG)の follow-up(`roadmap.md:76` / `decisions.md`)。
+  - 軽微: dev サーバの `realpath` 二重 stat / `parseArgs` の `--a --b` 挙動 / router の VRT ベースライン commit(note のみ)。
 
 **自前 linter(`kanabun lint`)** は方針合意済み・**設計のみ記録**(未実装)。ESLint は外部依存ゆえ不可 → CLI/Bun レイヤーで自前実装し、オンデマンドの TypeScript パーサ(Bun の auto-install で `import("typescript")`)を再利用する。具体設計(コマンド形・パーサ・目玉ルール `reactive-call-in-jsx` のセマンティック/シンタクティック 2 案・後続ルール・テスト方針・**先に確認すべき実現性**=マニフェスト記載なしで auto-install import が解決するか)は `docs/dx.md`(+`.ja.md`)§4「Design sketch」に記載。
 

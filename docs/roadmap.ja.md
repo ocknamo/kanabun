@@ -17,6 +17,7 @@
 | 5 | Bun 連携: `create` / `dev` / `build` CLI | ✅ 完了 |
 | 6 | 堅牢化・周辺(ルーター、SSR 等) | 🟡 進行中 — **ルーター + エラーバウンダリ + 開発時警告 + SSR/ハイドレーション + 非同期(`resource`/`<Suspense>`)+ SSG(`kanabun generate`)+ CSS HMR 完了**;残りは任意 |
 | 7 | アイランド / 部分ハイドレーション + エコシステムプリミティブ(`lazy`・`<Portal>`・`<Dynamic>`・head API)+ 作成支援ツール(`kanabun lint`・dev オーバーレイ) | 🔜 計画 — 設計メモ: [`decisions.ja.md`](./decisions.ja.md#アイランド--部分ハイドレーションphase-7--設計メモ)(アイランド)、[`dx.ja.md`](./dx.ja.md#4-将来自前-linter)(linter) |
+| 8 | 重量級エコシステム: SSR ストリーミング(`renderToStream`)、リアクティブ store(`createStore`)、`@kanabun/testing` | 🔜 計画 — Phase 7 から先送り(大きめのサブシステム) |
 
 全期間で維持した品質基準: **ランタイム依存ゼロ**、`packages/core` のランタイム非依存、
 全ソースファイルの行/関数カバレッジ 100%、`tsc` クリーン、ドキュメントのバイリンガル。
@@ -149,6 +150,25 @@
 - [ ] **head / メタ API。** `renderToString` が既に返している `head` チャネルに乗せる、
   人間工学的な `<Title>` / `useHead` 風 API。今は head 内容を SSR/SSG 用に収集はするが、
   ページごとの `<title>` / `<meta>`(SEO)を書くための糖衣が無い。既存の SSR head 配管に乗る。
+
+### Phase 8 — 重量級エコシステム(Phase 7 から先送り)(計画)
+Phase 7 から意図的に外した大きめのピース ── どれも小さなプリミティブではなく、相応の
+サブシステム(新しい描画経路・プロキシ層・別パッケージ)。創設目標には不要だが、入れる場合は
+同じ品質基準(依存ゼロ・`packages/core` ランタイム非依存・カバレッジ 100%・`tsc` クリーン)を守る。
+- [ ] **SSR ストリーミング(`renderToStream`)。** 今の `renderToString` はツリーを eager に
+  全部組んでバッファ済みの HTML 文字列を 1 つ返す。ストリーミングは生成しながら markup を
+  flush し、`<Suspense>` 境界を順不同に解決(fallback を先に流し、解決後に差し込む)して TTFB を
+  改善する。同期 eager 経路とは別の **非同期** 描画経路と、流れてくるチャンクを縫合する
+  クライアントが要るため重い ── `renderToString` の小改修では済まない。
+- [ ] **リアクティブ store(`createStore`)。** 深いオブジェクト/配列状態を、パス単位の細粒度
+  更新(+ `produce` 風セッター)で扱う、プロキシベースのネスト store。今のフラットな signal を
+  超える。プロキシ層と新しい更新 API 面を足すため重い。依存ゼロ・ランタイム非依存(core)を維持。
+- [ ] **`@kanabun/testing` ユーティリティ。** 第一級のテスト補助パッケージ(モックへ描画・
+  `fireEvent`・microtask/effect の flush・クエリ補助)を、リポジトリ内 DOM モックの上に。
+  アプリ作者が jsdom 無しでコンポーネントを単体テストできる ── コアのスイートが使うのと同じ
+  モックを利用者向けにパッケージ化。別パッケージ・開発時のみ。
+- (別枠で追跡・Phase 8 ではない: SSG 動的パラメータ / `getStaticPaths` + ビルド時データ焼き込みは
+  **Phase 6(SSG)** の follow-up。router の VRT ベースラインは *既知の軽微項目* の CI チョア。)
 
 ### DX と型の精緻化
 - [x] `JSX.IntrinsicElements` の厳密化。**イベントハンドラ** ── `on*` プロップを

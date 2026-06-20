@@ -17,6 +17,7 @@ see [`decisions.md`](./decisions.md).
 | 5 | Bun integration: `create` / `dev` / `build` CLI | ✅ done |
 | 6 | Hardening & ecosystem (router, SSR, etc.) | 🟡 in progress — **router + error boundaries + dev-time warnings + SSR/hydration + async (`resource`/`<Suspense>`) + SSG (`kanabun generate`) + CSS HMR done**; rest optional |
 | 7 | Islands / partial hydration + ecosystem primitives (`lazy`, `<Portal>`, `<Dynamic>`, head API) + authoring tooling (`kanabun lint`, dev overlay) | 🔜 planned — design memos: [`decisions.md`](./decisions.md#islands--partial-hydration-phase-7--design-memo) (islands), [`dx.md`](./dx.md#4-future-an-in-house-linter) (linter) |
+| 8 | Heavyweight ecosystem: SSR streaming (`renderToStream`), reactive store (`createStore`), `@kanabun/testing` | 🔜 planned — deferred from Phase 7 (larger subsystems) |
 
 Quality bar held throughout: **zero runtime dependencies**, `packages/core`
 runtime-independent, 100% line/function coverage on all source files, `tsc`
@@ -168,6 +169,30 @@ boundaries in [`decisions.md`](./decisions.md#islands--partial-hydration-phase-7
   the `head` channel `renderToString` already returns — today head content is
   collected for SSR/SSG but there's no authoring sugar for per-page `<title>` /
   `<meta>` (SEO). Rides the existing SSR head plumbing.
+
+### Phase 8 — heavyweight ecosystem (deferred from Phase 7) (planned)
+Larger pieces consciously kept out of Phase 7 — each is a substantial subsystem
+(a new render path, a proxy layer, or a separate package) rather than a small
+primitive. None is required for the founding goal; all must hold the same bar
+(zero deps, `packages/core` runtime-independent, 100% coverage, `tsc` clean).
+- [ ] **SSR streaming (`renderToStream`).** Today `renderToString` builds the
+  whole tree eagerly and returns one buffered HTML string. Streaming would flush
+  markup as it's produced and resolve `<Suspense>` boundaries out-of-order (ship
+  the fallback, then patch in resolved content) for a better TTFB. Heavy because
+  it needs an *async* render path distinct from the synchronous eager one, plus a
+  client that stitches the streamed-in chunks — not a tweak to `renderToString`.
+- [ ] **Reactive store (`createStore`).** A nested, proxy-based store for deep
+  object/array state with path-level fine-grained updates (and a `produce`-style
+  setter), beyond today's flat signals. Heavy because it adds a proxy layer and a
+  new update API surface; must stay zero-dep and runtime-independent (core).
+- [ ] **`@kanabun/testing` utilities.** A first-party test-helper package
+  (render-into-mock, `fireEvent`, flush microtasks/effects, query helpers) over
+  the in-repo DOM mock, so app authors can unit-test components without jsdom —
+  the same mock the core suite uses, packaged for consumers. Separate package,
+  dev-only.
+- (Also tracked elsewhere, not Phase 8: SSG dynamic params / `getStaticPaths` +
+  build-time data baking remain a **Phase 6 (SSG)** follow-up; the router VRT
+  baseline is a CI chore under *Known minor items*.)
 
 ### DX & type precision
 - [x] Tighten `JSX.IntrinsicElements`. **Event handlers** — `on*` props are
