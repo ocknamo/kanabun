@@ -16,7 +16,7 @@
 | 4 | コンポーネントモデルと DX | ✅ 完了 — `onMount`/`mergeProps`/`splitProps`/スコープド `css`/`context` |
 | 5 | Bun 連携: `create` / `dev` / `build` CLI | ✅ 完了 |
 | 6 | 堅牢化・周辺(ルーター、SSR 等) | 🟡 進行中 — **ルーター + エラーバウンダリ + 開発時警告 + SSR/ハイドレーション + 非同期(`resource`/`<Suspense>`)+ SSG(`kanabun generate`)+ CSS HMR 完了**;残りは任意 |
-| 7 | アイランド / 部分ハイドレーション + 作成支援ツール(`kanabun lint`) | 🔜 計画 — 設計メモ: [`decisions.ja.md`](./decisions.ja.md#アイランド--部分ハイドレーションphase-7--設計メモ)(アイランド)、[`dx.ja.md`](./dx.ja.md#4-将来自前-linter)(linter) |
+| 7 | アイランド / 部分ハイドレーション + エコシステムプリミティブ(`lazy`・`<Portal>`・`<Dynamic>`・head API)+ 作成支援ツール(`kanabun lint`・dev オーバーレイ) | 🔜 計画 — 設計メモ: [`decisions.ja.md`](./decisions.ja.md#アイランド--部分ハイドレーションphase-7--設計メモ)(アイランド)、[`dx.ja.md`](./dx.ja.md#4-将来自前-linter)(linter) |
 
 全期間で維持した品質基準: **ランタイム依存ゼロ**、`packages/core` のランタイム非依存、
 全ソースファイルの行/関数カバレッジ 100%、`tsc` クリーン、ドキュメントのバイリンガル。
@@ -106,7 +106,7 @@
   は [`decisions.ja.md`](./decisions.ja.md#開発時警告phase-6) を参照。依存ゼロ・カバレッジ
   100%・ランタイム非依存。
 
-### Phase 7 — アイランド(部分ハイドレーション)+ 作成支援ツール(計画)
+### Phase 7 — アイランド + エコシステムプリミティブ + 作成支援ツール(計画)
 
 **アイランド。** 明示的・手動のアイランド(コンパイラ無し・resumability 無し)── 印を付けたコンポーネントだけが
 ハイドレートされ、静的な外殻はクライアント JS を送らない。完全な根拠とスコープ境界は
@@ -132,6 +132,23 @@
   オンデマンドの TypeScript パーサを再利用する。オプトインかつ開発時のみの作成支援ツールで
   あって、ランタイムコンパイラではない(創設時の制約を保つ)。詳細は
   [`dx.ja.md`](./dx.ja.md#4-将来自前-linter)。
+- [ ] **dev オーバーレイ。** 開発時の警告や未捕捉/`<ErrorBoundary>` のエラーを、コンソール
+  だけでなく `kanabun dev` の画面オーバーレイとして表示する。土台は既にある ──
+  `setWarnHandler` が dev 警告のシンクを差し替えられる
+  ([`decisions.ja.md`](./decisions.ja.md#開発時警告phase-6))ので、オーバーレイはその消費側。
+  開発時のみ・CLI/Bun レイヤーに置く。コアはランタイム非依存のまま。
+
+**エコシステムプリミティブ。**
+- [ ] **`lazy()`。** コンポーネントを動的 `import()` の背後に遅延させ、その境界で code-split。
+  既出の `<Suspense>`(欠けていた相棒)と統合する。上記のアイランド単位バンドル分割と技術的に
+  地続き ── どちらも「そのビューに必要な JS だけを送る」話。
+- [ ] **`<Portal>`。** 子を別の DOM ノード(例 `document.body`)へ描画(モーダル / ツールチップ /
+  トースト)。リアクティブ性と現在ツリーによる所有は保つ(破棄は DOM 位置でなく owner に従う)。
+- [ ] **`<Dynamic>`。** 実行時に選んだタグ名やコンポーネントを描画(`<Dynamic component={…} />`)。
+  値の変化に応じてホストをリアクティブに差し替える。
+- [ ] **head / メタ API。** `renderToString` が既に返している `head` チャネルに乗せる、
+  人間工学的な `<Title>` / `useHead` 風 API。今は head 内容を SSR/SSG 用に収集はするが、
+  ページごとの `<title>` / `<meta>`(SEO)を書くための糖衣が無い。既存の SSR head 配管に乗る。
 
 ### DX と型の精緻化
 - [x] `JSX.IntrinsicElements` の厳密化。**イベントハンドラ** ── `on*` プロップを

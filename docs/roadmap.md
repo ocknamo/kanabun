@@ -16,7 +16,7 @@ see [`decisions.md`](./decisions.md).
 | 4 | Component model & DX | ✅ done — `onMount`, `mergeProps`, `splitProps`, scoped `css`, `context` |
 | 5 | Bun integration: `create` / `dev` / `build` CLI | ✅ done |
 | 6 | Hardening & ecosystem (router, SSR, etc.) | 🟡 in progress — **router + error boundaries + dev-time warnings + SSR/hydration + async (`resource`/`<Suspense>`) + SSG (`kanabun generate`) + CSS HMR done**; rest optional |
-| 7 | Islands / partial hydration + authoring tooling (`kanabun lint`) | 🔜 planned — design memos: [`decisions.md`](./decisions.md#islands--partial-hydration-phase-7--design-memo) (islands), [`dx.md`](./dx.md#4-future-an-in-house-linter) (linter) |
+| 7 | Islands / partial hydration + ecosystem primitives (`lazy`, `<Portal>`, `<Dynamic>`, head API) + authoring tooling (`kanabun lint`, dev overlay) | 🔜 planned — design memos: [`decisions.md`](./decisions.md#islands--partial-hydration-phase-7--design-memo) (islands), [`dx.md`](./dx.md#4-future-an-in-house-linter) (linter) |
 
 Quality bar held throughout: **zero runtime dependencies**, `packages/core`
 runtime-independent, 100% line/function coverage on all source files, `tsc`
@@ -119,7 +119,7 @@ clean, docs bilingual.
   why, and for what *is* detectable. Zero dependencies, 100% covered, runtime
   independent.
 
-### Phase 7 — Islands (partial hydration) + authoring tooling (planned)
+### Phase 7 — Islands + ecosystem primitives + authoring tooling (planned)
 
 **Islands.** Explicit, manual islands (no compiler, no resumability) — only marked components
 hydrate; the static shell ships no client JS. Full rationale and scope
@@ -148,6 +148,26 @@ boundaries in [`decisions.md`](./decisions.md#islands--partial-hydration-phase-7
   typechecking. Opt-in, dev-only authoring tooling, *not* a runtime compiler
   (keeps the founding constraint intact). See
   [`dx.md`](./dx.md#4-future-an-in-house-linter).
+- [ ] **Dev overlay.** Surface dev-time warnings and uncaught/`<ErrorBoundary>`
+  errors as an on-screen overlay in `kanabun dev`, instead of console-only. The
+  seam already exists — `setWarnHandler` lets a sink intercept the dev warnings
+  ([`decisions.md`](./decisions.md#dev-time-warnings-phase-6)); the overlay is the
+  consumer. Dev-only, lives in the CLI/Bun layer; core stays runtime-independent.
+
+**Ecosystem primitives.**
+- [ ] **`lazy()`.** Defer a component behind a dynamic `import()` and code-split at
+  the boundary, integrating with the already-shipped `<Suspense>` (its missing
+  partner). Technically adjacent to the per-island bundle split above — both are
+  about shipping only the JS a view needs.
+- [ ] **`<Portal>`.** Render children into a different DOM node (e.g.
+  `document.body`) for modals / tooltips / toasts, while staying reactive and
+  owned by the current tree (disposal follows the owner, not the DOM location).
+- [ ] **`<Dynamic>`.** Render a tag name or component chosen at runtime
+  (`<Dynamic component={…} />`), reactively swapping the host as the value changes.
+- [ ] **Head / metadata API.** An ergonomic `<Title>` / `useHead`-style API over
+  the `head` channel `renderToString` already returns — today head content is
+  collected for SSR/SSG but there's no authoring sugar for per-page `<title>` /
+  `<meta>` (SEO). Rides the existing SSR head plumbing.
 
 ### DX & type precision
 - [x] Tighten `JSX.IntrinsicElements`. **Event handlers** — `on*` props are

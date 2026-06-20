@@ -42,7 +42,7 @@
 
 Phase 6 のルーター・**ネストルーティング**・**相対 `<Link>` href**・エラーバウンダリ・開発時警告・`on*` イベント + **要素ごとの属性**型付け・**`splitProps` タプル型**・SSR + ハイドレーション・**非同期(`resource`/`<Suspense>`)**・**SSG(`kanabun generate`)**・**CSS HMR** は **完了**。残るは(いずれも任意):
   - **状態保持 HMR** ── コンパイラ無しでは到達不可(非CSS編集は全リロードのまま)。
-  - **Phase 7** ── アイランド(部分ハイドレーション)+ **作成支援ツール**。`<Island>` 境界+レジストリ(core)/ アイランド単位のバンドル分割(CLI)+ **自前 linter(`kanabun lint`)**。設計メモは `decisions.md`(アイランド)/ `dx.md`(linter、下記)。コード未着手。
+  - **Phase 7** ── アイランド + **エコシステムプリミティブ** + **作成支援ツール**。`<Island>` 境界+レジストリ(core)/ アイランド単位のバンドル分割(CLI)/ **`lazy()`**(Suspense と統合・コード分割)/ **`<Portal>`** / **`<Dynamic>`** / **head・メタ API**(`renderToString` の `head` channel に乗せる)/ **自前 linter(`kanabun lint`)** / **dev オーバーレイ**(`setWarnHandler` の消費側)。設計メモは `decisions.md`(アイランド)/ `dx.md`(linter、下記)。コード未着手。
   - **npm 公開**(`@kanabun/core`・`@kanabun/cli`)+ **バージョニング/リリース戦略** ── 未公開のため `create` は `^0.0.0` プレースホルダ。
   - 軽微: dev サーバの `realpath` 二重 stat / `parseArgs` の `--a --b` 挙動(note のみ)。
 
