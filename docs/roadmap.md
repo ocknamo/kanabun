@@ -16,7 +16,8 @@ see [`decisions.md`](./decisions.md).
 | 4 | Component model & DX | ✅ done — `onMount`, `mergeProps`, `splitProps`, scoped `css`, `context` |
 | 5 | Bun integration: `create` / `dev` / `build` CLI | ✅ done |
 | 6 | Hardening & ecosystem (router, SSR, etc.) | 🟡 in progress — **router + error boundaries + dev-time warnings + SSR/hydration + async (`resource`/`<Suspense>`) + SSG (`kanabun generate`) + CSS HMR done**; rest optional |
-| 7 | Islands / partial hydration | 🔜 planned — design memo in [`decisions.md`](./decisions.md#islands--partial-hydration-phase-7--design-memo) |
+| 7 | Islands / partial hydration + ecosystem primitives (`lazy`, `<Portal>`, `<Dynamic>`, head API) + authoring tooling (`kanabun lint`, dev overlay) | 🔜 planned — design memos: [`decisions.md`](./decisions.md#islands--partial-hydration-phase-7--design-memo) (islands), [`dx.md`](./dx.md#4-future-an-in-house-linter) (linter) |
+| 8 | Heavyweight ecosystem: SSR streaming (`renderToStream`), reactive store (`createStore`), `@kanabun/testing` | 🔜 planned — deferred from Phase 7 (larger subsystems) |
 
 Quality bar held throughout: **zero runtime dependencies**, `packages/core`
 runtime-independent, 100% line/function coverage on all source files, `tsc`
@@ -119,8 +120,9 @@ clean, docs bilingual.
   why, and for what *is* detectable. Zero dependencies, 100% covered, runtime
   independent.
 
-### Phase 7 — Islands (partial hydration) (planned)
-Explicit, manual islands (no compiler, no resumability) — only marked components
+### Phase 7 — Islands + ecosystem primitives + authoring tooling (planned)
+
+**Islands.** Explicit, manual islands (no compiler, no resumability) — only marked components
 hydrate; the static shell ships no client JS. Full rationale and scope
 boundaries in [`decisions.md`](./decisions.md#islands--partial-hydration-phase-7--design-memo).
 - [ ] **`<Island>` boundary + registry (core).** A boundary that serializes to a
@@ -136,6 +138,61 @@ boundaries in [`decisions.md`](./decisions.md#islands--partial-hydration-phase-7
   stays in the CLI layer; core remains runtime-independent.
 - Out of scope (documented): automatic island detection and node-level adoption
   (both need a compiler), and resumability (contradicts the runtime-JSX design).
+
+**Authoring tooling.**
+- [ ] **In-house linter (`kanabun lint`).** Static analysis to catch the slips
+  the runtime can't — chiefly `{count()}` where `{count}` was meant in a
+  child/attribute (needs to see the source before the call collapses to a value),
+  plus related convention violations. **Not** an ESLint plugin (ESLint is an
+  external dependency; kanabun ships zero deps) — a first-party CLI command in the
+  Bun layer, reusing the on-demand TypeScript parser already used for
+  typechecking. Opt-in, dev-only authoring tooling, *not* a runtime compiler
+  (keeps the founding constraint intact). See
+  [`dx.md`](./dx.md#4-future-an-in-house-linter).
+- [ ] **Dev overlay.** Surface dev-time warnings and uncaught/`<ErrorBoundary>`
+  errors as an on-screen overlay in `kanabun dev`, instead of console-only. The
+  seam already exists — `setWarnHandler` lets a sink intercept the dev warnings
+  ([`decisions.md`](./decisions.md#dev-time-warnings-phase-6)); the overlay is the
+  consumer. Dev-only, lives in the CLI/Bun layer; core stays runtime-independent.
+
+**Ecosystem primitives.**
+- [ ] **`lazy()`.** Defer a component behind a dynamic `import()` and code-split at
+  the boundary, integrating with the already-shipped `<Suspense>` (its missing
+  partner). Technically adjacent to the per-island bundle split above — both are
+  about shipping only the JS a view needs.
+- [ ] **`<Portal>`.** Render children into a different DOM node (e.g.
+  `document.body`) for modals / tooltips / toasts, while staying reactive and
+  owned by the current tree (disposal follows the owner, not the DOM location).
+- [ ] **`<Dynamic>`.** Render a tag name or component chosen at runtime
+  (`<Dynamic component={…} />`), reactively swapping the host as the value changes.
+- [ ] **Head / metadata API.** An ergonomic `<Title>` / `useHead`-style API over
+  the `head` channel `renderToString` already returns — today head content is
+  collected for SSR/SSG but there's no authoring sugar for per-page `<title>` /
+  `<meta>` (SEO). Rides the existing SSR head plumbing.
+
+### Phase 8 — heavyweight ecosystem (deferred from Phase 7) (planned)
+Larger pieces consciously kept out of Phase 7 — each is a substantial subsystem
+(a new render path, a proxy layer, or a separate package) rather than a small
+primitive. None is required for the founding goal; all must hold the same bar
+(zero deps, `packages/core` runtime-independent, 100% coverage, `tsc` clean).
+- [ ] **SSR streaming (`renderToStream`).** Today `renderToString` builds the
+  whole tree eagerly and returns one buffered HTML string. Streaming would flush
+  markup as it's produced and resolve `<Suspense>` boundaries out-of-order (ship
+  the fallback, then patch in resolved content) for a better TTFB. Heavy because
+  it needs an *async* render path distinct from the synchronous eager one, plus a
+  client that stitches the streamed-in chunks — not a tweak to `renderToString`.
+- [ ] **Reactive store (`createStore`).** A nested, proxy-based store for deep
+  object/array state with path-level fine-grained updates (and a `produce`-style
+  setter), beyond today's flat signals. Heavy because it adds a proxy layer and a
+  new update API surface; must stay zero-dep and runtime-independent (core).
+- [ ] **`@kanabun/testing` utilities.** A first-party test-helper package
+  (render-into-mock, `fireEvent`, flush microtasks/effects, query helpers) over
+  the in-repo DOM mock, so app authors can unit-test components without jsdom —
+  the same mock the core suite uses, packaged for consumers. Separate package,
+  dev-only.
+- (Also tracked elsewhere, not Phase 8: SSG dynamic params / `getStaticPaths` +
+  build-time data baking remain a **Phase 6 (SSG)** follow-up; the router VRT
+  baseline is a CI chore under *Known minor items*.)
 
 ### DX & type precision
 - [x] Tighten `JSX.IntrinsicElements`. **Event handlers** — `on*` props are
@@ -163,15 +220,9 @@ boundaries in [`decisions.md`](./decisions.md#islands--partial-hydration-phase-7
   `create`-scaffolded `package.json` references `^0.0.0` placeholders and the
   quickstart runs from this repo.
 - [ ] Versioning / release strategy.
-- [ ] **In-house linter (`kanabun lint`).** Static analysis to catch the slips
-  the runtime can't — chiefly `{count()}` where `{count}` was meant in a
-  child/attribute (needs to see the source before the call collapses to a value),
-  plus related convention violations. **Not** an ESLint plugin (ESLint is an
-  external dependency; kanabun ships zero deps) — a first-party CLI command in the
-  Bun layer, reusing the on-demand TypeScript parser already used for
-  typechecking. Opt-in, dev-only authoring tooling, *not* a runtime compiler
-  (keeps the founding constraint intact). See
-  [`dx.md`](./dx.md#4-future-an-in-house-linter).
+
+> The in-house linter (`kanabun lint`) now lives in **Phase 7** (authoring
+> tooling), alongside islands — see above.
 
 ### Known minor items (from reviews)
 - [ ] Dev server does a `realpath` stat per request for containment, in addition
