@@ -608,6 +608,22 @@ fallback while it loads. Like the rest of Phase 6, both ride existing machinery
   Wrap them in a thunk so the resources are *created under* the boundary (and thus
   see its context); a plain eager child is built before `<Suspense>` runs and
   registers with nothing.
+- **`lazy()` is `<Suspense>`'s missing partner.** `lazy(() => import("./X"))`
+  defers a component behind a dynamic `import()` so the bundler code-splits it. The
+  returned component registers with the nearest `<Suspense>` (the same
+  increment/decrement registry a `resource` uses) while the module loads *for the
+  first time*, then renders the module's `default` export in place. The import
+  promise is **cached on the factory**, so multiple instances — or an eager
+  `Lazy.preload()` — share one network request; an instance created *after* the
+  module has settled renders synchronously (no fallback frame). A **failed import**
+  surfaces its error into the reactive graph so an enclosing `<ErrorBoundary>`
+  catches it — and that drove one subtlety: the component builds its view inside a
+  `computed` it *owns* (under the boundary), because a bare reactive thunk returned
+  to the caller is re-inserted by the *outer* render effect, where a throw would
+  escape the boundary; the owned `computed` keeps the throw on the right owner.
+  Disposal before the import settles cancels quietly (release the boundary, never
+  render or throw). No `Bun.*`/bundler magic lives here — the code-splitting is the
+  bundler's job at the `import()`; core just orchestrates the loading state.
 
 Held to the same bar: zero dependencies, `packages/core` runtime-independent,
 100% line/function coverage, `tsc` clean, docs bilingual.

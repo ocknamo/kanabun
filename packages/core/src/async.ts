@@ -17,8 +17,13 @@
  * created *under* the boundary (and so find it via context):
  *
  *     <Suspense fallback={<p>loading…</p>}>{() => <Profile />}</Suspense>
+ *
+ * `lazy(() => import("./X"))` defers a component behind a dynamic import so it can
+ * be code-split. The returned component suspends the nearest `<Suspense>` until
+ * the module's default export resolves, then renders it; a failed import surfaces
+ * the error into the reactive graph (catchable by an `<ErrorBoundary>`).
  */
-import { effect, signal, untrack } from "./reactive";
+import { computed, effect, signal, untrack } from "./reactive";
 import type { Accessor } from "./reactive";
 import { createRoot, onCleanup } from "./lifecycle";
 import { createContext, useContext } from "./context";
@@ -234,4 +239,124 @@ export function Suspense(props: SuspenseProps): () => JSXChild {
   onCleanup(() => dispose());
 
   return () => (pending() > 0 ? (props.fallback ?? null) : children) as JSXChild;
+}
+
+// ── lazy ─────────────────────────────────────────────────────────
+/**
+ * A component whose props are `P`. The JSX transform enforces the real prop
+ * shape at the call site; here it is intentionally loose (mirroring the JSX
+ * runtime's `Component`).
+ */
+type LazyComponent<P> = (props: P) => unknown;
+
+/** The shape `lazy()` returns: a component that also carries an eager `preload()`. */
+export interface LazyComponentResult<P> {
+  (props: P): unknown;
+  /** Start (or reuse) the dynamic import without rendering — for prefetching. */
+  preload: () => Promise<{ default: LazyComponent<P> }>;
+}
+
+/**
+ * Defer a component behind a dynamic `import()` so the bundler can code-split it.
+ * The returned component suspends the nearest `<Suspense>` while the module loads
+ * *for the first time*, then renders the module's `default` export in place. A
+ * failed import surfaces its error into the reactive graph (so an enclosing
+ * `<ErrorBoundary>` can catch it).
+ *
+ * The import is started lazily on first render and the resulting promise is
+ * cached, so multiple instances (or a `preload()`) share one network request.
+ *
+ * @example
+ *   const Profile = lazy(() => import("./Profile"));
+ *   <Suspense fallback={<p>loading…</p>}>{() => <Profile id={1} />}</Suspense>
+ */
+export function lazy<P = Record<string, unknown>>(
+  loader: () => Promise<{ default: LazyComponent<P> }>,
+): LazyComponentResult<P> {
+  // The shared, cached import promise — created on the first preload()/render.
+  // It never rejects: a failed import settles `failed` and resolves so callers
+  // (multiple instances, `preload()`) share it without unhandled rejections.
+  let promise: Promise<{ default: LazyComponent<P> }> | undefined;
+  let resolved: LazyComponent<P> | undefined; // set once the module loads
+  let failed: { error: unknown } | undefined; // set if the import rejects
+
+  const preload = (): Promise<{ default: LazyComponent<P> }> => {
+    if (promise === undefined) {
+      promise = loader()
+        .then((mod) => {
+          resolved = mod.default;
+        })
+        .catch((err) => {
+          failed = { error: err };
+        })
+        // Re-throw the captured failure so `preload()` callers that *await* it
+        // still see the rejection, while the cached `promise` above is settled.
+        .then(() => {
+          if (failed !== undefined) throw failed.error;
+          return { default: resolved! };
+        });
+    }
+    return promise;
+  };
+
+  const Lazy = (props: P): unknown => {
+    // Already settled (e.g. a second instance after the first load): render now.
+    if (resolved !== undefined) return resolved(props);
+    if (failed !== undefined) throw failed.error;
+
+    const ready = signal(false); // module loaded?
+    const errored = signal<{ error: unknown } | undefined>(undefined);
+
+    // Register with the nearest <Suspense> so it shows its fallback while we load.
+    const registry = useContext(SuspenseContext);
+    let registered = false;
+    if (registry !== null) {
+      registry.increment();
+      registered = true;
+    }
+    const release = (): void => {
+      if (registered) {
+        registered = false;
+        registry!.decrement();
+      }
+    };
+
+    let disposed = false;
+    onCleanup(() => {
+      disposed = true;
+      release();
+    });
+
+    // Settle from the cached state (`resolved`/`failed`) rather than the promise's
+    // rejection, so an instance never spawns an unhandled rejection of its own.
+    preload().then(
+      () => {
+        if (disposed) return;
+        release();
+        ready.set(true);
+      },
+      () => {
+        if (disposed) return;
+        release();
+        errored.set(failed);
+      },
+    );
+
+    // Build the content inside a `computed` *owned by this component* (and thus
+    // by the boundary above it). A bare reactive thunk returned to the caller is
+    // re-inserted by the *outer* render effect, so a throw from it would escape
+    // the enclosing `<ErrorBoundary>`; a `computed` keeps the throw on this
+    // owner, where `catchError` routes it correctly. Nothing while loading, the
+    // component once ready, or a throw on a failed import.
+    const view = computed<unknown>(() => {
+      const e = errored();
+      if (e !== undefined) throw e.error;
+      if (!ready()) return null;
+      return untrack(() => resolved!(props));
+    });
+    return () => view();
+  };
+
+  (Lazy as LazyComponentResult<P>).preload = preload;
+  return Lazy as LazyComponentResult<P>;
 }

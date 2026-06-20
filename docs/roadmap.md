@@ -156,10 +156,17 @@ boundaries in [`decisions.md`](./decisions.md#islands--partial-hydration-phase-7
   consumer. Dev-only, lives in the CLI/Bun layer; core stays runtime-independent.
 
 **Ecosystem primitives.**
-- [ ] **`lazy()`.** Defer a component behind a dynamic `import()` and code-split at
-  the boundary, integrating with the already-shipped `<Suspense>` (its missing
-  partner). Technically adjacent to the per-island bundle split above — both are
-  about shipping only the JS a view needs.
+- [x] **`lazy()`.** Done — `lazy(() => import("./X"))` defers a component behind a
+  dynamic `import()` so the bundler code-splits it, integrating with the
+  already-shipped `<Suspense>` (its missing partner). It registers with the nearest
+  boundary while the module loads *for the first time* (the same registry a
+  `resource` uses), then renders the module's `default` in place; the import promise
+  is cached on the factory so multiple instances / an eager `Lazy.preload()` share
+  one request, and an instance created after the module settled renders
+  synchronously. A failed import surfaces its error into the reactive graph (an
+  enclosing `<ErrorBoundary>` catches it). Lives beside `<Suspense>` in
+  `packages/core/src/async.ts`; zero deps, 100% covered, runtime independent. See
+  [`decisions.md`](./decisions.md#async--suspense-phase-6).
 - [ ] **`<Portal>`.** Render children into a different DOM node (e.g.
   `document.body`) for modals / tooltips / toasts, while staying reactive and
   owned by the current tree (disposal follows the owner, not the DOM location).

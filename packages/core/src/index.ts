@@ -27,8 +27,8 @@ export type { RenderToStringResult } from "./server";
 export { Show, For, mapArray, ErrorBoundary } from "./control-flow";
 export type { ShowProps, ForProps, ErrorBoundaryProps } from "./control-flow";
 
-// Async: `resource` (fetch-into-a-signal) + `<Suspense>`.
-export { resource, Suspense } from "./async";
+// Async: `resource` (fetch-into-a-signal) + `<Suspense>` + `lazy()`.
+export { resource, Suspense, lazy } from "./async";
 export type {
   Resource,
   ResourceActions,
@@ -36,6 +36,7 @@ export type {
   ResourceFetcherInfo,
   ResourceReturn,
   SuspenseProps,
+  LazyComponentResult,
 } from "./async";
 
 // Scoped CSS (runtime helper: hashes a class + injects a <style>).

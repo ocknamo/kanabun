@@ -287,6 +287,26 @@ function Profile(props: { id: () => number }) {
 Errors surface via `resource.error()` (they aren't auto-routed to an
 `<ErrorBoundary>`), so the UI can decide how to show them.
 
+`lazy()` is `<Suspense>`'s partner: it defers a component behind a dynamic
+`import()` so the bundler code-splits it, and suspends the nearest `<Suspense>`
+until the module's `default` export loads.
+
+```tsx
+import { lazy, Suspense } from "@kanabun/core";
+
+// Code-split: Profile's module isn't fetched until it first renders.
+const Profile = lazy(() => import("./Profile"));
+
+<Suspense fallback={<p>Loading…</p>}>
+  {() => <Profile id={1} />}
+</Suspense>;
+// Profile.preload() can warm the import ahead of time (e.g. on hover).
+```
+
+The import is cached on the factory, so multiple instances (or a `preload()`)
+share one request; a failed import surfaces its error to an enclosing
+`<ErrorBoundary>`.
+
 ### Scoped CSS
 
 `css` is a runtime, no-compiler helper (Emotion-style): it hashes the style body

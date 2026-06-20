@@ -275,6 +275,25 @@ function Profile(props: { id: () => number }) {
 エラーは `resource.error()` で公開され(`<ErrorBoundary>` へ自動転送はしない)、表示の
 仕方は UI 側で選べます。
 
+`lazy()` は `<Suspense>` の相棒です。コンポーネントを動的 `import()` の背後に遅延させて
+バンドラに code-split させ、モジュールの `default` エクスポートがロードされるまで最寄りの
+`<Suspense>` をサスペンドします。
+
+```tsx
+import { lazy, Suspense } from "@kanabun/core";
+
+// コード分割: Profile のモジュールは初回描画まで取得されない。
+const Profile = lazy(() => import("./Profile"));
+
+<Suspense fallback={<p>読み込み中…</p>}>
+  {() => <Profile id={1} />}
+</Suspense>;
+// Profile.preload() で事前に import を温められる(例: ホバー時)。
+```
+
+import は factory にキャッシュされるので複数インスタンス(や `preload()`)が 1 本の要求を
+共有します。import 失敗時は error を外側の `<ErrorBoundary>` へ surface します。
+
 ### スコープド CSS
 
 `css` はランタイム・コンパイラなしのヘルパー(Emotion 風)です。スタイル本体を
