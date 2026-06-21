@@ -1,7 +1,5 @@
-import { hydrateIslands } from "@kanabun/core";
-// The same registry the server used — so `hydrateIslands` resolves each
-// `[data-island]` by name.
-import "./islands";
+// The `hydrateIslands` bound to the same typed map the server used.
+import { hydrateIslands } from "./islands";
 
 // Client entry: scan the page for `[data-island]` wrappers and hydrate only
 // those. Everything outside an island is left as the static server markup and

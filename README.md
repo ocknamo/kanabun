@@ -476,12 +476,12 @@ function UsersLayout() {
 | Error handling | `ErrorBoundary`, `catchError` |
 | Async | `resource`, `Suspense` |
 | Ecosystem primitives | `lazy` (code-split), `Portal` (teleport), `Dynamic` (runtime host), `Head` / `Title` (document head) |
-| Islands | `Island` (boundary), `registerIsland`, `hydrateIslands` (partial hydration) |
+| Islands | `defineIslands` (typed registry — compile-time name/props), `Island` (boundary), `registerIsland`, `hydrateIslands` (partial hydration) |
 | Props | `mergeProps`, `splitProps` |
 | Context | `createContext`, `useContext` |
 | Styling | `css` (scoped CSS) |
 | Dev warnings | `setDev`, `setWarnHandler` (opt-in; `kanabun dev` enables them) |
-| Types | `Accessor`, `Signal`, `SignalOptions`, `Disposer`, `Context`, `Props`, `JSXChild`, `JSX`, `EventHandler`, `HTMLAttributes`, `ShowProps`, `ForProps`, `ErrorBoundaryProps`, `RenderToStringResult`, `Resource`, `SuspenseProps`, `LazyModule`, `PortalProps`, `DynamicProps`, `HeadProps`, `TitleProps`, `IslandProps`, `IslandBoundaryProps`, `IslandComponent`, `IslandRegistry`, `HydrateIslandsOptions` |
+| Types | `Accessor`, `Signal`, `SignalOptions`, `Disposer`, `Context`, `Props`, `JSXChild`, `JSX`, `EventHandler`, `HTMLAttributes`, `ShowProps`, `ForProps`, `ErrorBoundaryProps`, `RenderToStringResult`, `Resource`, `SuspenseProps`, `LazyModule`, `PortalProps`, `DynamicProps`, `HeadProps`, `TitleProps`, `IslandProps`, `IslandBoundaryProps`, `IslandComponent`, `IslandRegistry`, `HydrateIslandsOptions`, `IslandsMap`, `DefinedIslands` |
 
 **`@kanabun/cli`** (the `kanabun` command; also importable as a library)
 

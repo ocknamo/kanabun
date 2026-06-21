@@ -456,12 +456,12 @@ function UsersLayout() {
 | エラー処理 | `ErrorBoundary`, `catchError` |
 | 非同期 | `resource`, `Suspense` |
 | エコシステムプリミティブ | `lazy`(コード分割)、`Portal`(テレポート)、`Dynamic`(実行時ホスト)、`Head` / `Title`(document head) |
-| アイランド | `Island`(境界)、`registerIsland`、`hydrateIslands`(部分ハイドレーション) |
+| アイランド | `defineIslands`(型付きレジストリ ── コンパイル時の name/props チェック)、`Island`(境界)、`registerIsland`、`hydrateIslands`(部分ハイドレーション) |
 | props | `mergeProps`, `splitProps` |
 | コンテキスト | `createContext`, `useContext` |
 | スタイリング | `css`(スコープド CSS) |
 | 開発時警告 | `setDev`, `setWarnHandler`(オプトイン。`kanabun dev` が自動有効化) |
-| 型 | `Accessor`, `Signal`, `SignalOptions`, `Disposer`, `Context`, `Props`, `JSXChild`, `JSX`, `EventHandler`, `HTMLAttributes`, `ShowProps`, `ForProps`, `ErrorBoundaryProps`, `RenderToStringResult`, `Resource`, `SuspenseProps`, `LazyModule`, `PortalProps`, `DynamicProps`, `HeadProps`, `TitleProps`, `IslandProps`, `IslandBoundaryProps`, `IslandComponent`, `IslandRegistry`, `HydrateIslandsOptions` |
+| 型 | `Accessor`, `Signal`, `SignalOptions`, `Disposer`, `Context`, `Props`, `JSXChild`, `JSX`, `EventHandler`, `HTMLAttributes`, `ShowProps`, `ForProps`, `ErrorBoundaryProps`, `RenderToStringResult`, `Resource`, `SuspenseProps`, `LazyModule`, `PortalProps`, `DynamicProps`, `HeadProps`, `TitleProps`, `IslandProps`, `IslandBoundaryProps`, `IslandComponent`, `IslandRegistry`, `HydrateIslandsOptions`, `IslandsMap`, `DefinedIslands` |
 
 **`@kanabun/cli`**(`kanabun` コマンド。ライブラリとしても import 可能)
 

@@ -8,14 +8,20 @@
  *
  * With no compiler there is nothing to *detect* which components are
  * interactive, so the author marks them explicitly (closer to Astro's
- * `client:*` directives than to a framework that infers islands):
+ * `client:*` directives than to a framework that infers islands). The
+ * recommended, type-safe way is {@link defineIslands} — declare the map once and
+ * the returned `<Island name>` checks the name (and props) at compile time:
  *
- *     // shared by the server render and the client entry — register once.
- *     import { registerIsland } from "@kanabun/core";
- *     import { Counter } from "./Counter";
+ *     // islands.ts — shared by the server render and the client entry.
+ *     export const { Island, hydrateIslands } = defineIslands({ Counter });
+ *
+ *     // in the page: `name` is "Counter"; a typo is a compile error.
+ *     <Island name="Counter" props={{ start: 0 }} />
+ *
+ * The lower-level {@link registerIsland} + global {@link Island} pair takes a
+ * plain string name (resolved at runtime — handy for dynamic registration):
+ *
  *     registerIsland("Counter", Counter);
- *
- *     // in the page: marks a hydration boundary.
  *     <Island name="Counter" props={{ start: 0 }} />
  *
  * On the **server**, `<Island>` looks the component up in the registry and
@@ -183,4 +189,61 @@ function hasIslandAncestor(el: Element): boolean {
     }
   }
   return false;
+}
+
+// ── Typed registry (compile-time name + props checking) ──────────────
+/** A name → component map declared up front, so its keys are known to the type system. */
+export type IslandsMap = Record<string, IslandComponent>;
+
+/** The typed `<Island>` + `hydrateIslands` returned by {@link defineIslands}. */
+export interface DefinedIslands<M extends IslandsMap> {
+  /**
+   * Like the global {@link Island}, but `name` is constrained to the keys of the
+   * declared map and `props` to the matching component's props — so a typo or an
+   * unregistered name is a **compile error**, not a runtime throw.
+   */
+  Island: <K extends keyof M & string>(boundary: {
+    name: K;
+    props?: Parameters<M[K]>[0];
+  }) => JSXChild;
+  /** Like the global {@link hydrateIslands}, but bound to this map (no `registry`). */
+  hydrateIslands: (options?: Omit<HydrateIslandsOptions, "registry">) => Disposer;
+}
+
+/**
+ * Declare the islands as a typed map and get back an `<Island>` / `hydrateIslands`
+ * pair bound to it. Because the keys are known statically, `<Island name>` is
+ * checked at compile time (an unregistered name won't type-check) and `props` is
+ * typed per component — closing the gap the string-keyed {@link registerIsland}
+ * API leaves open. Export the pair from a module both the server and client
+ * import:
+ *
+ *     // islands.ts (shared)
+ *     export const { Island, hydrateIslands } = defineIslands({ Counter, Clock });
+ *
+ *     // a page (server): name + props are type-checked
+ *     <Island name="Counter" props={{ start: 0 }} />
+ *     <Island name="Typo" />            // ✗ compile error
+ *
+ *     // client entry
+ *     hydrateIslands();
+ */
+export function defineIslands<const M extends IslandsMap>(islands: M): DefinedIslands<M> {
+  const TypedIsland = <K extends keyof M & string>(boundary: {
+    name: K;
+    props?: Parameters<M[K]>[0];
+  }): JSXChild => {
+    const props = (boundary.props ?? {}) as IslandProps;
+    const Component = lookup(boundary.name, islands);
+    return jsx("div", {
+      "data-island": boundary.name,
+      "data-props": JSON.stringify(props),
+      children: jsx(Component, props),
+    }) as JSXChild;
+  };
+  return {
+    Island: TypedIsland,
+    hydrateIslands: (options: Omit<HydrateIslandsOptions, "registry"> = {}): Disposer =>
+      hydrateIslands({ ...options, registry: islands }),
+  };
 }

@@ -731,9 +731,23 @@ owner trees are not). `hydrateIslands({ root?, registry? })` queries
 `[data-island]` (defaulting to the whole `document`), `JSON.parse`s `data-props`
 (absent → `{}`), resolves the component, and `hydrate`s each container; it returns
 a disposer that tears every mounted island down. An unregistered name throws on
-both sides (a loud, early failure rather than a silent no-op). Islands are flat —
-a registered component should not itself emit an `<Island>`. The demo is
-`examples/islands` (an SSR shell with two independent counter islands).
+both sides (a loud, early failure rather than a silent no-op). Nested islands are
+detected against the original tree (before the first `hydrate` detaches them),
+skipped, and flagged with a dev warning — the "islands are flat" rule can't be
+expressed structurally without a compiler, so the runtime guards it instead of
+mounting onto a detached node.
+
+**Compile-time names (`defineIslands`).** The string-keyed `registerIsland` +
+global `<Island name>` resolves names at runtime, so a typo only fails when the
+page renders. `defineIslands({ Counter, … })` closes that gap: it takes a typed
+map and returns an `<Island>` / `hydrateIslands` pair bound to it, with
+`<Island name>` constrained to the map's keys (`const` type parameter so the
+literal keys survive) and `props` typed per component — an unregistered name is a
+**compile error**. It reuses the same `lookup`/`hydrateIslands` internals (the map
+is just passed as the explicit registry), so there is one runtime path; the
+factory only adds types. The string API stays for dynamic registration. The demo
+(`examples/islands`) is an SSR shell with two independent counter islands wired
+through `defineIslands`.
 
 ## Ecosystem primitives (Phase 7)
 

@@ -1,6 +1,6 @@
-import { Island } from "@kanabun/core";
-// Register the islands so the server render can resolve them by name.
-import "./islands";
+// The typed `<Island>` bound to the declared map — `name` is checked against the
+// registered islands at compile time.
+import { Island } from "./islands";
 
 /**
  * A mostly static page with two interactive islands. The heading and paragraphs

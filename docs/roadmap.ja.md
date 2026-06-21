@@ -117,7 +117,9 @@
   `<div data-island data-props>` ラッパの内側に描画する(props は属性へ JSON 直列化 ──
   初回描画 / SEO は不変)。クライアントでは `hydrateIslands()` が全 `[data-island]` を走査し、
   props を復元、同じレジストリからコンポーネントを解決して、それらだけを `hydrate` する ──
-  他は一切実行されない。`renderToString`(サーバ)+ `hydrate`(コンテナ毎)を再利用 ──
+  他は一切実行されない。`defineIslands({ Counter, … })` が型安全な経路: 型付きマップのキーが
+  `<Island name>` を制約し(タイポ / 未登録 name はコンパイルエラー)、各コンポーネントが
+  `props` を型付ける(ランタイムは同一)。`renderToString`(サーバ)+ `hydrate`(コンテナ毎)を再利用 ──
   第3の描画経路は作らない。props は JSON 直列化可能なもののみ(クロージャ / signal は境界を
   越えない)。各アイランドは独立した root(context / 所有権ツリーは越えない ── 共有状態は
   モジュールレベルの singleton signal で)。動くデモは `examples/islands`(静的な外殻 +

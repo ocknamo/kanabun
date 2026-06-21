@@ -7,6 +7,7 @@ import {
   Island,
   registerIsland,
   hydrateIslands,
+  defineIslands,
 } from "./index";
 import {
   installDOM,
@@ -190,5 +191,47 @@ describe("hydrateIslands", () => {
     // re-rendered), and the nested one was skipped with a dev warning.
     expect(firstElement(outer).textContent).toBe("count: 0");
     expect(messages.some((m) => /nested <Island>/.test(m))).toBe(true);
+  });
+});
+
+describe("defineIslands (typed registry)", () => {
+  test("renders and hydrates against the declared map", () => {
+    const { Island: TypedIsland, hydrateIslands: hydrate } = defineIslands({ Counter });
+
+    // Server-style render through the typed boundary.
+    const container = createContainer();
+    render(() => TypedIsland({ name: "Counter", props: { start: 2 } }), asEl(container));
+    const div = firstElement(container);
+    expect(div.getAttribute("data-island")).toBe("Counter");
+    expect(div.getAttribute("data-props")).toBe('{"start":2}');
+
+    // Client-style hydrate (bound to the same map, no `registry` needed).
+    hydrate({ root: asEl(container) });
+    const button = firstElement(div);
+    expect(button.textContent).toBe("count: 2");
+    button.dispatch("click");
+    expect(button.textContent).toBe("count: 3");
+  });
+
+  test("defaults props to an empty object", () => {
+    const { Island: TypedIsland } = defineIslands({ Counter });
+    const container = createContainer();
+    render(() => TypedIsland({ name: "Counter" }), asEl(container));
+    expect(firstElement(container).getAttribute("data-props")).toBe("{}");
+  });
+
+  // Compile-time assertions (checked by `bunx tsc`; each `@ts-expect-error` must
+  // mark a real error). The runtime body just needs to be valid.
+  test("checks the name and props at compile time", () => {
+    const { Island: TypedIsland } = defineIslands({ Counter });
+    type Boundary = Parameters<typeof TypedIsland>[0];
+
+    const ok: Boundary = { name: "Counter", props: { start: 1 } };
+    // @ts-expect-error — "Typo" is not a key of the declared map
+    const badName: Boundary = { name: "Typo" };
+    // @ts-expect-error — `start` must be a number
+    const badProps: Boundary = { name: "Counter", props: { start: "x" } };
+
+    expect([ok, badName, badProps]).toHaveLength(3);
   });
 });

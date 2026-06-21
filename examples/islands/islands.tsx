@@ -1,8 +1,9 @@
-import { registerIsland } from "@kanabun/core";
+import { defineIslands } from "@kanabun/core";
 import { Counter } from "./counter";
 
-// The island registry, imported by BOTH the server render (so `<Island>` can
-// render the component into its wrapper) and the client entry (so
-// `hydrateIslands` can resolve the same name). Importing this module for its
-// side effect is all it takes.
-registerIsland("Counter", Counter);
+// Declare the islands as a typed map and export the bound `<Island>` /
+// `hydrateIslands`. Because the keys are known at compile time, `<Island name>`
+// only accepts a registered name ("Counter" here) — a typo is a build error, not
+// a runtime surprise — and `props` is checked against the component. Import this
+// module from BOTH the server render and the client entry.
+export const { Island, hydrateIslands } = defineIslands({ Counter });

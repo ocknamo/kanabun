@@ -131,7 +131,10 @@ boundaries in [`decisions.md`](./decisions.md#islands--partial-hydration-phase-7
   JSON-serialized into the attribute, so first paint / SEO are unchanged). On the
   client, `hydrateIslands()` queries every `[data-island]`, deserializes the props,
   resolves the component from the same registry, and `hydrate`s only those —
-  nothing else executes. Reuses `renderToString` (server) + `hydrate` (per
+  nothing else executes. `defineIslands({ Counter, … })` is the type-safe path: a
+  typed map whose keys constrain `<Island name>` (a typo / unregistered name is a
+  compile error) and whose components type `props`, over the same runtime.
+  Reuses `renderToString` (server) + `hydrate` (per
   container) — no third render path. Props are JSON-serializable only (no
   closures/signals cross the boundary); each island is its own root (context /
   owner tree do not cross — share state via a module-level singleton signal).
