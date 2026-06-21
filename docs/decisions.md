@@ -655,8 +655,9 @@ layer, 100% line/function coverage, `tsc` clean, docs bilingual.
 
 ## Islands / partial hydration (Phase 7) — design memo
 
-> Status: **planned, not built.** This records the approach and why it fits
-> before any code lands; revise it as the implementation forces choices.
+> Status: **core built** (`packages/core/src/islands.ts`); the per-island bundle
+> split (CLI) is still planned. The memo below records the approach; the "As
+> built" note at the end records where the implementation landed.
 
 The framing decision: **partial hydration in kanabun is an explicit "islands"
 model, not automatic analysis or resumability.** A page is mostly static
@@ -717,6 +718,22 @@ around it has no client JS.
 
 Held to the same bar: zero dependencies, `packages/core` runtime-independent,
 100% line/function coverage, `tsc` clean, docs bilingual.
+
+**As built (core).** The boundary is **registry-driven on both sides**, which
+keeps the name → component mapping a single source of truth: `registerIsland(
+name, Component)` populates a module-level registry, and `<Island name props>`
+looks the component up there (rather than taking it as a child) before rendering
+`<div data-island data-props>…rendered…</div>`. That symmetry is the point — the
+server renders by name, the client hydrates by the same name, and the props are
+written once. The registration module is imported for its side effect by **both**
+the server render and the client entry (module scope is the shared channel; the
+owner trees are not). `hydrateIslands({ root?, registry? })` queries
+`[data-island]` (defaulting to the whole `document`), `JSON.parse`s `data-props`
+(absent → `{}`), resolves the component, and `hydrate`s each container; it returns
+a disposer that tears every mounted island down. An unregistered name throws on
+both sides (a loud, early failure rather than a silent no-op). Islands are flat —
+a registered component should not itself emit an `<Island>`. The demo is
+`examples/islands` (an SSR shell with two independent counter islands).
 
 ## Ecosystem primitives (Phase 7)
 

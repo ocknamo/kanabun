@@ -16,7 +16,7 @@
 | 4 | コンポーネントモデルと DX | ✅ 完了 — `onMount`/`mergeProps`/`splitProps`/スコープド `css`/`context` |
 | 5 | Bun 連携: `create` / `dev` / `build` CLI | ✅ 完了 |
 | 6 | 堅牢化・周辺(ルーター、SSR 等) | 🟡 進行中 — **ルーター + エラーバウンダリ + 開発時警告 + SSR/ハイドレーション + 非同期(`resource`/`<Suspense>`)+ SSG(`kanabun generate`)+ CSS HMR 完了**;残りは任意 |
-| 7 | アイランド / 部分ハイドレーション + エコシステムプリミティブ(`lazy`・`<Portal>`・`<Dynamic>`・head API)+ 作成支援ツール(`kanabun lint`・dev オーバーレイ) | 🟡 進行中 — **エコシステムプリミティブ(`lazy`・`<Portal>`・`<Dynamic>`・`<Head>`/`<Title>`)完了**;アイランド + 作成支援ツールは計画。設計メモ: [`decisions.ja.md`](./decisions.ja.md#アイランド--部分ハイドレーションphase-7--設計メモ)(アイランド)、[`dx.ja.md`](./dx.ja.md#4-将来自前-linter)(linter) |
+| 7 | アイランド / 部分ハイドレーション + エコシステムプリミティブ(`lazy`・`<Portal>`・`<Dynamic>`・head API)+ 作成支援ツール(`kanabun lint`・dev オーバーレイ) | 🟡 進行中 — **エコシステムプリミティブ(`lazy`・`<Portal>`・`<Dynamic>`・`<Head>`/`<Title>`)+ アイランドのコア(`<Island>`・`registerIsland`・`hydrateIslands`)完了**;アイランド単位のバンドル分割(CLI)+ 作成支援ツールは計画。設計メモ: [`decisions.ja.md`](./decisions.ja.md#アイランド--部分ハイドレーションphase-7--設計メモ)(アイランド)、[`dx.ja.md`](./dx.ja.md#4-将来自前-linter)(linter) |
 | 8 | 重量級エコシステム: SSR ストリーミング(`renderToStream`)、リアクティブ store(`createStore`)、`@kanabun/testing` | 🔜 計画 — Phase 7 から先送り(大きめのサブシステム) |
 
 全期間で維持した品質基準: **ランタイム依存ゼロ**、`packages/core` のランタイム非依存、
@@ -112,12 +112,17 @@
 **アイランド。** 明示的・手動のアイランド(コンパイラ無し・resumability 無し)── 印を付けたコンポーネントだけが
 ハイドレートされ、静的な外殻はクライアント JS を送らない。完全な根拠とスコープ境界は
 [`decisions.ja.md`](./decisions.ja.md#アイランド--部分ハイドレーションphase-7--設計メモ) を参照。
-- [ ] **`<Island>` 境界 + レジストリ(コア)。** サーバでは `<div data-island data-props>`
-  ラッパへ直列化する境界。クライアントのレジストリ(`name → Component`)+ エントリが
-  `[data-island]` を走査し props を復元、それらだけを mount する。`renderToString`(サブツリー)+
-  `hydrate`(コンテナ)を再利用 ── 第3の描画経路は作らない。props は JSON 直列化可能なもののみ
-  (クロージャ / signal は境界を越えない)。各アイランドは独立した root(context / 所有権ツリーは
-  越えない ── 共有状態はモジュールレベルの singleton signal で)。
+- [x] **`<Island>` 境界 + レジストリ(コア)。** 完了 ── `<Island name props>` は
+  レジストリ(`registerIsland(name, Component)`)からコンポーネントを引き、サーバでは
+  `<div data-island data-props>` ラッパの内側に描画する(props は属性へ JSON 直列化 ──
+  初回描画 / SEO は不変)。クライアントでは `hydrateIslands()` が全 `[data-island]` を走査し、
+  props を復元、同じレジストリからコンポーネントを解決して、それらだけを `hydrate` する ──
+  他は一切実行されない。`renderToString`(サーバ)+ `hydrate`(コンテナ毎)を再利用 ──
+  第3の描画経路は作らない。props は JSON 直列化可能なもののみ(クロージャ / signal は境界を
+  越えない)。各アイランドは独立した root(context / 所有権ツリーは越えない ── 共有状態は
+  モジュールレベルの singleton signal で)。動くデモは `examples/islands`(静的な外殻 +
+  独立した 2 つのカウンターアイランド)。`packages/core/src/islands.ts`。詳細は
+  [`decisions.ja.md`](./decisions.ja.md#アイランド--部分ハイドレーションphase-7--設計メモ)。
 - [ ] **アイランド単位のバンドル分割(CLI)。** 本当の payload 削減: `packages/cli` がアイランド
   単位で code-split し、ページはそこに含まれるアイランドのチャンクだけを読み込む + それらを
   mount するクライアントブートストラップ。Bun / バンドラの仕事なので CLI 層に置く。コアは

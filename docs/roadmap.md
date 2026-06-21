@@ -16,7 +16,7 @@ see [`decisions.md`](./decisions.md).
 | 4 | Component model & DX | ✅ done — `onMount`, `mergeProps`, `splitProps`, scoped `css`, `context` |
 | 5 | Bun integration: `create` / `dev` / `build` CLI | ✅ done |
 | 6 | Hardening & ecosystem (router, SSR, etc.) | 🟡 in progress — **router + error boundaries + dev-time warnings + SSR/hydration + async (`resource`/`<Suspense>`) + SSG (`kanabun generate`) + CSS HMR done**; rest optional |
-| 7 | Islands / partial hydration + ecosystem primitives (`lazy`, `<Portal>`, `<Dynamic>`, head API) + authoring tooling (`kanabun lint`, dev overlay) | 🟡 in progress — **ecosystem primitives (`lazy`, `<Portal>`, `<Dynamic>`, `<Head>`/`<Title>`) done**; islands + authoring tooling planned. Design memos: [`decisions.md`](./decisions.md#islands--partial-hydration-phase-7--design-memo) (islands), [`dx.md`](./dx.md#4-future-an-in-house-linter) (linter) |
+| 7 | Islands / partial hydration + ecosystem primitives (`lazy`, `<Portal>`, `<Dynamic>`, head API) + authoring tooling (`kanabun lint`, dev overlay) | 🟡 in progress — **ecosystem primitives (`lazy`, `<Portal>`, `<Dynamic>`, `<Head>`/`<Title>`) + islands core (`<Island>` / `registerIsland` / `hydrateIslands`) done**; per-island bundle split (CLI) + authoring tooling planned. Design memos: [`decisions.md`](./decisions.md#islands--partial-hydration-phase-7--design-memo) (islands), [`dx.md`](./dx.md#4-future-an-in-house-linter) (linter) |
 | 8 | Heavyweight ecosystem: SSR streaming (`renderToStream`), reactive store (`createStore`), `@kanabun/testing` | 🔜 planned — deferred from Phase 7 (larger subsystems) |
 
 Quality bar held throughout: **zero runtime dependencies**, `packages/core`
@@ -125,13 +125,19 @@ clean, docs bilingual.
 **Islands.** Explicit, manual islands (no compiler, no resumability) — only marked components
 hydrate; the static shell ships no client JS. Full rationale and scope
 boundaries in [`decisions.md`](./decisions.md#islands--partial-hydration-phase-7--design-memo).
-- [ ] **`<Island>` boundary + registry (core).** A boundary that serializes to a
-  `<div data-island data-props>` wrapper on the server; a client registry
-  (`name → Component`) + entry that queries `[data-island]`, deserializes props,
-  and mounts only those. Reuses `renderToString` (subtree) + `hydrate`
-  (container) — no third render path. Props are JSON-serializable only (no
+- [x] **`<Island>` boundary + registry (core).** Done — `<Island name props>`
+  looks the component up in a registry (`registerIsland(name, Component)`) and, on
+  the server, renders it inside a `<div data-island data-props>` wrapper (props
+  JSON-serialized into the attribute, so first paint / SEO are unchanged). On the
+  client, `hydrateIslands()` queries every `[data-island]`, deserializes the props,
+  resolves the component from the same registry, and `hydrate`s only those —
+  nothing else executes. Reuses `renderToString` (server) + `hydrate` (per
+  container) — no third render path. Props are JSON-serializable only (no
   closures/signals cross the boundary); each island is its own root (context /
   owner tree do not cross — share state via a module-level singleton signal).
+  Runnable demo: `examples/islands` (a static shell + two independent counter
+  islands). `packages/core/src/islands.ts`. See
+  [`decisions.md`](./decisions.md#islands--partial-hydration-phase-7--design-memo).
 - [ ] **Per-island bundle split (CLI).** The actual payload win: `packages/cli`
   code-splits per island so a page loads only the chunks for the islands it
   contains, plus a client bootstrap that mounts them. Bun/bundler work, so it

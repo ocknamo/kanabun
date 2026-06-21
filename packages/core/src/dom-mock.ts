@@ -107,6 +107,25 @@ export class MockNode {
     return this.attributes.has(name);
   }
 
+  /**
+   * Minimal `querySelectorAll`: supports only an attribute-presence selector
+   * (`[data-island]`), which is all the islands runtime needs. Walks the subtree
+   * in document order and returns matching element nodes.
+   */
+  querySelectorAll(selector: string): MockNode[] {
+    const attr = parseAttrSelector(selector);
+    const out: MockNode[] = [];
+    const walk = (node: MockNode): void => {
+      for (const child of node.childNodes) {
+        if (child.nodeType !== 1) continue;
+        if (child.attributes.has(attr)) out.push(child);
+        walk(child);
+      }
+    };
+    walk(this);
+    return out;
+  }
+
   addEventListener(type: string, fn: Listener): void {
     let set = this.listeners.get(type);
     if (set === undefined) {
@@ -173,6 +192,22 @@ class MockDocument {
     node.data = String(text);
     return node;
   }
+  /** Search the whole document (head + body) — see {@link MockNode.querySelectorAll}. */
+  querySelectorAll(selector: string): MockNode[] {
+    return [
+      ...this.head.querySelectorAll(selector),
+      ...this.body.querySelectorAll(selector),
+    ];
+  }
+}
+
+/** Extract the attribute name from a `[name]` presence selector. */
+function parseAttrSelector(selector: string): string {
+  const match = /^\[([\w-]+)\]$/.exec(selector);
+  if (match === null) {
+    throw new Error(`MockNode.querySelectorAll: unsupported selector "${selector}"`);
+  }
+  return match[1]!;
 }
 
 /** Serialize a node to HTML. Comment markers are omitted for readability. */
