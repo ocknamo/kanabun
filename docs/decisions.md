@@ -718,6 +718,79 @@ around it has no client JS.
 Held to the same bar: zero dependencies, `packages/core` runtime-independent,
 100% line/function coverage, `tsc` clean, docs bilingual.
 
+## Ecosystem primitives (Phase 7)
+
+Four small, self-contained primitives that ride the existing core (signals, the
+owner tree, `insert`, the SSR head channel) — no new render path, no
+dependencies, `packages/core` stays runtime-independent.
+
+### `lazy()` — `<Suspense>`'s missing partner
+
+`lazy(() => import("./X"))` returns a component that loads its module on first
+render and renders it once resolved. It is built on `resource`: the loader
+becomes a resource fetcher, so a `lazy` component **suspends the nearest
+`<Suspense>`** exactly like any other resource (the wiring already existed). No
+second mechanism. The module promise is **cached** (`cached ??= loader()`) so the
+import runs at most once across every instance and remount; a rejected promise is
+cached too, so a later mount surfaces the same error rather than silently
+retrying (matching `resource`, which does not auto-route to an `<ErrorBoundary>`).
+Render it under a `<Suspense>` via a **function** child, the same convention every
+resource follows.
+
+### `<Portal>` — owned by the tree, not the DOM location
+
+Teleports children into another DOM node (default `document.body`). The design
+constraint is that the children stay **owned by the reactive tree that rendered
+the `<Portal>`**: their effects are created under that owner (so context and
+disposal flow normally), even though the nodes live elsewhere. Removal is the
+only thing the DOM location complicates — so the content is bracketed by two
+comment markers in the target and the whole range is removed on the owner's
+cleanup. That captures nodes a *reactive* child inserts after mount too (a single
+end-marker + `insert(target, children, end)` keeps all dynamic content inside the
+range). On the server the target is the server document's `<body>`, which
+`renderToString` does not serialize — so portals are a **client concern**; the
+`<body>` field on the server/mock document just keeps the default target from
+being absent. For per-page `<head>` content use `<Head>` (below).
+
+### `<Dynamic>` — a runtime-chosen host, and the function-ambiguity it forces
+
+`<Dynamic component={…}>` renders a tag name or a component picked at runtime and
+swaps it reactively. The hard part in a no-compiler, eager-props framework is that
+**a component is itself a function**, and so is a reactive accessor — there is no
+way to tell `component={MyComp}` (a static component) from `component={() => …}`
+(an accessor) by inspection. Rather than a fragile heuristic, `<Dynamic>` applies
+the framework's deepest convention unchanged — *a function is reactive* — and
+types `component` as `string | (() => tag | component)`. So a tag is passed bare
+(`component="div"`), and everything reactive (including a static component) goes
+through an accessor (`component={() => MyComp}`). This is unambiguous, needs no
+compiler, and reads the same as `<Show>`/`<For>` children. The returned thunk
+rebuilds the host on change; the enclosing `insert` effect disposes the previous
+host's scope on each swap (the same disposal `<Show>`/`<For>` rely on).
+
+### Head / metadata API (`<Head>` / `<Title>`)
+
+`<Head>` appends its children to `document.head`; `<Title>` is sugar for a
+`<title>` there (reactive text). It reuses the SSR head channel: on the server the
+scoped-`css` helper already injects into the server document's `<head>` and
+`renderToString` returns it, so `<Head>` just appends to the same place and its
+content lands in the serialized `head`. Two decisions:
+
+- **Children are built once and appended (not a reactive top-level slot).** Head
+  content is structural (`<title>`, `<meta>`, `<link>`) with reactivity in its
+  *attributes/text* (`content={() => …}`), so `<Head>` uses `normalize` to build
+  the nodes once and appends them — marker-free, so the serialized `<head>` stays
+  clean (no comment nodes). The trade-off (documented): a *function* child is read
+  once, unlike `<Show>`'s lazy children; put reactivity in attributes/text.
+- **SSR reads `<head>` before disposal.** `<Head>`/`<Title>` remove their nodes on
+  the owner's cleanup (so per-page tags don't leak across client navigations). But
+  `renderToString` disposes the root at the end of the render — which would strip
+  the head before serialization. So it now serializes `<head>` *inside* the render
+  scope, before `dispose()`. This is a no-op for the `css` helper (it never
+  removes its styles), so existing SSR output is unchanged.
+
+Held to the same bar: zero dependencies, `packages/core` runtime-independent,
+100% line/function coverage, `tsc` clean, docs bilingual.
+
 ## Roadmap (abridged)
 
 - **Phase 0 — scaffold:** Bun project, workspace split (`core` vs future

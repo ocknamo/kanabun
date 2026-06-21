@@ -150,9 +150,13 @@ export class MockNode {
 class MockDocument {
   // `<head>`, used by the scoped-CSS helper to inject `<style>` elements.
   readonly head: MockNode;
+  // `<body>`, the default `<Portal>` target.
+  readonly body: MockNode;
   constructor() {
     this.head = new MockNode(1);
     this.head.tagName = "HEAD";
+    this.body = new MockNode(1);
+    this.body.tagName = "BODY";
   }
   createElement(tag: string): MockNode {
     const el = new MockNode(1);

@@ -16,7 +16,7 @@ see [`decisions.md`](./decisions.md).
 | 4 | Component model & DX | ✅ done — `onMount`, `mergeProps`, `splitProps`, scoped `css`, `context` |
 | 5 | Bun integration: `create` / `dev` / `build` CLI | ✅ done |
 | 6 | Hardening & ecosystem (router, SSR, etc.) | 🟡 in progress — **router + error boundaries + dev-time warnings + SSR/hydration + async (`resource`/`<Suspense>`) + SSG (`kanabun generate`) + CSS HMR done**; rest optional |
-| 7 | Islands / partial hydration + ecosystem primitives (`lazy`, `<Portal>`, `<Dynamic>`, head API) + authoring tooling (`kanabun lint`, dev overlay) | 🔜 planned — design memos: [`decisions.md`](./decisions.md#islands--partial-hydration-phase-7--design-memo) (islands), [`dx.md`](./dx.md#4-future-an-in-house-linter) (linter) |
+| 7 | Islands / partial hydration + ecosystem primitives (`lazy`, `<Portal>`, `<Dynamic>`, head API) + authoring tooling (`kanabun lint`, dev overlay) | 🟡 in progress — **ecosystem primitives (`lazy`, `<Portal>`, `<Dynamic>`, `<Head>`/`<Title>`) done**; islands + authoring tooling planned. Design memos: [`decisions.md`](./decisions.md#islands--partial-hydration-phase-7--design-memo) (islands), [`dx.md`](./dx.md#4-future-an-in-house-linter) (linter) |
 | 8 | Heavyweight ecosystem: SSR streaming (`renderToStream`), reactive store (`createStore`), `@kanabun/testing` | 🔜 planned — deferred from Phase 7 (larger subsystems) |
 
 Quality bar held throughout: **zero runtime dependencies**, `packages/core`
@@ -155,20 +155,37 @@ boundaries in [`decisions.md`](./decisions.md#islands--partial-hydration-phase-7
   ([`decisions.md`](./decisions.md#dev-time-warnings-phase-6)); the overlay is the
   consumer. Dev-only, lives in the CLI/Bun layer; core stays runtime-independent.
 
-**Ecosystem primitives.**
-- [ ] **`lazy()`.** Defer a component behind a dynamic `import()` and code-split at
-  the boundary, integrating with the already-shipped `<Suspense>` (its missing
-  partner). Technically adjacent to the per-island bundle split above — both are
-  about shipping only the JS a view needs.
-- [ ] **`<Portal>`.** Render children into a different DOM node (e.g.
-  `document.body`) for modals / tooltips / toasts, while staying reactive and
-  owned by the current tree (disposal follows the owner, not the DOM location).
-- [ ] **`<Dynamic>`.** Render a tag name or component chosen at runtime
-  (`<Dynamic component={…} />`), reactively swapping the host as the value changes.
-- [ ] **Head / metadata API.** An ergonomic `<Title>` / `useHead`-style API over
-  the `head` channel `renderToString` already returns — today head content is
-  collected for SSR/SSG but there's no authoring sugar for per-page `<title>` /
-  `<meta>` (SEO). Rides the existing SSR head plumbing.
+**Ecosystem primitives.** — all done in core (runtime-independent, zero deps, 100% covered).
+- [x] **`lazy()`.** Done — defer a component behind a dynamic `import()` so a
+  bundler code-splits at the boundary; integrates with the already-shipped
+  `<Suspense>` (it loads on first render and suspends the nearest boundary). The
+  module is loaded **once** and cached (remounting doesn't re-import); a failed
+  import is held as the underlying `resource`'s rejection (not auto-routed to an
+  `<ErrorBoundary>`, mirroring `resource`). `packages/core/src/lazy.ts`.
+- [x] **`<Portal>`.** Done — render children into a different DOM node (default
+  `document.body`, or a `mount` target) for modals / tooltips / toasts. The
+  children stay **owned by the current reactive tree**: their reactivity is
+  created under the owner that renders the `<Portal>`, and disposal follows that
+  owner (not the DOM location) — so unmounting removes the portaled nodes. They're
+  bracketed by two comment markers in the target so the exact range (including
+  nodes a reactive child adds later) is removed on cleanup; nothing renders in the
+  original place. `packages/core/src/portal.ts`.
+- [x] **`<Dynamic>`.** Done — render a host (tag name or component) chosen at
+  runtime and reactively swap it as the value changes (remaining props/children
+  forwarded). `component` follows the **function-is-reactive** convention:
+  `component="div"` is a static tag, `component={() => …}` is an accessor (it may
+  return a tag name or a component). Because a component is itself a function, a
+  *static* component is passed through an accessor too (`component={() => MyComp}`),
+  which keeps the two unambiguous with no compiler. `packages/core/src/dynamic.ts`.
+- [x] **Head / metadata API (`<Head>` / `<Title>`).** Done — per-page `<head>`
+  content over the `head` channel `renderToString` already returns. `<Head>`
+  appends its children to `document.head` (on the server, to the server document's
+  `<head>`, so it lands in the serialized `head`); `<Title>` is sugar for a
+  `<title>` in `<head>` (reactive text). Content is owned by the current tree —
+  reactive attributes/text update in place and the nodes are removed on the
+  owner's disposal (so per-page tags don't leak across pages). For SSR,
+  `renderToString` reads `<head>` *before* disposal, so `<Head>`/`<Title>` cleanup
+  doesn't strip it. `packages/core/src/head.ts`.
 
 ### Phase 8 — heavyweight ecosystem (deferred from Phase 7) (planned)
 Larger pieces consciously kept out of Phase 7 — each is a substantial subsystem
