@@ -111,6 +111,22 @@ export interface IslandBoundaryProps {
   props?: IslandProps;
 }
 
+// Build the `<div data-island data-props>` wrapper around the resolved island.
+// Shared by the string-keyed `Island` and the typed `defineIslands` boundary, so
+// the two emit an identical serialized shape (no drift if the format changes).
+function renderBoundary(
+  name: string,
+  props: IslandProps,
+  explicit: IslandRegistry | undefined,
+): JSXChild {
+  const Component = lookup(name, explicit);
+  return jsx("div", {
+    "data-island": name,
+    "data-props": JSON.stringify(props),
+    children: jsx(Component, props),
+  }) as JSXChild;
+}
+
 /**
  * A hydration boundary. Renders the registered component inside a
  * `<div data-island data-props>` wrapper so the server markup is interactive
@@ -118,13 +134,7 @@ export interface IslandBoundaryProps {
  * `renderToString` (server) — the same markup hydrates on the client.
  */
 export function Island(boundary: IslandBoundaryProps): JSXChild {
-  const props = boundary.props ?? {};
-  const Component = lookup(boundary.name, undefined);
-  return jsx("div", {
-    "data-island": boundary.name,
-    "data-props": JSON.stringify(props),
-    children: jsx(Component, props),
-  }) as JSXChild;
+  return renderBoundary(boundary.name, boundary.props ?? {}, undefined);
 }
 
 export interface HydrateIslandsOptions {
@@ -192,8 +202,13 @@ function hasIslandAncestor(el: Element): boolean {
 }
 
 // ── Typed registry (compile-time name + props checking) ──────────────
-/** A name → component map declared up front, so its keys are known to the type system. */
-export type IslandsMap = Record<string, IslandComponent>;
+/**
+ * A name → component map declared up front for {@link defineIslands}, so its keys
+ * are known to the type system. Structurally identical to {@link IslandRegistry}
+ * (the dynamic, runtime-resolved map); the distinct name marks the
+ * static-declaration role at the `defineIslands` call site.
+ */
+export type IslandsMap = IslandRegistry;
 
 /** The typed `<Island>` + `hydrateIslands` returned by {@link defineIslands}. */
 export interface DefinedIslands<M extends IslandsMap> {
@@ -232,15 +247,8 @@ export function defineIslands<const M extends IslandsMap>(islands: M): DefinedIs
   const TypedIsland = <K extends keyof M & string>(boundary: {
     name: K;
     props?: Parameters<M[K]>[0];
-  }): JSXChild => {
-    const props = (boundary.props ?? {}) as IslandProps;
-    const Component = lookup(boundary.name, islands);
-    return jsx("div", {
-      "data-island": boundary.name,
-      "data-props": JSON.stringify(props),
-      children: jsx(Component, props),
-    }) as JSXChild;
-  };
+  }): JSXChild =>
+    renderBoundary(boundary.name, (boundary.props ?? {}) as IslandProps, islands);
   return {
     Island: TypedIsland,
     hydrateIslands: (options: Omit<HydrateIslandsOptions, "registry"> = {}): Disposer =>
