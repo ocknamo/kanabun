@@ -49,6 +49,7 @@
  * runtime-independent. See `docs/decisions.md` → "Islands / partial hydration".
  */
 import { doc, hydrate } from "./dom";
+import { warn } from "./dev";
 import { jsx } from "./jsx-runtime";
 import type { Component, JSXChild } from "./jsx-runtime";
 import type { Disposer } from "./reactive";
@@ -77,6 +78,9 @@ export function registerIsland(name: string, component: IslandComponent): void {
   registry.set(name, component);
 }
 
+// `<Island>` (server) always resolves against the module registry — only
+// `hydrateIslands` (client) can be handed an `explicit` map — so the lookup is
+// shared with `explicit` left `undefined` on the server path.
 function lookup(name: string, explicit: IslandRegistry | undefined): IslandComponent {
   const component = explicit ? explicit[name] : registry.get(name);
   if (!component) {
@@ -92,7 +96,12 @@ function lookup(name: string, explicit: IslandRegistry | undefined): IslandCompo
 export interface IslandBoundaryProps {
   /** The registered island name (the server marks it; the client resolves it). */
   name: string;
-  /** JSON-serializable props passed to the island on both server and client. */
+  /**
+   * JSON-serializable props passed to the island on both server and client.
+   * They are serialized into a DOM attribute and re-parsed on the client, so
+   * treat them as **server-authored data**: they round-trip through markup the
+   * client can read, so don't put secrets or authorization decisions in them.
+   */
   props?: IslandProps;
 }
 
@@ -137,8 +146,24 @@ export function hydrateIslands(options: HydrateIslandsOptions = {}): Disposer {
   const root = (options.root ?? doc()) as unknown as {
     querySelectorAll(selector: string): Iterable<Element>;
   };
+  // Snapshot the matches up front: `hydrate` clears each container, which detaches
+  // any nested island before we'd reach it — so nesting must be detected against
+  // the *original* tree, before the first mount mutates it.
+  const all = [...root.querySelectorAll("[data-island]")];
+  const nested = new Set(all.filter(hasIslandAncestor));
   const disposers: Disposer[] = [];
-  for (const el of root.querySelectorAll("[data-island]")) {
+  for (const el of all) {
+    // Islands are flat: each `[data-island]` mounts independently, and hydrating
+    // an outer one re-renders its subtree (wiping a nested island's server
+    // markup). Skip nested ones rather than mount onto a detached node, and nudge
+    // in dev — the constraint can't be expressed structurally without a compiler.
+    if (nested.has(el)) {
+      warn(
+        `a nested <Island> ("${el.getAttribute("data-island")}") is skipped — ` +
+          "islands must be flat (an island component must not render another <Island>).",
+      );
+      continue;
+    }
     const name = el.getAttribute("data-island")!;
     const Component = lookup(name, options.registry);
     const raw = el.getAttribute("data-props");
@@ -148,4 +173,14 @@ export function hydrateIslands(options: HydrateIslandsOptions = {}): Disposer {
   return () => {
     for (const dispose of disposers) dispose();
   };
+}
+
+/** Whether `el` sits inside another `[data-island]` (i.e. it's a nested island). */
+function hasIslandAncestor(el: Element): boolean {
+  for (let p = el.parentNode as Element | null; p; p = p.parentNode as Element | null) {
+    if (typeof p.getAttribute === "function" && p.getAttribute("data-island") !== null) {
+      return true;
+    }
+  }
+  return false;
 }

@@ -14,6 +14,7 @@ import {
   asEl,
   type MockNode,
 } from "./dom-mock";
+import { setDev, setWarnHandler, __resetDev } from "./dev";
 
 let teardown: () => void;
 beforeEach(() => {
@@ -21,6 +22,7 @@ beforeEach(() => {
 });
 afterEach(() => {
   teardown();
+  __resetDev();
 });
 
 const docBody = (): MockNode =>
@@ -169,5 +171,24 @@ describe("hydrateIslands", () => {
     expect(() => hydrateIslands({ root: asEl(container) })).toThrow(
       /no island registered as "Unknown"/,
     );
+  });
+
+  test("skips a nested island (and warns in dev)", () => {
+    registerIsland("Counter", Counter);
+    const container = createContainer();
+    const outer = serverIsland("Counter", { start: 0 });
+    outer.appendChild(serverIsland("Counter", { start: 5 }));
+    container.appendChild(outer);
+
+    const messages: string[] = [];
+    setDev(true);
+    setWarnHandler((m) => messages.push(m));
+
+    hydrateIslands({ root: asEl(container) });
+
+    // The outer island hydrated (its subtree, including the inner markup, was
+    // re-rendered), and the nested one was skipped with a dev warning.
+    expect(firstElement(outer).textContent).toBe("count: 0");
+    expect(messages.some((m) => /nested <Island>/.test(m))).toBe(true);
   });
 });
