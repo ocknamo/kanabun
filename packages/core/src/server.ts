@@ -51,18 +51,23 @@ export function renderToString(code: () => unknown): RenderToStringResult {
     // Replay styles registered before this document existed (import-time css).
     flushStyles();
     let html = "";
+    let head = "";
     createRoot((dispose) => {
       try {
         const root = sdoc.createElement("div");
         insert(root as unknown as Node, code());
         html = root.childNodes.map(serialize).join("");
+        // Read `<head>` while the tree is still alive: `<Head>`/`<Title>` append
+        // their nodes during the render and remove them again on disposal, so
+        // they must be serialized *before* `dispose()` runs the cleanups. Styles
+        // injected by the `css` helper are present here too (they aren't removed).
+        head = sdoc.head.childNodes.map(serialize).join("");
       } finally {
         // Always tear the root down — even if `code()` throws — so a render
         // called from within an owner context can't leak the scope on error.
         dispose();
       }
     });
-    const head = sdoc.head.childNodes.map(serialize).join("");
     return { html, head };
   } finally {
     g.document = prev;

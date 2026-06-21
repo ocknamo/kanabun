@@ -221,7 +221,7 @@ export function reconcileNodes(
 }
 
 /** Flatten a child value into a list of DOM nodes (text for primitives). */
-function normalize(value: unknown): Node[] {
+export function normalize(value: unknown): Node[] {
   const out: Node[] = [];
   appendNormalized(out, value);
   return out;

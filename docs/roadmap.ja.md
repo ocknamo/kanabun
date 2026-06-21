@@ -16,7 +16,7 @@
 | 4 | コンポーネントモデルと DX | ✅ 完了 — `onMount`/`mergeProps`/`splitProps`/スコープド `css`/`context` |
 | 5 | Bun 連携: `create` / `dev` / `build` CLI | ✅ 完了 |
 | 6 | 堅牢化・周辺(ルーター、SSR 等) | 🟡 進行中 — **ルーター + エラーバウンダリ + 開発時警告 + SSR/ハイドレーション + 非同期(`resource`/`<Suspense>`)+ SSG(`kanabun generate`)+ CSS HMR 完了**;残りは任意 |
-| 7 | アイランド / 部分ハイドレーション + エコシステムプリミティブ(`lazy`・`<Portal>`・`<Dynamic>`・head API)+ 作成支援ツール(`kanabun lint`・dev オーバーレイ) | 🔜 計画 — 設計メモ: [`decisions.ja.md`](./decisions.ja.md#アイランド--部分ハイドレーションphase-7--設計メモ)(アイランド)、[`dx.ja.md`](./dx.ja.md#4-将来自前-linter)(linter) |
+| 7 | アイランド / 部分ハイドレーション + エコシステムプリミティブ(`lazy`・`<Portal>`・`<Dynamic>`・head API)+ 作成支援ツール(`kanabun lint`・dev オーバーレイ) | 🟡 進行中 — **エコシステムプリミティブ(`lazy`・`<Portal>`・`<Dynamic>`・`<Head>`/`<Title>`)完了**;アイランド + 作成支援ツールは計画。設計メモ: [`decisions.ja.md`](./decisions.ja.md#アイランド--部分ハイドレーションphase-7--設計メモ)(アイランド)、[`dx.ja.md`](./dx.ja.md#4-将来自前-linter)(linter) |
 | 8 | 重量級エコシステム: SSR ストリーミング(`renderToStream`)、リアクティブ store(`createStore`)、`@kanabun/testing` | 🔜 計画 — Phase 7 から先送り(大きめのサブシステム) |
 
 全期間で維持した品質基準: **ランタイム依存ゼロ**、`packages/core` のランタイム非依存、
@@ -139,17 +139,29 @@
   ([`decisions.ja.md`](./decisions.ja.md#開発時警告phase-6))ので、オーバーレイはその消費側。
   開発時のみ・CLI/Bun レイヤーに置く。コアはランタイム非依存のまま。
 
-**エコシステムプリミティブ。**
-- [ ] **`lazy()`。** コンポーネントを動的 `import()` の背後に遅延させ、その境界で code-split。
-  既出の `<Suspense>`(欠けていた相棒)と統合する。上記のアイランド単位バンドル分割と技術的に
-  地続き ── どちらも「そのビューに必要な JS だけを送る」話。
-- [ ] **`<Portal>`。** 子を別の DOM ノード(例 `document.body`)へ描画(モーダル / ツールチップ /
-  トースト)。リアクティブ性と現在ツリーによる所有は保つ(破棄は DOM 位置でなく owner に従う)。
-- [ ] **`<Dynamic>`。** 実行時に選んだタグ名やコンポーネントを描画(`<Dynamic component={…} />`)。
-  値の変化に応じてホストをリアクティブに差し替える。
-- [ ] **head / メタ API。** `renderToString` が既に返している `head` チャネルに乗せる、
-  人間工学的な `<Title>` / `useHead` 風 API。今は head 内容を SSR/SSG 用に収集はするが、
-  ページごとの `<title>` / `<meta>`(SEO)を書くための糖衣が無い。既存の SSR head 配管に乗る。
+**エコシステムプリミティブ。** ── すべて core で実装済み(ランタイム非依存・依存ゼロ・100% カバレッジ)。
+- [x] **`lazy()`。** 完了 ── コンポーネントを動的 `import()` の背後に遅延させ、その境界で
+  code-split。既出の `<Suspense>` と統合(初回描画でモジュールをロードし、最寄りの境界を
+  サスペンド)。モジュールは **一度だけ** ロードしてキャッシュ(再マウントは再 import しない)。
+  import 失敗は `resource` の rejection として保持(`ErrorBoundary` へ自動転送しない、`resource`
+  と同型)。`packages/core/src/lazy.ts`。
+- [x] **`<Portal>`。** 完了 ── 子を別の DOM ノード(既定 `document.body`、`mount` で指定可)へ
+  描画。**現在のリアクティブツリーが所有** ── 子のリアクティブ性は `<Portal>` を描画した owner の
+  下に作られ、破棄は DOM 位置でなく owner に従う(離脱/アンマウントで除去)。除去のため対象内に
+  2 つのコメントマーカーで挟み、その範囲を cleanup で消す(リアクティブな子が後から追加したノードも
+  含む)。元の位置には何も描画しない。`packages/core/src/portal.ts`。
+- [x] **`<Dynamic>`。** 完了 ── 実行時に選んだホスト(タグ名 or コンポーネント)を描画し、値の
+  変化に応じてリアクティブに差し替え(残りの props/children を転送)。`component` は **関数=リアクティブ**
+  規約に従う ── `component="div"` は静的タグ、`component={() => …}` はアクセサ(タグ名 or
+  コンポーネントを返す)。コンポーネント自体も関数なので、静的コンポーネントもアクセサ経由で渡す
+  (`component={() => MyComp}`)= コンパイラ無しで両者を曖昧さなく区別。`packages/core/src/dynamic.ts`。
+- [x] **head / メタ API(`<Head>` / `<Title>`)。** 完了 ── `renderToString` が返す `head`
+  チャネルに乗る、ページごとの `<head>` 内容。`<Head>` は子を `document.head` に追加(SSR では
+  サーバ document の `<head>` に追加され、シリアライズされた `head` に乗る)。`<Title>` はその糖衣
+  (`<title>` を head に置く、テキストはリアクティブ可)。内容は現在ツリーが所有 ── リアクティブな
+  属性/テキストは in-place 更新、追加したノードは owner 破棄で除去(ページ間で漏れない)。SSR で
+  `renderToString` は dispose 前に `<head>` を読む(Head/Title が cleanup で除去しても失われない)。
+  `packages/core/src/head.ts`。
 
 ### Phase 8 — 重量級エコシステム(Phase 7 から先送り)(計画)
 Phase 7 から意図的に外した大きめのピース ── どれも小さなプリミティブではなく、相応の

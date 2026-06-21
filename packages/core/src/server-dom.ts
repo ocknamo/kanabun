@@ -207,9 +207,16 @@ export class ServerNode {
 export class ServerDocument {
   // `<head>`, where the scoped-CSS helper injects `<style>` elements.
   readonly head: ServerNode;
+  // `<body>`, the default `<Portal>` target. Portaled content is not part of the
+  // serialized app markup (renderToString returns the mounted subtree + head),
+  // so portals are a client concern; this just keeps the target from being
+  // absent during a server render.
+  readonly body: ServerNode;
   constructor() {
     this.head = new ServerNode(1);
     this.head.tagName = "HEAD";
+    this.body = new ServerNode(1);
+    this.body.tagName = "BODY";
   }
   createElement(tag: string): ServerNode {
     // Reject invalid tag names like the real DOM (fail-safe), so an untrusted

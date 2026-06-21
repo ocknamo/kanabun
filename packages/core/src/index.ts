@@ -38,6 +38,17 @@ export type {
   SuspenseProps,
 } from "./async";
 
+// Ecosystem primitives: code-split (`lazy`), teleport (`<Portal>`), runtime host
+// (`<Dynamic>`), and the document head API (`<Head>` / `<Title>`).
+export { lazy } from "./lazy";
+export type { LazyModule } from "./lazy";
+export { Portal } from "./portal";
+export type { PortalProps } from "./portal";
+export { Dynamic } from "./dynamic";
+export type { DynamicProps, DynamicComponent } from "./dynamic";
+export { Head, Title } from "./head";
+export type { HeadProps, TitleProps } from "./head";
+
 // Scoped CSS (runtime helper: hashes a class + injects a <style>).
 export { css } from "./css";
 
