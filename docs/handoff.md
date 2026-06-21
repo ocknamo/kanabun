@@ -3,7 +3,7 @@
 > このファイルは作業の引き継ぎ用メモです(プロダクト文書ではないので日本語のみ)。
 > 規約は [`../CLAUDE.md`](../CLAUDE.md)、残作業は [`roadmap.md`](./roadmap.md) が一次情報。
 > ここは「いまの状態」と「今セッションで得た知見・落とし穴」に絞ります。
-> 最終更新: 2026-06-19 / 最終コミット: CSS HMR(dev サーバの `.css` ホットスワップ、PR #23)
+> 最終更新: 2026-06-21 / 最終コミット: Phase 7 エコシステムプリミティブ(`lazy` / `<Portal>` / `<Dynamic>` / `<Head>`・`<Title>`)+ `examples/primitives` デモ(ブランチ `claude/phase-7-progress-7zma2b`)
 
 ## 1. いまどこにいるか
 
@@ -22,8 +22,9 @@
   - **JSX 属性型の厳密化(今セッション)** ── `packages/core/src/jsx-runtime.ts`。`on*` を `DOMEventHandlers` に切り出し、`HTMLAttributes`(グローバル基底:typed なグローバル属性 + events + `[attr]: any` の逃げ道)を拡張する要素別インターフェース(`AnchorHTMLAttributes`/`InputHTMLAttributes`/…)を追加。各属性は `Attr<T> = T | null | undefined | (() => T|null|undefined)`(値 or リアクティブアクセサ ── 規約尊重)。`IntrinsicElements` を主要要素にマップし、`[name: string]: HTMLAttributes` で残りをフォールバック。`[attr]: any` を残すので未知属性・未掲載要素は無破壊。型は core index から re-export。型テストは jsx-types.spec.ts「JSX attribute types」。
   - **CSS HMR(PR #23・handoff 後にマージ)** ── dev サーバが `.css` 変更をホットスワップ(`css:<path>` メッセージ → クライアントが該当 `<link rel="stylesheet">` だけ再フェッチ、アプリ状態は保持。一致無しは全リロードにフォールバック)。CSS 以外は従来どおり全リロード。判定は純粋・単体テスト済みヘルパー(`changeMessage`)。E2E(実ブラウザでホットスワップ検証)もカバー。詳細は `decisions.md`「CSS HMR (Phase 6)」。
   - 残る Phase 6(**状態保持 HMR**=コード編集をまたいで状態保持)は未着手 ── runtime-JSX・VDOM 無し設計ではコンパイラ無しに到達不可(コンポーネント境界/描画マーカーが無い)。
-- **品質**: **334 テスト / 0 fail、全ソース 100% カバレッジ、`tsc` クリーン**。依存ゼロ(dev は `@types/bun` のみ)、`packages/{core,router}` はランタイム非依存を維持。
-- **成果物**: `@kanabun/core`、`@kanabun/cli`(`create`/`dev`/`build`/**`generate`**)、**`@kanabun/router`**、`examples/{counter,todomvc,router,ssr,ssg}`、VRT(スクショ回帰)ゲート、バイリンガル docs。
+- **Phase 7(今セッション)**: **エコシステムプリミティブ完了** ── `lazy()`(動的 import + `<Suspense>` 連携、モジュールは成功・失敗ともキャッシュ)/ `<Portal>`(別 DOM ノードへテレポート、所有は現在ツリー、2 コメントマーカー間を cleanup で除去)/ `<Dynamic>`(実行時ホスト、`component` は関数=リアクティブ規約)/ `<Head>`・`<Title>`(SSR head channel に乗る、`renderToString` は dispose 前に head を読む)。`packages/core/src/{lazy,portal,dynamic,head}.ts`。`dom.ts` は `normalize` を export、`server-dom.ts`/`dom-mock.ts` に `body` を追加。デモは `examples/primitives`。**残る Phase 7**: アイランド(core 境界 + CLI バンドル分割)+ 作成支援ツール(`kanabun lint`・dev オーバーレイ)。
+- **品質**: **358 テスト / 0 fail、全ソース 100% カバレッジ、`tsc` クリーン**。依存ゼロ(dev は `@types/bun` のみ)、`packages/{core,router}` はランタイム非依存を維持。
+- **成果物**: `@kanabun/core`、`@kanabun/cli`(`create`/`dev`/`build`/**`generate`**)、**`@kanabun/router`**、`examples/{counter,todomvc,router,primitives,ssr,ssg}`、VRT(スクショ回帰)ゲート、バイリンガル docs。
 
 ## 2. 必須ワークフロー(CLAUDE.md より)
 
@@ -42,7 +43,7 @@
 
 Phase 6 のルーター・**ネストルーティング**・**相対 `<Link>` href**・エラーバウンダリ・開発時警告・`on*` イベント + **要素ごとの属性**型付け・**`splitProps` タプル型**・SSR + ハイドレーション・**非同期(`resource`/`<Suspense>`)**・**SSG(`kanabun generate`)**・**CSS HMR** は **完了**。残るは(いずれも任意):
   - **状態保持 HMR** ── コンパイラ無しでは到達不可(非CSS編集は全リロードのまま)。
-  - **Phase 7** ── アイランド + **エコシステムプリミティブ** + **作成支援ツール**。`<Island>` 境界+レジストリ(core)/ アイランド単位のバンドル分割(CLI)/ **`lazy()`**(Suspense と統合・コード分割)/ **`<Portal>`** / **`<Dynamic>`** / **head・メタ API**(`renderToString` の `head` channel に乗せる)/ **自前 linter(`kanabun lint`)** / **dev オーバーレイ**(`setWarnHandler` の消費側)。設計メモは `decisions.md`(アイランド)/ `dx.md`(linter、下記)。コード未着手。
+  - **Phase 7** ── **エコシステムプリミティブ(`lazy`・`<Portal>`・`<Dynamic>`・`<Head>`/`<Title>`)は完了**(上記 §1、設計は `decisions.md`「Ecosystem primitives (Phase 7)」)。**残り**: アイランド ── `<Island>` 境界+レジストリ(core)/ アイランド単位のバンドル分割(CLI)/ 作成支援ツール ── **自前 linter(`kanabun lint`)** / **dev オーバーレイ**(`setWarnHandler` の消費側)。設計メモは `decisions.md`(アイランド)/ `dx.md`(linter、下記)。これらはコード未着手。
   - **Phase 8** ── 重量級エコシステム(Phase 7 から先送り)。**SSR ストリーミング(`renderToStream`)**(eager 同期とは別の非同期描画経路 + チャンク縫合クライアントが要る)/ **リアクティブ store(`createStore`)**(プロキシベースのネスト store・パス単位細粒度更新)/ **`@kanabun/testing`**(リポジトリ内 DOM モック上の単体テスト補助、別パッケージ)。いずれも大物。
   - **npm 公開**(`@kanabun/core`・`@kanabun/cli`)+ **バージョニング/リリース戦略** ── 未公開のため `create` は `^0.0.0` プレースホルダ。
   - **SSG 動的パラメータ**(`getStaticPaths` + ビルド時データ焼き込み)── Phase 6(SSG)の follow-up(`roadmap.md:76` / `decisions.md`)。
@@ -104,6 +105,13 @@ Phase 6 のルーター・**ネストルーティング**・**相対 `<Link>` hr
 - **`splitProps` タプル型の落とし穴(今セッション)**: 精密タプルには **`const` 型引数が必須**(`const K extends ReadonlyArray<...>`)。無いと `["class"]` が `string[]` に推論されリテラルキーが消える。TS は `bunx tsc`(latest)なので `const` 型引数(TS 5.0+)は使える。実装は不変・`as unknown as SplitProps<T,K>` でキャスト。
 - **JSX 属性型の落とし穴(今セッション)**: `HTMLAttributes` に `[attr: string]: any` を **残したまま** typed な名前付きプロパティを足すのが肝。TS は「宣言済みメンバはその型で検査、それ以外だけ index に落ちる」ので、`class={5}` はエラーにしつつ `data-*`/未知属性は緩いまま(既存の `on*` と同じ前例)。属性は必ず `Attr<T>`(`T | null | undefined | (() => …)`)= リアクティブ規約を型でも許す。`ref` の `(el)=>代入式` は戻り値があっても `(el: Element) => void` に代入可(void 戻りの特例)。`IntrinsicElements` の `[name]: HTMLAttributes` フォールバックで未掲載要素も無破壊。
 
+- **Phase 7 プリミティブの落とし穴(今セッション)**:
+  - **`<Head>`/`<Title>` は `renderToString` の head 読み取り順に依存**。両者は owner の cleanup で head ノードを除去する(クライアント遷移でページ固有タグを漏らさないため)が、`renderToString` は描画末尾でルートを dispose する。そのため `<head>` のシリアライズを **`dispose()` 前**(createRoot の try 内)に移した。css ヘルパはスタイルを除去しない(`css.ts` に onCleanup 無し)ので、この順序変更は css にとって no-op = 既存 SSR 出力は不変。回帰: head.spec.ts「is serialized into the head during SSR」、既存の server.spec.ts も緑。
+  - **`<Dynamic>` の `component` は「関数=リアクティブ」規約で型ごと固定**。`string | (() => タグ|コンポーネント)`。コンポーネント自体も関数なので、静的コンポーネントもアクセサ経由(`component={() => MyComp}`)で渡す = コンパイラ無しで「アクセサ」と「コンポーネント直渡し」の曖昧さを潰す。型で直渡しを禁止しているのが肝(spec 参照)。
+  - **`<Portal>`/`<Head>` の既定マウント先のため `ServerDocument`/`MockDocument` に `body` を追加**。Portal の内容はサーバではシリアライズされない(`renderToString` は mount サブツリー + head のみ返す)= **portal はクライアントの関心事**。`body` は「サーバ描画時に既定マウント先が無くて落ちる」のを防ぐだけ。回帰: portal.spec.ts「renders under renderToString without throwing」。
+  - **`lazy()` は `resource` の上に薄く乗るだけ**(第二の仕組み無し)。モジュール promise を `cached ??= loader()` で一度だけ生成 → 全インスタンス・再マウントで再 import しない。reject も同じ promise に残るので後続マウントは同じエラーを再提示(`resource` と同型、`<ErrorBoundary>` 自動転送なし)。`<Suspense>` の下に **関数の子** で描く規約は全 resource 共通。戻り型は `T`(ラップ元の props 契約)= props 無しコンポーネントも `<LazyPanel/>` で型エラー無し。
+  - **`examples/primitives` は VRT 未追加**(`tests/visual/` に spec を足していない)。見た目は snapshot スキルで PC/モバイル/モーダル展開を確認(検証のみ)。VRT を足すなら jammy ベースライン生成ワークフローが要る(SSR/SSG の前例と同じ)。
+
 ## 5. 主要ファイル早見
 
 - `packages/core/src/reactive.ts` — signals・owner ツリー(親リンク)・`signal`/`computed`/`effect`/`batch`/`untrack`・`catchError`(push-pull 3色塗り、glitch-free)。`lifecycle.ts` = `onCleanup`/`createRoot`/`onMount`、`context.ts` = `createContext`/`useContext`(どちらもエンジンの owner-scope ヘルパー上の薄い層)
@@ -111,6 +119,7 @@ Phase 6 のルーター・**ネストルーティング**・**相対 `<Link>` hr
 - `packages/core/src/server.ts` — `renderToString`(SSR/SSG、DOM 不要)。`server-dom.ts` — シリアライズ可能なサーバ DOM(エスケープ・void 要素・rawtext 対応)
 - `packages/core/src/control-flow.ts` — `<Show>`/`<For>`/`mapArray`
 - `packages/core/src/async.ts` — `resource`(値/loading/error signal + version でレース安全)・`<Suspense>`(`SuspenseContext` 増減レジストリ + 子を一度だけ生成)
+- `packages/core/src/{lazy,portal,dynamic,head}.ts` — Phase 7 プリミティブ。`lazy.ts` = `lazy()`(resource + 動的 import、モジュールキャッシュ)、`portal.ts` = `<Portal>`(別ノードへテレポート、コメントマーカー範囲を cleanup で除去)、`dynamic.ts` = `<Dynamic>`(実行時ホスト)、`head.ts` = `<Head>`/`<Title>`(head へ追加、SSR head channel)。デモは `examples/primitives/{main,lazy-panel}.tsx`
 - `packages/core/src/{props,css}.ts` — `mergeProps`/`splitProps`・scoped `css`(ハッシュ class + `<style>` 注入)
 - `packages/cli/src/{build,dev,create,generate,index,errors}.ts` — CLI(Bun 依存はここだけ)。`generate.ts` = SSG(config → ルートごとに `renderToString` → `.html` 書き出し + 任意 client バンドル)
 - `examples/ssg/{app,ssg,main}.tsx` — SSG 例(`ssg.tsx` が config、`main.tsx` が hydrate エントリ)

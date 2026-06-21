@@ -19,7 +19,8 @@ dependency; see [below](#dependencies--minimal-by-design)).
 flow (`<Show>` / `<For>` keyed), DX primitives (`onMount`, `mergeProps`,
 `splitProps`, scoped `css`, `context`), error boundaries, SSR
 (`renderToString` / `hydrate`) + SSG (`kanabun generate`), async data
-(`resource` / `<Suspense>`), a router (`@kanabun/router`), and a CLI
+(`resource` / `<Suspense>`), ecosystem primitives (`lazy`, `<Portal>`,
+`<Dynamic>`, `<Head>` / `<Title>`), a router (`@kanabun/router`), and a CLI
 (`create` / `dev` / `build` / `generate`) are implemented and tested.
 **TodoMVC runs; `kanabun dev` and `kanabun build` work.**
 
@@ -319,10 +320,11 @@ literal `{`/`}` inside a string/comment isn't understood — use a global
 stylesheet for that.
 
 Runnable examples: [`examples/counter/`](examples/counter/),
-[`examples/todomvc/`](examples/todomvc/) and [`examples/router/`](examples/router/)
-— serve any with `bun examples/<name>/index.html` (uses Bun 1.3+ HTML-entry dev
-server). The SSR example ([`examples/ssr/`](examples/ssr/)) runs as a server:
-`bun examples/ssr/server.tsx`.
+[`examples/todomvc/`](examples/todomvc/), [`examples/router/`](examples/router/)
+and [`examples/primitives/`](examples/primitives/) (a tour of `lazy` / `<Portal>`
+/ `<Dynamic>` / `<Head>`) — serve any with `bun examples/<name>/index.html` (uses
+Bun 1.3+ HTML-entry dev server). The SSR example ([`examples/ssr/`](examples/ssr/))
+runs as a server: `bun examples/ssr/server.tsx`.
 
 ---
 
@@ -470,11 +472,13 @@ function UsersLayout() {
 | Server (SSR/SSG) | `renderToString` (→ `{ html, head }`; no DOM needed) |
 | Control flow | `Show`, `For`, `mapArray` |
 | Error handling | `ErrorBoundary`, `catchError` |
+| Async | `resource`, `Suspense` |
+| Ecosystem primitives | `lazy` (code-split), `Portal` (teleport), `Dynamic` (runtime host), `Head` / `Title` (document head) |
 | Props | `mergeProps`, `splitProps` |
 | Context | `createContext`, `useContext` |
 | Styling | `css` (scoped CSS) |
 | Dev warnings | `setDev`, `setWarnHandler` (opt-in; `kanabun dev` enables them) |
-| Types | `Accessor`, `Signal`, `SignalOptions`, `Disposer`, `Context`, `Props`, `JSXChild`, `JSX`, `EventHandler`, `HTMLAttributes`, `ShowProps`, `ForProps`, `ErrorBoundaryProps`, `RenderToStringResult` |
+| Types | `Accessor`, `Signal`, `SignalOptions`, `Disposer`, `Context`, `Props`, `JSXChild`, `JSX`, `EventHandler`, `HTMLAttributes`, `ShowProps`, `ForProps`, `ErrorBoundaryProps`, `RenderToStringResult`, `Resource`, `SuspenseProps`, `LazyModule`, `PortalProps`, `DynamicProps`, `HeadProps`, `TitleProps` |
 
 **`@kanabun/cli`** (the `kanabun` command; also importable as a library)
 
@@ -500,10 +504,12 @@ function UsersLayout() {
 
 ## Roadmap
 
-Phases 0–5 are done (TodoMVC runs; CLI works), and Phase 6 ships a router
+Phases 0–5 are done (TodoMVC runs; CLI works), Phase 6 ships a router
 (`@kanabun/router`), error boundaries, dev-time warnings, SSR/hydration, async /
-Suspense, and SSG (`kanabun generate`). What's left — stateful HMR — and the open
-design decisions are tracked in
+Suspense, and SSG (`kanabun generate`), and Phase 7 adds the ecosystem
+primitives (`lazy`, `<Portal>`, `<Dynamic>`, `<Head>` / `<Title>`). What's left —
+islands + authoring tooling (`kanabun lint`, dev overlay), and stateful HMR — and
+the open design decisions are tracked in
 [`docs/roadmap.md`](docs/roadmap.md) ([日本語](docs/roadmap.ja.md)).
 
 Because there's no compiler, mistake-catching leans on three layers — typed
@@ -568,6 +574,8 @@ examples/
   counter/     a runnable reactive counter
   todomvc/     a runnable TodoMVC
   router/      a runnable multi-page router demo
+  primitives/  a tour of lazy / <Portal> / <Dynamic> / <Head>
+  ssr/ ssg/    server-rendered + statically-generated demos
 docs/          design docs (English + 日本語)
 ```
 
