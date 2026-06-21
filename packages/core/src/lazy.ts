@@ -31,22 +31,23 @@ export interface LazyModule<T extends Component> {
 }
 
 /**
- * Wrap a dynamic import of a component. Returns a component with the same props
- * that loads the real one on first render (suspending the nearest `<Suspense>`).
+ * Wrap a dynamic import of a component. Returns a component with the **same
+ * props** as the wrapped one that loads the real module on first render
+ * (suspending the nearest `<Suspense>`), then renders it.
  */
-export function lazy<T extends Component>(
-  loader: () => Promise<LazyModule<T>>,
-): (props: Parameters<T>[0]) => () => JSXChild {
+export function lazy<T extends Component>(loader: () => Promise<LazyModule<T>>): T {
   // Cache the import promise so the module is fetched at most once, no matter how
   // many instances mount or how often they remount.
   let cached: Promise<LazyModule<T>> | null = null;
   const load = (): Promise<LazyModule<T>> => (cached ??= loader());
 
-  return (props) => {
+  const Lazy = (props: Parameters<T>[0]): (() => JSXChild) => {
     const [component] = resource<T>(() => load().then((mod) => mod.default));
     return () => {
       const Comp = component();
       return Comp ? (Comp(props) as JSXChild) : null;
     };
   };
+  // The returned component honours the wrapped component's prop contract.
+  return Lazy as unknown as T;
 }

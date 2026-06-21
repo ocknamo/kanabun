@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>kanabun — primitives</title>
+    <style>
+      /* Page layout (global). Component styling lives in main.tsx via `css`. */
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+      }
+      body {
+        font: 16px/1.5 system-ui, sans-serif;
+        color: #111;
+        background: #f5f5f5;
+      }
+      #app {
+        min-height: 100vh;
+        display: flex;
+        align-items: flex-start;
+        justify-content: center;
+        padding: 2rem 1rem;
+        box-sizing: border-box;
+      }
+    </style>
+  </head>
+  <body>
+    <main id="app"></main>
+    <script type="module" src="./main.tsx"></script>
+  </body>
+</html>
