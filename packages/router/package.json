@@ -20,6 +20,6 @@
     "test": "bun test"
   },
   "peerDependencies": {
-    "@kanabun/core": "workspace:*"
+    "@kanabun/core": "*"
   }
 }
