@@ -3,7 +3,7 @@
 > このファイルは作業の引き継ぎ用メモです(プロダクト文書ではないので日本語のみ)。
 > 規約は [`../CLAUDE.md`](../CLAUDE.md)、残作業は [`roadmap.md`](./roadmap.md) が一次情報。
 > ここは「いまの状態」と「今セッションで得た知見・落とし穴」に絞ります。
-> 最終更新: 2026-06-21 / 最終コミット: Phase 7 エコシステムプリミティブ(`lazy` / `<Portal>` / `<Dynamic>` / `<Head>`・`<Title>`)+ `examples/primitives` デモ(ブランチ `claude/phase-7-progress-7zma2b`)
+> 最終更新: 2026-06-21 / 最終コミット: Phase 7 アイランドのコア(`<Island>` / `registerIsland` / `hydrateIslands`)+ `examples/islands` デモ(ブランチ `claude/phase-7-lrtmhg`)。直前は Phase 7 エコシステムプリミティブ(`lazy` / `<Portal>` / `<Dynamic>` / `<Head>`・`<Title>`)+ `examples/primitives`(PR #26 マージ済み)
 
 ## 1. いまどこにいるか
 
@@ -22,9 +22,11 @@
   - **JSX 属性型の厳密化(今セッション)** ── `packages/core/src/jsx-runtime.ts`。`on*` を `DOMEventHandlers` に切り出し、`HTMLAttributes`(グローバル基底:typed なグローバル属性 + events + `[attr]: any` の逃げ道)を拡張する要素別インターフェース(`AnchorHTMLAttributes`/`InputHTMLAttributes`/…)を追加。各属性は `Attr<T> = T | null | undefined | (() => T|null|undefined)`(値 or リアクティブアクセサ ── 規約尊重)。`IntrinsicElements` を主要要素にマップし、`[name: string]: HTMLAttributes` で残りをフォールバック。`[attr]: any` を残すので未知属性・未掲載要素は無破壊。型は core index から re-export。型テストは jsx-types.spec.ts「JSX attribute types」。
   - **CSS HMR(PR #23・handoff 後にマージ)** ── dev サーバが `.css` 変更をホットスワップ(`css:<path>` メッセージ → クライアントが該当 `<link rel="stylesheet">` だけ再フェッチ、アプリ状態は保持。一致無しは全リロードにフォールバック)。CSS 以外は従来どおり全リロード。判定は純粋・単体テスト済みヘルパー(`changeMessage`)。E2E(実ブラウザでホットスワップ検証)もカバー。詳細は `decisions.md`「CSS HMR (Phase 6)」。
   - 残る Phase 6(**状態保持 HMR**=コード編集をまたいで状態保持)は未着手 ── runtime-JSX・VDOM 無し設計ではコンパイラ無しに到達不可(コンポーネント境界/描画マーカーが無い)。
-- **Phase 7(今セッション)**: **エコシステムプリミティブ完了** ── `lazy()`(動的 import + `<Suspense>` 連携、モジュールは成功・失敗ともキャッシュ)/ `<Portal>`(別 DOM ノードへテレポート、所有は現在ツリー、2 コメントマーカー間を cleanup で除去)/ `<Dynamic>`(実行時ホスト、`component` は関数=リアクティブ規約)/ `<Head>`・`<Title>`(SSR head channel に乗る、`renderToString` は dispose 前に head を読む)。`packages/core/src/{lazy,portal,dynamic,head}.ts`。`dom.ts` は `normalize` を export、`server-dom.ts`/`dom-mock.ts` に `body` を追加。デモは `examples/primitives`。**残る Phase 7**: アイランド(core 境界 + CLI バンドル分割)+ 作成支援ツール(`kanabun lint`・dev オーバーレイ)。
-- **品質**: **358 テスト / 0 fail、全ソース 100% カバレッジ、`tsc` クリーン**。依存ゼロ(dev は `@types/bun` のみ)、`packages/{core,router}` はランタイム非依存を維持。
-- **成果物**: `@kanabun/core`、`@kanabun/cli`(`create`/`dev`/`build`/**`generate`**)、**`@kanabun/router`**、`examples/{counter,todomvc,router,primitives,ssr,ssg}`、VRT(スクショ回帰)ゲート、バイリンガル docs。
+- **Phase 7(前セッション)**: **エコシステムプリミティブ完了** ── `lazy()`(動的 import + `<Suspense>` 連携、モジュールは成功・失敗ともキャッシュ)/ `<Portal>`(別 DOM ノードへテレポート、所有は現在ツリー、2 コメントマーカー間を cleanup で除去)/ `<Dynamic>`(実行時ホスト、`component` は関数=リアクティブ規約)/ `<Head>`・`<Title>`(SSR head channel に乗る、`renderToString` は dispose 前に head を読む)。`packages/core/src/{lazy,portal,dynamic,head}.ts`。`dom.ts` は `normalize` を export、`server-dom.ts`/`dom-mock.ts` に `body` を追加。デモは `examples/primitives`。
+- **Phase 7(今セッション)**: **アイランドのコア完了** ── `packages/core/src/islands.ts`。`<Island name props>` はモジュールレベルのレジストリ(`registerIsland(name, Component)`)から引いてサーバで `<div data-island data-props>` に描画(props は属性へ JSON 直列化)。クライアントは `hydrateIslands({root?, registry?})` が `[data-island]` を走査(既定は `doc()` 全体)→ `data-props` を `JSON.parse`(無ければ `{}`)→ 同じレジストリで解決 → 各コンテナを `hydrate`。返り値は全アイランドを破棄する disposer。未登録 name は両側で throw。**レジストリ駆動を両側に**したのが設計判断(子で受け取らない=name → component 単一の真実、props は一度だけ)。登録モジュールはサーバ描画・クライアントエントリの両方から副作用 import する。`dom-mock.ts` に最小 `querySelectorAll`(属性セレクタのみ)を追加(テスト専用・カバレッジ除外)。**型安全な経路 `defineIslands({ Counter })`**(レビュー後のユーザー指摘#1で追加)── 型付きマップを受け取り、束ねた `<Island>`(`name` がマップのキーに制約=タイポはコンパイルエラー、`props` もコンポーネント別に型付く)/ `hydrateIslands`(マップを explicit registry として渡す)を返す。内部は同じ `lookup`/`hydrateIslands` 再利用=ランタイム一本、ファクトリは型のみ。`const` 型引数でリテラルキーを残すのが肝。型テストは islands.spec.ts「checks the name and props at compile time」(`@ts-expect-error`)。**ネストしたアイランドは元ツリーで検出→スキップ + dev 警告**(レビュー🟡#1)。デモは `examples/islands`(`defineIslands` 配線・SSR サーバ + 静的外殻 + 独立カウンター 2 つ)。playwright でクリック→増加を実機確認済み。
+- **Phase 7 アイランド単位バンドル分割(今セッション)**: **CLI `buildIslands` + core `hydrateIslandsLazy` 完了**。`packages/cli/src/islands.ts` の `buildIslands({ islands })` が各アイランドを個別エントリ + `splitting:true` でバンドル(共有コードは共有チャンクへ集約)+ **非バンドルの**ブートストラップ `islands.js`(名前→`import("./chunk.js")` を `hydrateIslandsLazy` に渡す素の ESM)を書き出す。実行時、ページに存在するアイランドのチャンクだけ取得。`core/src/islands.ts` に `hydrateIslandsLazy(loaders, {root?})`(`collectIslands` を `hydrateIslands` と共有、loader 欠落は dev 警告+スキップ、ロード後に dispose 済みなら mount しない)。`normalizeBase` は `packages/cli/src/paths.ts` に抽出して generate と共有。デモは `examples/islands/{counter,clock}.tsx`(default export)+ `serve-split.ts`(build→SSR→配信)。playwright で「Counter/Clock のチャンクだけ読まれる + 増加/時刻更新」を実機確認済み。**残る Phase 7**: 作成支援ツール(`kanabun lint`・dev オーバーレイ)。
+- **品質**: **383 テスト / 0 fail、全ソース 100% カバレッジ、`tsc` クリーン**。依存ゼロ(dev は `@types/bun` のみ)、`packages/{core,router}` はランタイム非依存を維持。
+- **成果物**: `@kanabun/core`、`@kanabun/cli`(`create`/`dev`/`build`/**`generate`**)、**`@kanabun/router`**、`examples/{counter,todomvc,router,primitives,islands,ssr,ssg}`、VRT(スクショ回帰)ゲート、バイリンガル docs。
 
 ## 2. 必須ワークフロー(CLAUDE.md より)
 
@@ -43,7 +45,7 @@
 
 Phase 6 のルーター・**ネストルーティング**・**相対 `<Link>` href**・エラーバウンダリ・開発時警告・`on*` イベント + **要素ごとの属性**型付け・**`splitProps` タプル型**・SSR + ハイドレーション・**非同期(`resource`/`<Suspense>`)**・**SSG(`kanabun generate`)**・**CSS HMR** は **完了**。残るは(いずれも任意):
   - **状態保持 HMR** ── コンパイラ無しでは到達不可(非CSS編集は全リロードのまま)。
-  - **Phase 7** ── **エコシステムプリミティブ(`lazy`・`<Portal>`・`<Dynamic>`・`<Head>`/`<Title>`)は完了**(上記 §1、設計は `decisions.md`「Ecosystem primitives (Phase 7)」)。**残り**: アイランド ── `<Island>` 境界+レジストリ(core)/ アイランド単位のバンドル分割(CLI)/ 作成支援ツール ── **自前 linter(`kanabun lint`)** / **dev オーバーレイ**(`setWarnHandler` の消費側)。設計メモは `decisions.md`(アイランド)/ `dx.md`(linter、下記)。これらはコード未着手。
+  - **Phase 7** ── **エコシステムプリミティブ(`lazy`・`<Portal>`・`<Dynamic>`・`<Head>`/`<Title>`)+ アイランドのコア(`<Island>`・`registerIsland`・`hydrateIslands`)は完了**(上記 §1、設計は `decisions.md`「Ecosystem primitives (Phase 7)」「Islands / partial hydration」)。**残り**: アイランド単位のバンドル分割(CLI ── ページに含まれるアイランドのチャンクだけを読む code-split + クライアントブートストラップ)/ 作成支援ツール ── **自前 linter(`kanabun lint`)** / **dev オーバーレイ**(`setWarnHandler` の消費側)。設計メモは `decisions.md`(アイランド)/ `dx.md`(linter、下記)。これらはコード未着手。
   - **Phase 8** ── 重量級エコシステム(Phase 7 から先送り)。**SSR ストリーミング(`renderToStream`)**(eager 同期とは別の非同期描画経路 + チャンク縫合クライアントが要る)/ **リアクティブ store(`createStore`)**(プロキシベースのネスト store・パス単位細粒度更新)/ **`@kanabun/testing`**(リポジトリ内 DOM モック上の単体テスト補助、別パッケージ)。いずれも大物。
   - **npm 公開**(`@kanabun/core`・`@kanabun/cli`)+ **バージョニング/リリース戦略** ── 未公開のため `create` は `^0.0.0` プレースホルダ。
   - **SSG 動的パラメータ**(`getStaticPaths` + ビルド時データ焼き込み)── Phase 6(SSG)の follow-up(`roadmap.md:76` / `decisions.md`)。
@@ -112,6 +114,20 @@ Phase 6 のルーター・**ネストルーティング**・**相対 `<Link>` hr
   - **`lazy()` は `resource` の上に薄く乗るだけ**(第二の仕組み無し)。モジュール promise を `cached ??= loader()` で一度だけ生成 → 全インスタンス・再マウントで再 import しない。reject も同じ promise に残るので後続マウントは同じエラーを再提示(`resource` と同型、`<ErrorBoundary>` 自動転送なし)。`<Suspense>` の下に **関数の子** で描く規約は全 resource 共通。戻り型は `T`(ラップ元の props 契約)= props 無しコンポーネントも `<LazyPanel/>` で型エラー無し。
   - **`examples/primitives` は VRT 未追加**(`tests/visual/` に spec を足していない)。見た目は snapshot スキルで PC/モバイル/モーダル展開を確認(検証のみ)。VRT を足すなら jammy ベースライン生成ワークフローが要る(SSR/SSG の前例と同じ)。
 
+- **アイランドの落とし穴(今セッション)**:
+  - **レジストリ駆動を両側に採用**(子で受け取らない)。設計メモの素朴版は `<Island>...children...>` で子をそのまま描くが、それだと name と子コンポーネントと props を 3 重に書いて同期させる羽目になる。`registerIsland(name, Component)` に一元化し、サーバは name で引いて描画・クライアントは同じ name でハイドレート・props は属性へ一度だけ。**登録モジュール(`examples/islands/islands.tsx`)を server と client の両エントリから副作用 import** しないと name が解決できない(共有チャネルはモジュールスコープのみ。所有権ツリーは境界で切れる)。
+  - **`data-props` は属性なので `serialize` が `"` を `&quot;` にエスケープ**。ブラウザは HTML パース時に復号するので `getAttribute("data-props")` は元の JSON 文字列に戻り `JSON.parse` で通る。モック(`render` 経由)はエスケープせず生 JSON を格納するので、どちらの経路でも `JSON.parse` 一発で読める。
+  - **`hydrateIslands` は `hydrate` をコンテナ(=`[data-island]` div)毎に呼ぶ**。`hydrate` は中身をクリアして再描画するので、サーバ HTML と同一バイトを再生成=フラッシュ無し。div 自体は残り中身だけ差し替わる。アイランドは**フラット**前提(登録コンポーネントが自身で `<Island>` を出さない)── ネストすると外側の再描画で内側のサーバ markup を壊す。
+  - **`dom-mock.ts` に最小 `querySelectorAll` を追加**(属性プレゼンスセレクタ `[name]` のみ対応。それ以外は throw)。テスト専用・カバレッジ除外(`coveragePathIgnorePatterns` の `**/dom-mock.ts`)。`hydrateIslands` の既定 root(`doc()`)分岐をカバーするため `MockDocument` にも(head+body を走査する)版を足した。
+  - **`examples/islands` は SSR サーバ型**(`examples/ssr` と同型)で HTML エントリではない。見た目とハイドレーションは server を起動して playwright で実機確認(クリック→増加 0→1・100→102 を確認、検証のみ)。VRT は未追加。
+
+- **アイランド単位バンドル分割の落とし穴(今セッション)**:
+  - **⚠️ `bun test` 内の `Bun.build` は動的 import のバンドルを拒否する**(「Bundle failed」)。静的 import / 複数エントリ + `splitting:true` は通る(`generate` の単一エントリビルドが緑なのはこのため)。当初は「生成したブートストラップが島を動的 import → それを `Bun.build`」案だったが、これが `bun test` で必ず失敗し成功パスを単体テストできない。**対策=設計変更**: 各島を複数エントリ + splitting で静的にバンドルし、ブートストラップ(`islands.js`)は**バンドルせず**素の ESM として書き出す(ブラウザが import を解決)。これで唯一のバンドラ作業が静的ビルドになり、`buildIslands` は 100% カバー可能(成功/失敗/ガード全分岐)。実運用(`bun run`)では動的 import も問題なく動く ── 制約は `bun test` ランタイム限定。
+  - **エントリチャンク名 = ソースの basename**(`naming.entry: "[name].js"`)。ブートストラップは `./counter.js` 等を安定参照する。**basename 衝突**(別ディレクトリの同名ファイル)は出力が上書きされるので、ビルド前に純粋な文字列チェックで弾く(`distinct file names`)。回帰: islands.spec.ts「fails when two island entries share a file basename」(2 つ目のパスは存在不要 ── チェックはビルド前)。
+  - **生成する runtime エントリ(`kanabun-islands-runtime.ts`)が `@kanabun/core` を再 export**。これを第一エントリのディレクトリ内の一時ディレクトリ(`.kanabun-islands-<uuid>/`)に書くのは、`@kanabun/core` が島と同じ node_modules から解決されるため。ビルド後に temp ディレクトリごと削除(`finally`)。
+  - **`hydrateIslandsLazy` は core 側**(ランタイム非依存)。loader 欠落は dev 警告+スキップ(`hydrateIslands` の throw と違い本番の白画面を防ぐ)。ロード解決時に dispose 済みなら mount しない(`disposed` フラグ)。テストは `() => Promise.resolve(...)` + `setTimeout(0)` の `tick()` で非同期排出。
+  - **`buildIslands` のテストは in-process でフルカバー可能**(成功パスを含む)。`serve-split.ts` の実ブラウザ検証(network タブに `counter.js`/`clock.js` + 共有チャンクだけ出る)は検証のみで VRT 未追加。
+
 ## 5. 主要ファイル早見
 
 - `packages/core/src/reactive.ts` — signals・owner ツリー(親リンク)・`signal`/`computed`/`effect`/`batch`/`untrack`・`catchError`(push-pull 3色塗り、glitch-free)。`lifecycle.ts` = `onCleanup`/`createRoot`/`onMount`、`context.ts` = `createContext`/`useContext`(どちらもエンジンの owner-scope ヘルパー上の薄い層)
@@ -119,9 +135,10 @@ Phase 6 のルーター・**ネストルーティング**・**相対 `<Link>` hr
 - `packages/core/src/server.ts` — `renderToString`(SSR/SSG、DOM 不要)。`server-dom.ts` — シリアライズ可能なサーバ DOM(エスケープ・void 要素・rawtext 対応)
 - `packages/core/src/control-flow.ts` — `<Show>`/`<For>`/`mapArray`
 - `packages/core/src/async.ts` — `resource`(値/loading/error signal + version でレース安全)・`<Suspense>`(`SuspenseContext` 増減レジストリ + 子を一度だけ生成)
+- `packages/core/src/islands.ts` — アイランド(部分ハイドレーション)。`<Island>`(レジストリから引いて `<div data-island data-props>` に描画)・`registerIsland`(モジュールレベルレジストリ)・`defineIslands`(型付きマップ)・`hydrateIslands`(`[data-island]` 走査 → `JSON.parse` → 解決 → `hydrate`)・`hydrateIslandsLazy`(loader マップで島チャンクを遅延ロード)。`collectIslands` で走査を共有。`renderToString`(サーバ)+ `hydrate`(コンテナ毎)の再利用=第3の描画経路なし。デモは `examples/islands/{counter,clock,islands,app,main,server}.tsx`
 - `packages/core/src/{lazy,portal,dynamic,head}.ts` — Phase 7 プリミティブ。`lazy.ts` = `lazy()`(resource + 動的 import、モジュールキャッシュ)、`portal.ts` = `<Portal>`(別ノードへテレポート、コメントマーカー範囲を cleanup で除去)、`dynamic.ts` = `<Dynamic>`(実行時ホスト)、`head.ts` = `<Head>`/`<Title>`(head へ追加、SSR head channel)。デモは `examples/primitives/{main,lazy-panel}.tsx`
 - `packages/core/src/{props,css}.ts` — `mergeProps`/`splitProps`・scoped `css`(ハッシュ class + `<style>` 注入)
-- `packages/cli/src/{build,dev,create,generate,index,errors}.ts` — CLI(Bun 依存はここだけ)。`generate.ts` = SSG(config → ルートごとに `renderToString` → `.html` 書き出し + 任意 client バンドル)
+- `packages/cli/src/{build,dev,create,generate,islands,paths,index,errors}.ts` — CLI(Bun 依存はここだけ)。`generate.ts` = SSG(config → ルートごとに `renderToString` → `.html` 書き出し + 任意 client バンドル)、`islands.ts` = `buildIslands`(島を複数エントリ + splitting でバンドル + 非バンドルブートストラップ)、`paths.ts` = `normalizeBase`(generate と共有)。デモハーネスは `examples/islands/serve-split.ts`
 - `examples/ssg/{app,ssg,main}.tsx` — SSG 例(`ssg.tsx` が config、`main.tsx` が hydrate エントリ)
 - `packages/router/src/{location,source,router,index}.ts` — ルーター(`parsePath`/`matchPath`・history ソース・`<Router>`/`<Route>`/`<Link>`+フック)。ランタイム非依存(`window` は遅延解決)
 - `docs/{decisions,roadmap}.md`(+ `.ja.md`)— 設計判断 / 残作業

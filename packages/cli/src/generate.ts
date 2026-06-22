@@ -15,6 +15,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { renderToString } from "@kanabun/core";
 import { errorMessages } from "./errors";
+import { normalizeBase } from "./paths";
 
 /** Context handed to a custom {@link SSGConfig.document} template. */
 export interface DocumentContext {
@@ -81,12 +82,6 @@ export interface GenerateResult {
 function routeToFile(path: string): string {
   const trimmed = path.replace(/^\/+|\/+$/g, "");
   return trimmed === "" ? "index.html" : join(trimmed, "index.html");
-}
-
-/** Normalize a base path to a single leading and trailing slash (`/` ⇒ `/`). */
-function normalizeBase(base: string): string {
-  const trimmed = base.replace(/^\/+|\/+$/g, "");
-  return trimmed === "" ? "/" : `/${trimmed}/`;
 }
 
 /** The built-in HTML document used when the config supplies no `document`. */

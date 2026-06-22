@@ -13,6 +13,7 @@ export { build } from "./build";
 export { create, templateFiles } from "./create";
 export { dev, createDevHandler } from "./dev";
 export { generate } from "./generate";
+export { buildIslands } from "./islands";
 export type { BuildOptions, BuildResult } from "./build";
 export type { CreateOptions } from "./create";
 export type { DevOptions, DevServer, DevHandlerOptions } from "./dev";
@@ -22,6 +23,7 @@ export type {
   SSGConfig,
   DocumentContext,
 } from "./generate";
+export type { BuildIslandsOptions, BuildIslandsResult } from "./islands";
 
 const VERSION = "0.0.0";
 

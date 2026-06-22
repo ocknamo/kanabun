@@ -49,6 +49,23 @@ export type { DynamicProps, DynamicComponent } from "./dynamic";
 export { Head, Title } from "./head";
 export type { HeadProps, TitleProps } from "./head";
 
+// Islands: explicit partial hydration (server marks boundaries, the client
+// hydrates only those). `defineIslands` is the type-safe path (compile-time name
+// + props checking); `registerIsland` is the string-keyed dynamic alternative.
+// The per-island bundle split lives in the CLI.
+export { Island, registerIsland, hydrateIslands, defineIslands, hydrateIslandsLazy } from "./islands";
+export type {
+  IslandComponent,
+  IslandProps,
+  IslandRegistry,
+  IslandBoundaryProps,
+  HydrateIslandsOptions,
+  IslandsMap,
+  DefinedIslands,
+  IslandLoader,
+  IslandLoaders,
+} from "./islands";
+
 // Scoped CSS (runtime helper: hashes a class + injects a <style>).
 export { css } from "./css";
 
