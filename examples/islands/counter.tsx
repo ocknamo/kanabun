@@ -39,3 +39,7 @@ export function Counter(props: { start?: number }) {
     </button>
   );
 }
+
+// Default export too, so this file works as a code-split island entry for the
+// CLI's `buildIslands` (a per-island chunk default-exports its component).
+export default Counter;

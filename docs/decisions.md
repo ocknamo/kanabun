@@ -749,6 +749,29 @@ factory only adds types. The string API stays for dynamic registration. The demo
 (`examples/islands`) is an SSR shell with two independent counter islands wired
 through `defineIslands`.
 
+**As built (CLI — the payload win).** `buildIslands({ islands })`
+(`packages/cli/src/islands.ts`) bundles each island as its own entrypoint with
+`splitting: true` (so shared code — notably the core runtime — is hoisted into
+shared chunks rather than duplicated) and writes a tiny **unbundled** bootstrap
+(`islands.js`) that maps each island name to a dynamic `import()` of its chunk and
+hands them to core's `hydrateIslandsLazy`. At runtime the bootstrap scans
+`[data-island]` and calls only the present islands' loaders, so a page downloads
+just the chunks for the islands it actually contains.
+
+Two design choices worth recording. (1) **The bootstrap is generated but not
+bundled** — it's plain ES modules the browser resolves, so the only bundler work
+is the static, multi-entry island build. This was also forced by a constraint:
+Bun's in-process `Bun.build` (under `bun test`) rejects dynamic-import bundling,
+so a generated *bundled* bootstrap couldn't be unit-tested; a multi-entry build +
+unbundled bootstrap is both cleaner and fully coverable. (2) **`hydrateIslandsLazy`
+lives in core**, not the CLI — it's the runtime half (scan + lazy-load + hydrate),
+runtime-independent like the rest of islands; the CLI only generates the loader
+map and runs the bundler. Unlike `hydrateIslands` (which throws on an unknown
+name), a missing loader is skipped with a dev warning — it's the production client
+entry, so one mis-wired island shouldn't blank the page. The runnable demo is
+`examples/islands/serve-split.ts` (build → SSR → serve; the network tab shows only
+the present islands' chunks load).
+
 ## Ecosystem primitives (Phase 7)
 
 Four small, self-contained primitives that ride the existing core (signals, the

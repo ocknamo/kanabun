@@ -312,7 +312,9 @@ const button = css`
 `<Head>` のツアー)(`bun examples/<name>/index.html` で起動 ── Bun 1.3+ の HTML
 エントリ dev サーバーを利用)。SSR の例([`examples/ssr/`](examples/ssr/))と
 アイランドの例([`examples/islands/`](examples/islands/))はサーバーとして起動します:
-`bun examples/ssr/server.tsx` / `bun examples/islands/server.tsx`。
+`bun examples/ssr/server.tsx` / `bun examples/islands/server.tsx`。アイランド単位の
+コード分割は `bun examples/islands/serve-split.ts`(ネットワークタブで、存在する
+アイランドのチャンクだけが読まれるのが見えます)。
 
 ---
 
@@ -456,18 +458,20 @@ function UsersLayout() {
 | エラー処理 | `ErrorBoundary`, `catchError` |
 | 非同期 | `resource`, `Suspense` |
 | エコシステムプリミティブ | `lazy`(コード分割)、`Portal`(テレポート)、`Dynamic`(実行時ホスト)、`Head` / `Title`(document head) |
-| アイランド | `defineIslands`(型付きレジストリ ── コンパイル時の name/props チェック)、`Island`(境界)、`registerIsland`、`hydrateIslands`(部分ハイドレーション) |
+| アイランド | `defineIslands`(型付きレジストリ ── コンパイル時の name/props チェック)、`Island`(境界)、`registerIsland`、`hydrateIslands`、`hydrateIslandsLazy`(アイランド単位のコード分割) |
 | props | `mergeProps`, `splitProps` |
 | コンテキスト | `createContext`, `useContext` |
 | スタイリング | `css`(スコープド CSS) |
 | 開発時警告 | `setDev`, `setWarnHandler`(オプトイン。`kanabun dev` が自動有効化) |
-| 型 | `Accessor`, `Signal`, `SignalOptions`, `Disposer`, `Context`, `Props`, `JSXChild`, `JSX`, `EventHandler`, `HTMLAttributes`, `ShowProps`, `ForProps`, `ErrorBoundaryProps`, `RenderToStringResult`, `Resource`, `SuspenseProps`, `LazyModule`, `PortalProps`, `DynamicProps`, `HeadProps`, `TitleProps`, `IslandProps`, `IslandBoundaryProps`, `IslandComponent`, `IslandRegistry`, `HydrateIslandsOptions`, `IslandsMap`, `DefinedIslands` |
+| 型 | `Accessor`, `Signal`, `SignalOptions`, `Disposer`, `Context`, `Props`, `JSXChild`, `JSX`, `EventHandler`, `HTMLAttributes`, `ShowProps`, `ForProps`, `ErrorBoundaryProps`, `RenderToStringResult`, `Resource`, `SuspenseProps`, `LazyModule`, `PortalProps`, `DynamicProps`, `HeadProps`, `TitleProps`, `IslandProps`, `IslandBoundaryProps`, `IslandComponent`, `IslandRegistry`, `HydrateIslandsOptions`, `IslandsMap`, `DefinedIslands`, `IslandLoader`, `IslandLoaders` |
 
 **`@kanabun/cli`**(`kanabun` コマンド。ライブラリとしても import 可能)
 
 | 関数 | 役割 |
 | --- | --- |
 | `build(opts)` | ブラウザ向けバンドル。`{ success, outputs, logs }` を返す(例外を投げない)。 |
+| `generate(opts)` | ルートを静的 HTML にプリレンダ(SSG)。`{ success, pages, logs }` を返す。 |
+| `buildIslands(opts)` | アイランド単位のコード分割 + 遅延ブートストラップ。`{ success, script, outputs, logs }` を返す。 |
 | `dev(opts)` | dev サーバー起動。`{ url, port, stop() }` を返す。 |
 | `createDevHandler(opts)` | dev の `fetch` ハンドラ(埋め込み/テスト用)。 |
 | `create(name, opts?)` / `templateFiles(name)` | プロジェクト生成 / そのファイル取得。 |
@@ -490,9 +494,10 @@ function UsersLayout() {
 Phase 0〜5 は完了(TodoMVC 稼働、CLI 動作)。Phase 6 ではルーター(`@kanabun/router`)、
 エラーバウンダリ、開発時警告、SSR/ハイドレーション、非同期 / Suspense、SSG
 (`kanabun generate`)を、Phase 7 ではエコシステムプリミティブ(`lazy`、`<Portal>`、
-`<Dynamic>`、`<Head>` / `<Title>`)とアイランドのコア(`<Island>` / `registerIsland` /
-`hydrateIslands`)を追加しました。残り ── アイランド単位のバンドル分割(CLI)+ 作成支援
-ツール(`kanabun lint`、dev オーバーレイ)、状態保持 HMR ── と未決の設計判断は
+`<Dynamic>`、`<Head>` / `<Title>`)、アイランド(`<Island>` / `registerIsland` /
+`hydrateIslands`)、アイランド単位のバンドル分割(`buildIslands` + `hydrateIslandsLazy`)を
+追加しました。残り ── 作成支援ツール(`kanabun lint`、dev オーバーレイ)、状態保持 HMR ── と
+未決の設計判断は
 [`docs/roadmap.ja.md`](docs/roadmap.ja.md)([English](docs/roadmap.md))で管理しています。
 
 コンパイラがないため、ミスの検知は 3 層に頼ります ── 型付きの `on*` ハンドラ、オプトインの
@@ -548,7 +553,7 @@ packages/
       jsx-runtime.ts      jsx/jsxs/Fragment + JSX 型名前空間
       jsx-dev-runtime.ts  dev トランスフォームの入口
   cli/         @kanabun/cli — `kanabun` コマンド(Bun 専用層)
-    src/        build.ts, create.ts, dev.ts, index.ts(argv + ディスパッチ)
+    src/        build.ts, generate.ts, islands.ts, create.ts, dev.ts, index.ts(argv + ディスパッチ)
     bin/        kanabun.ts
   router/      @kanabun/router — history ベースのルーター(ランタイム非依存)
     src/        location.ts(解析/マッチ), source.ts(history ソース), router.ts(コンポーネント + フック)

@@ -16,7 +16,7 @@
 | 4 | コンポーネントモデルと DX | ✅ 完了 — `onMount`/`mergeProps`/`splitProps`/スコープド `css`/`context` |
 | 5 | Bun 連携: `create` / `dev` / `build` CLI | ✅ 完了 |
 | 6 | 堅牢化・周辺(ルーター、SSR 等) | 🟡 進行中 — **ルーター + エラーバウンダリ + 開発時警告 + SSR/ハイドレーション + 非同期(`resource`/`<Suspense>`)+ SSG(`kanabun generate`)+ CSS HMR 完了**;残りは任意 |
-| 7 | アイランド / 部分ハイドレーション + エコシステムプリミティブ(`lazy`・`<Portal>`・`<Dynamic>`・head API)+ 作成支援ツール(`kanabun lint`・dev オーバーレイ) | 🟡 進行中 — **エコシステムプリミティブ(`lazy`・`<Portal>`・`<Dynamic>`・`<Head>`/`<Title>`)+ アイランドのコア(`<Island>`・`registerIsland`・`hydrateIslands`)完了**;アイランド単位のバンドル分割(CLI)+ 作成支援ツールは計画。設計メモ: [`decisions.ja.md`](./decisions.ja.md#アイランド--部分ハイドレーションphase-7--設計メモ)(アイランド)、[`dx.ja.md`](./dx.ja.md#4-将来自前-linter)(linter) |
+| 7 | アイランド / 部分ハイドレーション + エコシステムプリミティブ(`lazy`・`<Portal>`・`<Dynamic>`・head API)+ 作成支援ツール(`kanabun lint`・dev オーバーレイ) | 🟡 進行中 — **エコシステムプリミティブ(`lazy`・`<Portal>`・`<Dynamic>`・`<Head>`/`<Title>`)+ アイランドのコア(`<Island>`・`registerIsland`・`hydrateIslands`)+ アイランド単位のバンドル分割(CLI `buildIslands` + `hydrateIslandsLazy`)完了**;作成支援ツールは計画。設計メモ: [`decisions.ja.md`](./decisions.ja.md#アイランド--部分ハイドレーションphase-7--設計メモ)(アイランド)、[`dx.ja.md`](./dx.ja.md#4-将来自前-linter)(linter) |
 | 8 | 重量級エコシステム: SSR ストリーミング(`renderToStream`)、リアクティブ store(`createStore`)、`@kanabun/testing` | 🔜 計画 — Phase 7 から先送り(大きめのサブシステム) |
 
 全期間で維持した品質基準: **ランタイム依存ゼロ**、`packages/core` のランタイム非依存、
@@ -125,10 +125,16 @@
   モジュールレベルの singleton signal で)。動くデモは `examples/islands`(静的な外殻 +
   独立した 2 つのカウンターアイランド)。`packages/core/src/islands.ts`。詳細は
   [`decisions.ja.md`](./decisions.ja.md#アイランド--部分ハイドレーションphase-7--設計メモ)。
-- [ ] **アイランド単位のバンドル分割(CLI)。** 本当の payload 削減: `packages/cli` がアイランド
-  単位で code-split し、ページはそこに含まれるアイランドのチャンクだけを読み込む + それらを
-  mount するクライアントブートストラップ。Bun / バンドラの仕事なので CLI 層に置く。コアは
-  ランタイム非依存のまま。
+- [x] **アイランド単位のバンドル分割(CLI)。** 完了 ── `buildIslands({ islands })`
+  (`packages/cli/src/islands.ts`)が各アイランドを個別エントリとして `splitting: true` で
+  バンドルし(共有コード=コアランタイム等は共有チャンクへ集約)、小さな**非バンドルの
+  ブートストラップ**(`islands.js`)を書き出す。ブートストラップは各アイランド名を
+  そのチャンクへの動的 `import()` に対応づけ、core の `hydrateIslandsLazy` に渡す。実行時、
+  ページは**含まれるアイランドのチャンクだけ**を取得する(登録済みでもページに無ければ
+  fetch しない)。ブートストラップを非バンドルに保つことで、バンドラの仕事は静的な複数
+  エントリのアイランドビルドだけになり、コアはランタイム非依存のまま。動くデモは
+  `examples/islands/serve-split.ts`。詳細は
+  [`decisions.ja.md`](./decisions.ja.md#アイランド--部分ハイドレーションphase-7--設計メモ)。
 - 対象外(記録済み): アイランドの自動検出とノード単位の引き取り(どちらもコンパイラが要る)、
   resumability(ランタイム JSX 設計と矛盾)。
 

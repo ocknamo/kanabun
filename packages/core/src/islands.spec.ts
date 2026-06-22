@@ -8,6 +8,7 @@ import {
   registerIsland,
   hydrateIslands,
   defineIslands,
+  hydrateIslandsLazy,
 } from "./index";
 import {
   installDOM,
@@ -233,5 +234,94 @@ describe("defineIslands (typed registry)", () => {
     const badProps: Boundary = { name: "Counter", props: { start: "x" } };
 
     expect([ok, badName, badProps]).toHaveLength(3);
+  });
+});
+
+describe("hydrateIslandsLazy", () => {
+  // Re-use the server-style markup builder.
+  function serverIsland(name: string, props: Record<string, unknown>): MockNode {
+    const div = createContainer();
+    div.setAttribute("data-island", name);
+    div.setAttribute("data-props", JSON.stringify(props));
+    return div;
+  }
+
+  const tick = (): Promise<void> => new Promise((r) => setTimeout(r, 0));
+
+  test("loads only the present islands' chunks and hydrates them", async () => {
+    const container = createContainer();
+    container.appendChild(serverIsland("Counter", { start: 3 }));
+
+    const loaded: string[] = [];
+    const dispose = hydrateIslandsLazy(
+      {
+        Counter: () => {
+          loaded.push("Counter");
+          return Promise.resolve({ default: Counter });
+        },
+        // Registered but absent from the page — must never be fetched.
+        Absent: () => {
+          loaded.push("Absent");
+          return Promise.resolve(Counter);
+        },
+      },
+      { root: asEl(container) },
+    );
+    await tick();
+
+    expect(loaded).toEqual(["Counter"]); // selective: "Absent" not loaded
+    const button = firstElement(firstElement(container));
+    expect(button.textContent).toBe("count: 3");
+    button.dispatch("click");
+    expect(button.textContent).toBe("count: 4");
+
+    dispose();
+    expect(firstElement(container).textContent).toBe("");
+  });
+
+  test("accepts a loader that resolves the component directly", async () => {
+    const container = createContainer();
+    container.appendChild(serverIsland("Counter", { start: 1 }));
+    hydrateIslandsLazy(
+      { Counter: () => Promise.resolve(Counter) },
+      { root: asEl(container) },
+    );
+    await tick();
+    expect(firstElement(firstElement(container)).textContent).toBe("count: 1");
+  });
+
+  test("skips an island with no loader, warning in dev", async () => {
+    const container = createContainer();
+    container.appendChild(serverIsland("Counter", {}));
+
+    const messages: string[] = [];
+    setDev(true);
+    setWarnHandler((m) => messages.push(m));
+
+    hydrateIslandsLazy({}, { root: asEl(container) });
+    await tick();
+
+    expect(messages.some((m) => /no loader for island "Counter"/.test(m))).toBe(true);
+    // Nothing mounted: the server markup (empty) is untouched.
+    expect(firstElement(container).childNodes.length).toBe(0);
+  });
+
+  test("does not mount an island that resolves after disposal", async () => {
+    const container = createContainer();
+    container.appendChild(serverIsland("Counter", { start: 0 }));
+
+    let resolve!: (c: typeof Counter) => void;
+    const pending = new Promise<typeof Counter>((r) => (resolve = r));
+    const dispose = hydrateIslandsLazy(
+      { Counter: () => pending },
+      { root: asEl(container) },
+    );
+
+    dispose(); // disposed before the chunk resolves
+    resolve(Counter);
+    await tick();
+
+    // The late resolution is ignored — the container stays as server markup.
+    expect(firstElement(container).childNodes.length).toBe(0);
   });
 });

@@ -16,7 +16,7 @@ see [`decisions.md`](./decisions.md).
 | 4 | Component model & DX | ✅ done — `onMount`, `mergeProps`, `splitProps`, scoped `css`, `context` |
 | 5 | Bun integration: `create` / `dev` / `build` CLI | ✅ done |
 | 6 | Hardening & ecosystem (router, SSR, etc.) | 🟡 in progress — **router + error boundaries + dev-time warnings + SSR/hydration + async (`resource`/`<Suspense>`) + SSG (`kanabun generate`) + CSS HMR done**; rest optional |
-| 7 | Islands / partial hydration + ecosystem primitives (`lazy`, `<Portal>`, `<Dynamic>`, head API) + authoring tooling (`kanabun lint`, dev overlay) | 🟡 in progress — **ecosystem primitives (`lazy`, `<Portal>`, `<Dynamic>`, `<Head>`/`<Title>`) + islands core (`<Island>` / `registerIsland` / `hydrateIslands`) done**; per-island bundle split (CLI) + authoring tooling planned. Design memos: [`decisions.md`](./decisions.md#islands--partial-hydration-phase-7--design-memo) (islands), [`dx.md`](./dx.md#4-future-an-in-house-linter) (linter) |
+| 7 | Islands / partial hydration + ecosystem primitives (`lazy`, `<Portal>`, `<Dynamic>`, head API) + authoring tooling (`kanabun lint`, dev overlay) | 🟡 in progress — **ecosystem primitives (`lazy`, `<Portal>`, `<Dynamic>`, `<Head>`/`<Title>`) + islands core (`<Island>` / `registerIsland` / `hydrateIslands`) + per-island bundle split (CLI `buildIslands` + `hydrateIslandsLazy`) done**; authoring tooling planned. Design memos: [`decisions.md`](./decisions.md#islands--partial-hydration-phase-7--design-memo) (islands), [`dx.md`](./dx.md#4-future-an-in-house-linter) (linter) |
 | 8 | Heavyweight ecosystem: SSR streaming (`renderToStream`), reactive store (`createStore`), `@kanabun/testing` | 🔜 planned — deferred from Phase 7 (larger subsystems) |
 
 Quality bar held throughout: **zero runtime dependencies**, `packages/core`
@@ -141,10 +141,17 @@ boundaries in [`decisions.md`](./decisions.md#islands--partial-hydration-phase-7
   Runnable demo: `examples/islands` (a static shell + two independent counter
   islands). `packages/core/src/islands.ts`. See
   [`decisions.md`](./decisions.md#islands--partial-hydration-phase-7--design-memo).
-- [ ] **Per-island bundle split (CLI).** The actual payload win: `packages/cli`
-  code-splits per island so a page loads only the chunks for the islands it
-  contains, plus a client bootstrap that mounts them. Bun/bundler work, so it
-  stays in the CLI layer; core remains runtime-independent.
+- [x] **Per-island bundle split (CLI).** Done — `buildIslands({ islands })`
+  (`packages/cli/src/islands.ts`) bundles each island as its own entry with
+  `splitting: true` (shared code, e.g. the core runtime, hoisted into shared
+  chunks) and writes a small unbundled bootstrap (`islands.js`) that maps each
+  island name to a dynamic `import()` of its chunk and hands them to core's
+  `hydrateIslandsLazy`. At runtime a page pulls in **only the chunks for the
+  islands it contains** (an island registered but absent is never fetched). The
+  bootstrap stays unbundled so the only bundler work is the static, multi-entry
+  island build; core stays runtime-independent. Runnable demo:
+  `examples/islands/serve-split.ts`. See
+  [`decisions.md`](./decisions.md#islands--partial-hydration-phase-7--design-memo).
 - Out of scope (documented): automatic island detection and node-level adoption
   (both need a compiler), and resumability (contradicts the runtime-JSX design).
 

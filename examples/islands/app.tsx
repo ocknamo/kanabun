@@ -20,6 +20,8 @@ export function App() {
       <Island name="Counter" props={{ start: 0 }} />
       <p>Another static paragraph sitting between two independent islands.</p>
       <Island name="Counter" props={{ start: 100 }} />
+      <p>A different island type — its own code-split chunk:</p>
+      <Island name="Clock" props={{ label: "time" }} />
     </main>
   );
 }

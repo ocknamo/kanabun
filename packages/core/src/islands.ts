@@ -159,20 +159,41 @@ export interface HydrateIslandsOptions {
  * Returns a disposer that tears down every island it mounted.
  */
 export function hydrateIslands(options: HydrateIslandsOptions = {}): Disposer {
-  const root = (options.root ?? doc()) as unknown as {
+  const disposers: Disposer[] = [];
+  for (const { el, name, props } of collectIslands(options.root)) {
+    const Component = lookup(name, options.registry);
+    disposers.push(hydrate(() => jsx(Component, props), el));
+  }
+  return () => {
+    for (const dispose of disposers) dispose();
+  };
+}
+
+/** A `[data-island]` element with its resolved name and parsed props. */
+interface IslandMatch {
+  el: Element;
+  name: string;
+  props: IslandProps;
+}
+
+/**
+ * Find the islands to hydrate under `root` (default: the whole document), with
+ * their name + parsed props. Nested islands are dropped (with a dev warning):
+ * hydrating an outer island re-renders its subtree and detaches a nested one, so
+ * the snapshot is taken against the original tree *before* any mount mutates it.
+ * Shared by {@link hydrateIslands} and {@link hydrateIslandsLazy}.
+ */
+function collectIslands(root: ParentNode | undefined): IslandMatch[] {
+  const scope = (root ?? doc()) as unknown as {
     querySelectorAll(selector: string): Iterable<Element>;
   };
-  // Snapshot the matches up front: `hydrate` clears each container, which detaches
-  // any nested island before we'd reach it — so nesting must be detected against
-  // the *original* tree, before the first mount mutates it.
-  const all = [...root.querySelectorAll("[data-island]")];
+  const all = [...scope.querySelectorAll("[data-island]")];
   const nested = new Set(all.filter(hasIslandAncestor));
-  const disposers: Disposer[] = [];
+  const matches: IslandMatch[] = [];
   for (const el of all) {
-    // Islands are flat: each `[data-island]` mounts independently, and hydrating
-    // an outer one re-renders its subtree (wiping a nested island's server
-    // markup). Skip nested ones rather than mount onto a detached node, and nudge
-    // in dev — the constraint can't be expressed structurally without a compiler.
+    // Islands are flat: each `[data-island]` mounts independently. Skip nested
+    // ones rather than mount onto a soon-to-be-detached node, and nudge in dev —
+    // the constraint can't be expressed structurally without a compiler.
     if (nested.has(el)) {
       warn(
         `a nested <Island> ("${el.getAttribute("data-island")}") is skipped — ` +
@@ -180,15 +201,14 @@ export function hydrateIslands(options: HydrateIslandsOptions = {}): Disposer {
       );
       continue;
     }
-    const name = el.getAttribute("data-island")!;
-    const Component = lookup(name, options.registry);
     const raw = el.getAttribute("data-props");
-    const props = (raw ? JSON.parse(raw) : {}) as IslandProps;
-    disposers.push(hydrate(() => jsx(Component, props), el));
+    matches.push({
+      el,
+      name: el.getAttribute("data-island")!,
+      props: (raw ? JSON.parse(raw) : {}) as IslandProps,
+    });
   }
-  return () => {
-    for (const dispose of disposers) dispose();
-  };
+  return matches;
 }
 
 /** Whether `el` sits inside another `[data-island]` (i.e. it's a nested island). */
@@ -253,5 +273,61 @@ export function defineIslands<const M extends IslandsMap>(islands: M): DefinedIs
     Island: TypedIsland,
     hydrateIslands: (options: Omit<HydrateIslandsOptions, "registry"> = {}): Disposer =>
       hydrateIslands({ ...options, registry: islands }),
+  };
+}
+
+// ── Lazy hydration (per-island code splitting) ───────────────────────
+/**
+ * Loads an island's component on demand — its module is fetched only when the
+ * island is present on the page. Resolves either the component directly or a
+ * module that default-exports it (so `() => import("./Counter")` works).
+ */
+export type IslandLoader = () => Promise<IslandComponent | { default: IslandComponent }>;
+
+/** A name → loader map — the lazy counterpart of {@link IslandRegistry}. */
+export type IslandLoaders = Record<string, IslandLoader>;
+
+/**
+ * Hydrate islands by **loading each present island's chunk on demand** — the
+ * runtime half of per-island code splitting (the CLI's `buildIslands` generates
+ * a bootstrap that calls this). It scans `[data-island]`, and for each one calls
+ * only that island's `loaders[name]()`, so a page downloads just the chunks for
+ * the islands it actually contains; an island registered but absent is never
+ * fetched.
+ *
+ * Unlike {@link hydrateIslands} (which throws on an unknown name, resolving a
+ * static registry up front), a missing loader here is **skipped with a dev
+ * warning** rather than thrown: this is the production client entry, and one
+ * mis-wired island shouldn't blank the rest of the page.
+ *
+ * Returns a disposer that tears down every island it mounted; mounts still
+ * in-flight when it runs are cancelled (they won't mount afterwards).
+ */
+export function hydrateIslandsLazy(
+  loaders: IslandLoaders,
+  options: Omit<HydrateIslandsOptions, "registry"> = {},
+): Disposer {
+  const disposers: Disposer[] = [];
+  let disposed = false;
+  for (const { el, name, props } of collectIslands(options.root)) {
+    const loader = loaders[name];
+    if (!loader) {
+      warn(
+        `no loader for island "${name}" — it won't hydrate (was it included in ` +
+          "the islands build?).",
+      );
+      continue;
+    }
+    void loader().then((mod) => {
+      // The disposer may have run while the chunk was loading; don't mount then.
+      if (disposed) return;
+      const Component =
+        typeof mod === "object" && mod !== null && "default" in mod ? mod.default : mod;
+      disposers.push(hydrate(() => jsx(Component, props), el));
+    });
+  }
+  return () => {
+    disposed = true;
+    for (const dispose of disposers) dispose();
   };
 }

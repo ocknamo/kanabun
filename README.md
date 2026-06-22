@@ -326,7 +326,9 @@ and [`examples/primitives/`](examples/primitives/) (a tour of `lazy` / `<Portal>
 / `<Dynamic>` / `<Head>`) — serve any with `bun examples/<name>/index.html` (uses
 Bun 1.3+ HTML-entry dev server). The SSR example ([`examples/ssr/`](examples/ssr/))
 and the islands example ([`examples/islands/`](examples/islands/)) run as servers:
-`bun examples/ssr/server.tsx` / `bun examples/islands/server.tsx`.
+`bun examples/ssr/server.tsx` / `bun examples/islands/server.tsx`. For the
+per-island code split, `bun examples/islands/serve-split.ts` (the network tab
+shows only the present islands' chunks loading).
 
 ---
 
@@ -476,18 +478,20 @@ function UsersLayout() {
 | Error handling | `ErrorBoundary`, `catchError` |
 | Async | `resource`, `Suspense` |
 | Ecosystem primitives | `lazy` (code-split), `Portal` (teleport), `Dynamic` (runtime host), `Head` / `Title` (document head) |
-| Islands | `defineIslands` (typed registry — compile-time name/props), `Island` (boundary), `registerIsland`, `hydrateIslands` (partial hydration) |
+| Islands | `defineIslands` (typed registry — compile-time name/props), `Island` (boundary), `registerIsland`, `hydrateIslands`, `hydrateIslandsLazy` (per-island code split) |
 | Props | `mergeProps`, `splitProps` |
 | Context | `createContext`, `useContext` |
 | Styling | `css` (scoped CSS) |
 | Dev warnings | `setDev`, `setWarnHandler` (opt-in; `kanabun dev` enables them) |
-| Types | `Accessor`, `Signal`, `SignalOptions`, `Disposer`, `Context`, `Props`, `JSXChild`, `JSX`, `EventHandler`, `HTMLAttributes`, `ShowProps`, `ForProps`, `ErrorBoundaryProps`, `RenderToStringResult`, `Resource`, `SuspenseProps`, `LazyModule`, `PortalProps`, `DynamicProps`, `HeadProps`, `TitleProps`, `IslandProps`, `IslandBoundaryProps`, `IslandComponent`, `IslandRegistry`, `HydrateIslandsOptions`, `IslandsMap`, `DefinedIslands` |
+| Types | `Accessor`, `Signal`, `SignalOptions`, `Disposer`, `Context`, `Props`, `JSXChild`, `JSX`, `EventHandler`, `HTMLAttributes`, `ShowProps`, `ForProps`, `ErrorBoundaryProps`, `RenderToStringResult`, `Resource`, `SuspenseProps`, `LazyModule`, `PortalProps`, `DynamicProps`, `HeadProps`, `TitleProps`, `IslandProps`, `IslandBoundaryProps`, `IslandComponent`, `IslandRegistry`, `HydrateIslandsOptions`, `IslandsMap`, `DefinedIslands`, `IslandLoader`, `IslandLoaders` |
 
 **`@kanabun/cli`** (the `kanabun` command; also importable as a library)
 
 | Function | Purpose |
 | --- | --- |
 | `build(opts)` | Bundle for the browser; returns `{ success, outputs, logs }` (never throws). |
+| `generate(opts)` | Prerender routes to static HTML (SSG); returns `{ success, pages, logs }`. |
+| `buildIslands(opts)` | Per-island code split + a lazy bootstrap; returns `{ success, script, outputs, logs }`. |
 | `dev(opts)` | Start the dev server; returns `{ url, port, stop() }`. |
 | `createDevHandler(opts)` | The dev `fetch` handler, for embedding/testing. |
 | `create(name, opts?)` / `templateFiles(name)` | Scaffold a project / get its files. |
@@ -510,10 +514,11 @@ function UsersLayout() {
 Phases 0–5 are done (TodoMVC runs; CLI works), Phase 6 ships a router
 (`@kanabun/router`), error boundaries, dev-time warnings, SSR/hydration, async /
 Suspense, and SSG (`kanabun generate`), and Phase 7 adds the ecosystem
-primitives (`lazy`, `<Portal>`, `<Dynamic>`, `<Head>` / `<Title>`) and the islands
-core (`<Island>` / `registerIsland` / `hydrateIslands`). What's left — the
-per-island bundle split (CLI) + authoring tooling (`kanabun lint`, dev overlay),
-and stateful HMR — and the open design decisions are tracked in
+primitives (`lazy`, `<Portal>`, `<Dynamic>`, `<Head>` / `<Title>`), islands
+(`<Island>` / `registerIsland` / `hydrateIslands`), and the per-island bundle split
+(`buildIslands` + `hydrateIslandsLazy`). What's left — authoring tooling
+(`kanabun lint`, dev overlay) and stateful HMR — and the open design decisions are
+tracked in
 [`docs/roadmap.md`](docs/roadmap.md) ([日本語](docs/roadmap.ja.md)).
 
 Because there's no compiler, mistake-catching leans on three layers — typed
@@ -570,7 +575,7 @@ packages/
       jsx-runtime.ts      jsx/jsxs/Fragment + JSX type namespace
       jsx-dev-runtime.ts  dev transform entry
   cli/         @kanabun/cli — the `kanabun` command (Bun-only layer)
-    src/        build.ts, create.ts, dev.ts, index.ts (argv + dispatch)
+    src/        build.ts, generate.ts, islands.ts, create.ts, dev.ts, index.ts (argv + dispatch)
     bin/        kanabun.ts
   router/      @kanabun/router — history-based router (runtime-independent)
     src/        location.ts (parse/match), source.ts (history sources), router.ts (components + hooks)

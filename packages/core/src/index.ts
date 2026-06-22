@@ -53,7 +53,7 @@ export type { HeadProps, TitleProps } from "./head";
 // hydrates only those). `defineIslands` is the type-safe path (compile-time name
 // + props checking); `registerIsland` is the string-keyed dynamic alternative.
 // The per-island bundle split lives in the CLI.
-export { Island, registerIsland, hydrateIslands, defineIslands } from "./islands";
+export { Island, registerIsland, hydrateIslands, defineIslands, hydrateIslandsLazy } from "./islands";
 export type {
   IslandComponent,
   IslandProps,
@@ -62,6 +62,8 @@ export type {
   HydrateIslandsOptions,
   IslandsMap,
   DefinedIslands,
+  IslandLoader,
+  IslandLoaders,
 } from "./islands";
 
 // Scoped CSS (runtime helper: hashes a class + injects a <style>).
