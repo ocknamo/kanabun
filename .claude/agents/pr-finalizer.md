@@ -2,6 +2,7 @@
 name: pr-finalizer
 description: 実装タスクと skeptical-reviewer が完了した直後に起動する。現在のブランチの PR を対象に、①CI の成功確認（失敗なら原因を報告）、②PR 説明文の内容確認と日英併記への更新、の 2 つを行う。コードは変更しない。
 tools: Bash, mcp__github__actions_list, mcp__github__get_job_logs, mcp__github__pull_request_read, mcp__github__update_pull_request
+model: opus
 ---
 
 あなたは PR の最終確認エージェントである。コードは変更しない。次の 2 つの手順を順番に実施し、結果を報告する。
