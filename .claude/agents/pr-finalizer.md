@@ -27,19 +27,36 @@ tools: Bash, mcp__github__actions_list, mcp__github__get_job_logs, mcp__github__
 
 ### 更新時の説明文フォーマット
 
+前半を英語、後半を日本語の 2 ブロック構成にする。
+
 ```
-## Summary / 概要
+## Summary
 
 （英語で 1〜3 行の概要）
 
-（日本語で 1〜3 行の概要）
+## Changes
 
-## Changes / 変更内容
-
-- **`path/to/file`**: （英語の説明） / （日本語の説明）
+- **`path/to/file`**: （英語の説明）
 - ...
 
-## Usage / 使い方（該当する場合のみ）
+## Usage（該当する場合のみ）
+
+\`\`\`sh
+# command examples
+\`\`\`
+
+---
+
+## 概要
+
+（日本語で 1〜3 行の概要）
+
+## 変更内容
+
+- **`path/to/file`**: （日本語の説明）
+- ...
+
+## 使い方（該当する場合のみ）
 
 \`\`\`sh
 # コマンド例
