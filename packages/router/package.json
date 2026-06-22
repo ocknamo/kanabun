@@ -18,5 +18,8 @@
   "sideEffects": false,
   "scripts": {
     "test": "bun test"
+  },
+  "peerDependencies": {
+    "@kanabun/core": "workspace:*"
   }
 }

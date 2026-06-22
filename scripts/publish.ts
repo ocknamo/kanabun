@@ -2,7 +2,8 @@
 // Batch publish all workspace packages to npm.
 //
 // Pre-publish phase: bun test, tsc --noEmit, example builds.
-// Publish phase: npm publish for each package under packages/*.
+// Publish phase: npm publish for each package under packages/*,
+//   in dependency order (dependencies published before dependents).
 //
 // Usage:
 //   bun run scripts/publish.ts [options]
@@ -13,8 +14,7 @@
 //   --tag <tag>        npm dist-tag (default: latest).
 //   --yes              Skip the confirmation prompt.
 
-import { readdirSync } from "node:fs";
-import { readSync } from "node:fs";
+import { readdirSync, readSync } from "node:fs";
 import { join, resolve } from "node:path";
 
 const root = resolve(import.meta.dir, "..");
@@ -24,11 +24,19 @@ const args = process.argv.slice(2);
 const dryRun = args.includes("--dry-run");
 const skipConfirm = args.includes("--yes");
 
-const accessIdx = args.indexOf("--access");
-const access = accessIdx !== -1 ? args[accessIdx + 1] : "public";
+function requireArgValue(flag: string): string | undefined {
+  const idx = args.indexOf(flag);
+  if (idx === -1) return undefined;
+  const val = args[idx + 1];
+  if (!val || val.startsWith("--")) {
+    console.error(`Error: ${flag} requires a value (e.g. ${flag} <value>)`);
+    process.exit(1);
+  }
+  return val;
+}
 
-const tagIdx = args.indexOf("--tag");
-const tag = tagIdx !== -1 ? args[tagIdx + 1] : undefined;
+const access = requireArgValue("--access") ?? "public";
+const tag = requireArgValue("--tag");
 
 // --- Helper: run a shell command, exit on failure ---
 async function run(cmd: string, cwd = root): Promise<void> {
@@ -86,12 +94,23 @@ interface PkgInfo {
   name: string;
   version: string;
   private?: boolean;
+  deps: string[];
 }
 
 const pkgInfos: PkgInfo[] = await Promise.all(
   pkgDirs.map(async (dir) => {
     const pkg = await Bun.file(join(dir, "package.json")).json();
-    return { dir, name: pkg.name, version: pkg.version, private: pkg.private };
+    const deps = Object.keys({
+      ...pkg.dependencies,
+      ...pkg.peerDependencies,
+    });
+    return {
+      dir,
+      name: pkg.name as string,
+      version: pkg.version as string,
+      private: pkg.private as boolean | undefined,
+      deps,
+    };
   })
 );
 
@@ -103,8 +122,30 @@ if (publishable.length === 0) {
   process.exit(1);
 }
 
-console.log("Packages to publish:");
-for (const { name, version } of publishable) {
+// Sort packages topologically so dependencies are published before dependents
+function topologicalSort(pkgs: PkgInfo[]): PkgInfo[] {
+  const byName = new Map(pkgs.map((p) => [p.name, p]));
+  const visited = new Set<string>();
+  const result: PkgInfo[] = [];
+
+  function visit(pkg: PkgInfo): void {
+    if (visited.has(pkg.name)) return;
+    visited.add(pkg.name);
+    for (const dep of pkg.deps) {
+      const depPkg = byName.get(dep);
+      if (depPkg) visit(depPkg);
+    }
+    result.push(pkg);
+  }
+
+  for (const pkg of pkgs) visit(pkg);
+  return result;
+}
+
+const sorted = topologicalSort(publishable);
+
+console.log("Packages to publish (in order):");
+for (const { name, version } of sorted) {
   console.log(`  ${name}@${version}`);
 }
 
@@ -134,7 +175,7 @@ console.log("\n=== Publishing ===\n");
 
 const flags = ["--access", access, ...(tag ? ["--tag", tag] : [])].join(" ");
 
-for (const { dir, name } of publishable) {
+for (const { dir, name } of sorted) {
   console.log(`Publishing ${name}...`);
   await run(`npm publish ${flags}`, dir);
 }
