@@ -19,6 +19,13 @@ on its findings:
 Do not declare a phase or task finished without a clean (or consciously
 accepted) review.
 
+**After the task and `skeptical-reviewer` are both complete, run the
+`pr-finalizer` subagent** (`.claude/agents/pr-finalizer.md`):
+
+- Confirms CI is green; reports failures with log summaries if not.
+- Reviews the PR description and updates it to be bilingual (Japanese + English)
+  if it is missing content or not bilingual.
+
 ## ⚠️ Visual changes: use the `snapshot` skill
 
 **When a task touches the rendered look — CSS / styling, layout, or any visual
