@@ -22,9 +22,11 @@ jobs:
       - name: Install unzip (required by setup-bun)
         run: apt-get update && apt-get install -y --no-install-recommends unzip
 
-      # Version pinned via `.bun-version`; setup-bun reads it automatically.
+      # Version pinned via `.bun-version`, passed with bun-version-file.
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: ".bun-version"
 
       - name: Install Playwright test runner (CI-only, not a project dep)
         run: npm install --no-save @playwright/test@1.56.1

@@ -90,9 +90,9 @@ environment itself:
   reproducibility; `bunx tsc` resolves the committed local binary. (This is a
   dev-time choice only — nothing reaches the browser, so the zero-*runtime*-
   dependency stance is unchanged.)
-- **Bun** is pinned in `.bun-version` (a single source of truth that
-  `oven-sh/setup-bun` reads automatically), so local and CI runs agree on the
-  runtime version.
+- **Bun** is pinned in `.bun-version` (a single source of truth that CI passes
+  to `oven-sh/setup-bun` via `bun-version-file`), so local and CI runs agree on
+  the runtime version.
 - **CI infrastructure** (GitHub Actions like `actions/checkout`,
   `oven-sh/setup-bun`) is not part of the project's dependency graph and is out
   of scope for this rule.

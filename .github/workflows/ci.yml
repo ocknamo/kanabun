@@ -23,10 +23,12 @@ jobs:
 
       # The only toolchain kanabun needs is Bun. No npm dependency install
       # step is required because the project has zero dependencies.
-      # Bun version is pinned in `.bun-version` (single source of truth);
-      # setup-bun reads it automatically.
+      # Bun version is pinned in `.bun-version` (single source of truth),
+      # passed to setup-bun via bun-version-file.
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: ".bun-version"
 
       # Installs the pinned dev-time toolchain (@types/bun + typescript) and
       # verifies the lockfile is in sync. No runtime dependencies exist.
@@ -107,9 +109,11 @@ jobs:
         run: apt-get update && apt-get install -y --no-install-recommends unzip
 
       # Bun runs the example dev servers that Playwright screenshots.
-      # Version pinned via `.bun-version`; setup-bun reads it automatically.
+      # Version pinned via `.bun-version`, passed with bun-version-file.
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: ".bun-version"
 
       # The test runner, pinned to the container's browser build. --no-save
       # keeps it out of package.json (the browsers are baked into the image).

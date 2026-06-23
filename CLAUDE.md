@@ -42,7 +42,8 @@ reporting done.
   sanctioned tool) — both pinned to exact versions for reproducible typechecks.
   Do **not** add any other packages.
 - **Pinned toolchain.** Bun is pinned in `.bun-version` (single source of truth;
-  CI's setup-bun reads it). TypeScript is a pinned dev dependency — `bunx tsc`
+  CI's setup-bun reads it via `bun-version-file`). TypeScript is a pinned dev
+  dependency — `bunx tsc`
   resolves the local binary, so typechecks no longer float to the latest TS.
 - **`packages/core/` stays runtime-independent.** Standard JS / Web APIs only
   (the DOM is fine). No `Bun.*`, `process`, `node:*`, `fs`, etc. Runtime-specific
@@ -61,7 +62,7 @@ reporting done.
 ## Commands
 
 ```sh
-bun install            # installs only @types/bun
+bun install            # installs @types/bun + typescript (dev-only)
 bun test               # run the suite
 bun test --coverage    # coverage (threshold 0.9 in bunfig.toml; core is 100%)
 bunx tsc --noEmit      # typecheck
