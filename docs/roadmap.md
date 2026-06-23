@@ -16,7 +16,7 @@ see [`decisions.md`](./decisions.md).
 | 4 | Component model & DX | ✅ done — `onMount`, `mergeProps`, `splitProps`, scoped `css`, `context` |
 | 5 | Bun integration: `create` / `dev` / `build` CLI | ✅ done |
 | 6 | Hardening & ecosystem (router, SSR, etc.) | 🟡 in progress — **router + error boundaries + dev-time warnings + SSR/hydration + async (`resource`/`<Suspense>`) + SSG (`kanabun generate`) + CSS HMR done**; rest optional |
-| 7 | Islands / partial hydration + ecosystem primitives (`lazy`, `<Portal>`, `<Dynamic>`, head API) + authoring tooling (`kanabun lint`, dev overlay) | 🟡 in progress — **ecosystem primitives (`lazy`, `<Portal>`, `<Dynamic>`, `<Head>`/`<Title>`) + islands core (`<Island>` / `registerIsland` / `hydrateIslands`) + per-island bundle split (CLI `buildIslands` + `hydrateIslandsLazy`) done**; authoring tooling planned. Design memos: [`decisions.md`](./decisions.md#islands--partial-hydration-phase-7--design-memo) (islands), [`dx.md`](./dx.md#4-future-an-in-house-linter) (linter) |
+| 7 | Islands / partial hydration + ecosystem primitives (`lazy`, `<Portal>`, `<Dynamic>`, head API) + authoring tooling (`kanabun lint`, dev overlay) | 🟡 in progress — **ecosystem primitives (`lazy`, `<Portal>`, `<Dynamic>`, `<Head>`/`<Title>`) + islands core (`<Island>` / `registerIsland` / `hydrateIslands`) + per-island bundle split (CLI `buildIslands` + `hydrateIslandsLazy`) + dev overlay done**; in-house linter planned. Design memos: [`decisions.md`](./decisions.md#islands--partial-hydration-phase-7--design-memo) (islands), [`decisions.md`](./decisions.md#dev-overlay-phase-7) (overlay), [`dx.md`](./dx.md#4-future-an-in-house-linter) (linter) |
 | 8 | Heavyweight ecosystem: SSR streaming (`renderToStream`), reactive store (`createStore`), `@kanabun/testing` | 🔜 planned — deferred from Phase 7 (larger subsystems) |
 
 Quality bar held throughout: **zero runtime dependencies**, `packages/core`
@@ -165,11 +165,21 @@ boundaries in [`decisions.md`](./decisions.md#islands--partial-hydration-phase-7
   typechecking. Opt-in, dev-only authoring tooling, *not* a runtime compiler
   (keeps the founding constraint intact). See
   [`dx.md`](./dx.md#4-future-an-in-house-linter).
-- [ ] **Dev overlay.** Surface dev-time warnings and uncaught/`<ErrorBoundary>`
-  errors as an on-screen overlay in `kanabun dev`, instead of console-only. The
-  seam already exists — `setWarnHandler` lets a sink intercept the dev warnings
-  ([`decisions.md`](./decisions.md#dev-time-warnings-phase-6)); the overlay is the
-  consumer. Dev-only, lives in the CLI/Bun layer; core stays runtime-independent.
+- [x] **Dev overlay.** Done — `kanabun dev` surfaces problems on-screen, not just
+  in the console: a panel pinned to the bottom of the viewport collects dev
+  warnings, uncaught errors, and unhandled promise rejections (count badge +
+  dismiss button). It's the *consumer* of the warning seam: rather than reaching
+  across module graphs to call core's `setWarnHandler`, it taps that sink's
+  default destination — patching `console.warn`/`console.error` (still forwarding
+  to the originals) plus `window` `error`/`unhandledrejection` listeners — so it
+  sees every dev warning with no cross-bundle wiring and no core change. Like the
+  CSS hot-swap client, it's a real, unit-tested function (`devOverlay`) serialised
+  into the page via `.toString()` and installed by a classic inline `<script>`
+  before the deferred app module (so the earliest errors are caught). Dev-only,
+  lives in the CLI/Bun layer (`packages/cli/src/dev.ts`); core stays
+  runtime-independent. `<ErrorBoundary>`-handled errors show their fallback in-app
+  by design and reach the overlay only if logged. See
+  [`decisions.md`](./decisions.md#dev-overlay-phase-7).
 
 **Ecosystem primitives.** — all done in core (runtime-independent, zero deps, 100% covered).
 - [x] **`lazy()`.** Done — defer a component behind a dynamic `import()` so a

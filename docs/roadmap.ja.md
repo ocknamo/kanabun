@@ -16,7 +16,7 @@
 | 4 | コンポーネントモデルと DX | ✅ 完了 — `onMount`/`mergeProps`/`splitProps`/スコープド `css`/`context` |
 | 5 | Bun 連携: `create` / `dev` / `build` CLI | ✅ 完了 |
 | 6 | 堅牢化・周辺(ルーター、SSR 等) | 🟡 進行中 — **ルーター + エラーバウンダリ + 開発時警告 + SSR/ハイドレーション + 非同期(`resource`/`<Suspense>`)+ SSG(`kanabun generate`)+ CSS HMR 完了**;残りは任意 |
-| 7 | アイランド / 部分ハイドレーション + エコシステムプリミティブ(`lazy`・`<Portal>`・`<Dynamic>`・head API)+ 作成支援ツール(`kanabun lint`・dev オーバーレイ) | 🟡 進行中 — **エコシステムプリミティブ(`lazy`・`<Portal>`・`<Dynamic>`・`<Head>`/`<Title>`)+ アイランドのコア(`<Island>`・`registerIsland`・`hydrateIslands`)+ アイランド単位のバンドル分割(CLI `buildIslands` + `hydrateIslandsLazy`)完了**;作成支援ツールは計画。設計メモ: [`decisions.ja.md`](./decisions.ja.md#アイランド--部分ハイドレーションphase-7--設計メモ)(アイランド)、[`dx.ja.md`](./dx.ja.md#4-将来自前-linter)(linter) |
+| 7 | アイランド / 部分ハイドレーション + エコシステムプリミティブ(`lazy`・`<Portal>`・`<Dynamic>`・head API)+ 作成支援ツール(`kanabun lint`・dev オーバーレイ) | 🟡 進行中 — **エコシステムプリミティブ(`lazy`・`<Portal>`・`<Dynamic>`・`<Head>`/`<Title>`)+ アイランドのコア(`<Island>`・`registerIsland`・`hydrateIslands`)+ アイランド単位のバンドル分割(CLI `buildIslands` + `hydrateIslandsLazy`)+ dev オーバーレイ完了**;自前 linter は計画。設計メモ: [`decisions.ja.md`](./decisions.ja.md#アイランド--部分ハイドレーションphase-7--設計メモ)(アイランド)、[`decisions.ja.md`](./decisions.ja.md#dev-オーバーレイphase-7)(オーバーレイ)、[`dx.ja.md`](./dx.ja.md#4-将来自前-linter)(linter) |
 | 8 | 重量級エコシステム: SSR ストリーミング(`renderToStream`)、リアクティブ store(`createStore`)、`@kanabun/testing` | 🔜 計画 — Phase 7 から先送り(大きめのサブシステム) |
 
 全期間で維持した品質基準: **ランタイム依存ゼロ**、`packages/core` のランタイム非依存、
@@ -146,11 +146,19 @@
   固定版の TypeScript パーサを再利用する。オプトインかつ開発時のみの作成支援ツールで
   あって、ランタイムコンパイラではない(創設時の制約を保つ)。詳細は
   [`dx.ja.md`](./dx.ja.md#4-将来自前-linter)。
-- [ ] **dev オーバーレイ。** 開発時の警告や未捕捉/`<ErrorBoundary>` のエラーを、コンソール
-  だけでなく `kanabun dev` の画面オーバーレイとして表示する。土台は既にある ──
-  `setWarnHandler` が dev 警告のシンクを差し替えられる
-  ([`decisions.ja.md`](./decisions.ja.md#開発時警告phase-6))ので、オーバーレイはその消費側。
-  開発時のみ・CLI/Bun レイヤーに置く。コアはランタイム非依存のまま。
+- [x] **dev オーバーレイ。** 完了 ── `kanabun dev` が問題をコンソールだけでなく画面上でも
+  表示する:ビューポート下部に固定したパネルが、開発時警告・未捕捉エラー・unhandled
+  rejection を件数バッジ + 閉じるボタン付きで集約する。警告 seam の*消費側*:モジュール
+  グラフを跨いでコアの `setWarnHandler` を呼ぶのではなく、そのシンクの既定の行き先を拾う
+  ── `console.warn`/`console.error` を傍受(元の関数へは転送)し、`window` の
+  `error`/`unhandledrejection` リスナを足す ── ので、バンドル跨ぎの配線もコア改変も無しに
+  全ての開発時警告を見られる。CSS ホットスワップのクライアントと同様、実在する単体テスト
+  済み関数(`devOverlay`)で、`.toString()` でページに直列化し、遅延ロードされるアプリ
+  モジュールより前に古典的インライン `<script>` で設置する(最初期のエラーも捕える)。
+  開発時のみ・CLI/Bun レイヤー(`packages/cli/src/dev.ts`)に置き、コアはランタイム非依存の
+  まま。`<ErrorBoundary>` が処理したエラーは設計上 fallback を表示するだけで、ログした
+  場合にのみオーバーレイに届く。詳細は
+  [`decisions.ja.md`](./decisions.ja.md#dev-オーバーレイphase-7)。
 
 **エコシステムプリミティブ。** ── すべて core で実装済み(ランタイム非依存・依存ゼロ・100% カバレッジ)。
 - [x] **`lazy()`。** 完了 ── コンポーネントを動的 `import()` の背後に遅延させ、その境界で

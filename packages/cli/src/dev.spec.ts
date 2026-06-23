@@ -1,5 +1,12 @@
 import { describe, expect, test, beforeAll, afterAll, afterEach } from "bun:test";
-import { changeMessage, createDevHandler, dev, swapCss, type DevServer } from "./dev";
+import {
+  changeMessage,
+  createDevHandler,
+  dev,
+  devOverlay,
+  swapCss,
+  type DevServer,
+} from "./dev";
 import { mkdtemp, mkdir, rm, writeFile, symlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, sep } from "node:path";
@@ -55,6 +62,12 @@ describe("createDevHandler", () => {
   test("enables core dev warnings via the injected dev flag", async () => {
     const res = await handler()(new Request("http://localhost/"));
     expect(await res.text()).toContain("globalThis.__KANABUN_DEV__ = true");
+  });
+
+  test("injects the on-screen dev overlay", async () => {
+    const body = await handler()(new Request("http://localhost/")).then((r) => r.text());
+    expect(body).toContain("function devOverlay"); // the overlay client, serialised in
+    expect(body).toContain("devOverlay(window)");
   });
 
   test("bundles a module request to browser JS", async () => {
@@ -204,6 +217,152 @@ describe("swapCss (client css hot-swap)", () => {
     swapCss(docOf([other]), loc, "/styles.css");
     expect(other.parentNode.inserted).toHaveLength(0);
     expect(loc.reloaded).toBe(true);
+  });
+});
+
+describe("devOverlay (client dev overlay)", () => {
+  // A minimal fake matching devOverlay's structural DOM shapes.
+  interface MockEl {
+    tag: string;
+    style: { cssText: string; display: string };
+    textContent: string;
+    children: MockEl[];
+    listeners: Record<string, () => void>;
+    appendChild(child: MockEl): void;
+    addEventListener(type: string, fn: () => void): void;
+  }
+  function makeWin() {
+    const el = (tag: string): MockEl => {
+      const node: MockEl = {
+        tag,
+        style: { cssText: "", display: "" },
+        textContent: "",
+        children: [],
+        listeners: {},
+        appendChild(child) {
+          node.children.push(child);
+        },
+        addEventListener(type, fn) {
+          node.listeners[type] = fn;
+        },
+      };
+      return node;
+    };
+    const body = el("body");
+    const errorCalls: unknown[][] = [];
+    const warnCalls: unknown[][] = [];
+    const winListeners: Record<string, (e: unknown) => void> = {};
+    const win = {
+      document: { createElement: el, body },
+      console: {
+        error: (...a: unknown[]) => errorCalls.push(a),
+        warn: (...a: unknown[]) => warnCalls.push(a),
+      },
+      addEventListener(
+        type: "error" | "unhandledrejection",
+        fn: (e: unknown) => void,
+      ) {
+        winListeners[type] = fn;
+      },
+    };
+    return { win, body, errorCalls, warnCalls, winListeners };
+  }
+  // Walk the built panel: body > panel > [header > [title, close], list].
+  const panelOf = (body: MockEl) => {
+    const panel = body.children[0]!;
+    const header = panel.children[0]!;
+    return {
+      panel,
+      title: header.children[0]!,
+      close: header.children[1]!,
+      list: panel.children[1]!,
+    };
+  };
+
+  test("builds nothing until the first message, then appends a panel to body", () => {
+    const { win, body } = makeWin();
+    devOverlay(win);
+    expect(body.children).toHaveLength(0); // a clean page shows nothing
+    win.console.error("boom");
+    expect(body.children).toHaveLength(1);
+    expect(panelOf(body).panel.style.cssText).toContain("position:fixed");
+  });
+
+  test("still forwards to the original console (nothing is swallowed)", () => {
+    const { win, errorCalls, warnCalls } = makeWin();
+    devOverlay(win);
+    win.console.error("e1");
+    win.console.warn("w1");
+    expect(errorCalls).toEqual([["e1"]]);
+    expect(warnCalls).toEqual([["w1"]]);
+  });
+
+  test("counts and colours errors vs warnings, updating the title", () => {
+    const { win, body } = makeWin();
+    devOverlay(win);
+    win.console.error("e1");
+    win.console.warn("w1");
+    const { title, list } = panelOf(body);
+    expect(title.textContent).toBe("kanabun dev — 1 error(s), 1 warning(s)");
+    expect(list.children).toHaveLength(2);
+    expect(list.children[0]!.style.cssText).toContain("#ff9ea0"); // error red
+    expect(list.children[1]!.style.cssText).toContain("#ffd479"); // warning yellow
+  });
+
+  test("a dismissed panel re-shows on a later message (same single panel)", () => {
+    const { win, body } = makeWin();
+    devOverlay(win);
+    win.console.error("e1");
+    const { panel, close } = panelOf(body);
+    close.listeners.click!(); // the ✕ button hides it
+    expect(panel.style.display).toBe("none");
+    win.console.warn("w1");
+    expect(panel.style.display).toBe("block");
+    expect(body.children).toHaveLength(1);
+  });
+
+  test("captures uncaught errors and unhandled rejections from window", () => {
+    const { win, body, winListeners } = makeWin();
+    devOverlay(win);
+    winListeners.error!({ error: new Error("kaboom") });
+    winListeners.unhandledrejection!({ reason: "nope" });
+    const { list } = panelOf(body);
+    expect(list.children).toHaveLength(2);
+    expect(list.children[0]!.textContent).toContain("kaboom");
+    expect(list.children[1]!.textContent).toBe("Unhandled rejection: nope");
+  });
+
+  test("falls back to the message, then the raw event, for sparse error events", () => {
+    const { win, body, winListeners } = makeWin();
+    devOverlay(win);
+    winListeners.error!({ message: "just a message" });
+    winListeners.error!("raw event");
+    const { list } = panelOf(body);
+    expect(list.children[0]!.textContent).toBe("just a message");
+    expect(list.children[1]!.textContent).toBe("raw event");
+  });
+
+  test("formats a rejection with no reason using the event itself", () => {
+    const { win, body, winListeners } = makeWin();
+    devOverlay(win);
+    winListeners.unhandledrejection!({});
+    expect(panelOf(body).list.children[0]!.textContent).toBe(
+      "Unhandled rejection: {}",
+    );
+  });
+
+  test("formats Errors (stack or message), objects, and circular values", () => {
+    const { win, body } = makeWin();
+    devOverlay(win);
+    const noStack = new Error("no-stack");
+    noStack.stack = undefined; // an Error without a stack falls back to its message
+    win.console.error("ctx", noStack, { a: 1 });
+    const circular: Record<string, unknown> = {};
+    circular.self = circular; // JSON.stringify throws → String() fallback
+    win.console.error(circular);
+    const { list } = panelOf(body);
+    expect(list.children[0]!.textContent).toBe('ctx no-stack {"a":1}');
+    expect(list.children[1]!.textContent).toBe("[object Object]");
   });
 });
 
