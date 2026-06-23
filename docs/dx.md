@@ -105,10 +105,10 @@ and it's being called in a reactive position) before the call collapses to a
 value. The plan is a **first-party `kanabun lint`**, *not* an ESLint plugin:
 ESLint (and its plugin ecosystem) is an external dependency, and kanabun ships
 **zero dependencies** — adopting it would break the founding constraint. Instead
-the linter lives in the CLI / Bun layer and reuses the **on-demand TypeScript
-parser** the project already leans on for typechecking (`bunx tsc`), so it adds
-no vendored or runtime dependency — it's opt-in, dev-only authoring tooling, not
-a runtime compiler the framework depends on.
+the linter lives in the CLI / Bun layer and reuses the **TypeScript parser** the
+project already leans on for typechecking (the pinned `typescript` dev dep), so
+it adds no runtime dependency — it's opt-in, dev-only authoring tooling, not a
+runtime compiler the framework depends on.
 
 It would flag the reactive-position call (`{count()}` → suggest `{count}` /
 `{() => …}`) and related convention violations (a thunk that reads no signals, an
@@ -124,12 +124,11 @@ Recorded so the next session can pick it up; nothing here ships yet.
   (`packages/cli/src/lint.ts`), reporting `file:line:col  message` and exiting
   non-zero on findings (a CI gate). Mirrors the diagnostics style of
   `packages/cli/src/errors.ts`.
-- **Parser.** The TypeScript compiler API, obtained the same on-demand way as
-  `bunx tsc` — via Bun's auto-install of a bare `import("typescript")`, so
-  nothing lands in `package.json` (consistent with "TS is fetched on demand, not
-  vendored; the only dev dep is `@types/bun`"). *Feasibility to confirm first:*
-  that an auto-installed `import("typescript")` resolves without a manifest entry;
-  if not, fall back to spawning TS as a child process.
+- **Parser.** The TypeScript compiler API, via a plain `import("typescript")`
+  that resolves to the project's pinned `typescript` dev dependency — no
+  auto-install gamble, and consistent with "TS is a pinned dev dep" (it still
+  adds nothing to the runtime). If running outside an install (e.g. a global
+  CLI), fall back to spawning TS as a child process.
 - **Flagship rule — `reactive-call-in-jsx`.** Walk each JSX child / non-`on*`
   attribute; flag a zero-arg call (`count()`, `obj.sig()`) sitting *directly* in
   that reactive position (not wrapped in an arrow). Two precision levels:
@@ -143,3 +142,14 @@ Recorded so the next session can pick it up; nothing here ships yet.
   the typed `on*` props in §1, kept for plain-JS users).
 - **Tests.** Fixture sources as strings → parse → assert findings, held to the
   repo's 100% line/function coverage bar; no new runtime dependency.
+- **TS 7 (native `tsgo`) outlook.** Semantic mode is the part that stands to
+  gain: it drives `ts.createProgram` + a `TypeChecker`, which is exactly the
+  checker workload the Go-native compiler accelerates (~10×), and the win scales
+  with the *consumer's* codebase, not this repo. Syntactic mode (AST-only) sees
+  little: parsing was never the bottleneck and the node count is tiny. Caveat:
+  capturing that speedup depends on the native port exposing a usable in-process
+  compiler API — the preview leans toward an API-server / LSP model rather than
+  `import("typescript")`. So when this rule lands, build it on the native API
+  once that has stabilised rather than forcing today's pinned TS 6 into it. A
+  non-blocking `typecheck-next` CI job (`@typescript/native-preview`) already
+  tracks tsgo to surface divergence early.

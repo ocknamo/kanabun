@@ -35,7 +35,7 @@ Everything below runs from a clone of this repo — the packages aren't publishe
 to npm yet (see the [roadmap](docs/roadmap.md)).
 
 ```sh
-bun install            # installs only @types/bun
+bun install            # installs only @types/bun + typescript (dev-only)
 bun test               # the full suite
 ```
 
@@ -534,10 +534,10 @@ consolidated in [`docs/dx.md`](docs/dx.md) ([日本語](docs/dx.ja.md)).
 Requires only [Bun](https://bun.com/).
 
 ```sh
-bun install            # installs only @types/bun (type defs); nothing ships
+bun install            # installs @types/bun + typescript (dev-only); nothing ships
 bun test               # run the test suite
 bun run test:coverage  # run with coverage (text + lcov)
-bun run typecheck      # bunx tsc --noEmit (TypeScript fetched on demand)
+bun run typecheck      # bunx tsc --noEmit (TypeScript is a pinned dev dep)
 ```
 
 To publish all workspace packages to npm (maintainers only):
@@ -570,11 +570,16 @@ tooling, never a project dependency.
 
 - **Runtime: zero.** `@kanabun/core` ships standard JS only; nothing is added
   to your app's bundle.
-- **Development: one, type-only.** The single dev dependency is
-  [`@types/bun`](https://www.npmjs.com/package/@types/bun), which provides the
-  `bun:test` and Bun type surface. It is types, never shipped.
-- **TypeScript** (the project's sanctioned tool) is fetched on demand by
-  `bunx tsc` rather than vendored.
+- **Development: two, pinned.** The only dev dependencies are
+  [`@types/bun`](https://www.npmjs.com/package/@types/bun) (the `bun:test` / Bun
+  type surface — types, never shipped) and
+  [`typescript`](https://www.npmjs.com/package/typescript) (the project's
+  sanctioned tool). Both are pinned to exact versions so typechecks are
+  reproducible; `bunx tsc` resolves the local binary instead of floating to the
+  latest TS on every run.
+- **Bun** is pinned in `.bun-version` (a single source of truth that CI passes
+  to `oven-sh/setup-bun` via `bun-version-file`), keeping local and CI runs on
+  the same runtime.
 - CI infrastructure (GitHub Actions such as `actions/checkout` and
   `oven-sh/setup-bun`) is not part of the project's dependency graph.
 

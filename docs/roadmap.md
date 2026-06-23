@@ -161,7 +161,7 @@ boundaries in [`decisions.md`](./decisions.md#islands--partial-hydration-phase-7
   child/attribute (needs to see the source before the call collapses to a value),
   plus related convention violations. **Not** an ESLint plugin (ESLint is an
   external dependency; kanabun ships zero deps) — a first-party CLI command in the
-  Bun layer, reusing the on-demand TypeScript parser already used for
+  Bun layer, reusing the pinned TypeScript parser already used for
   typechecking. Opt-in, dev-only authoring tooling, *not* a runtime compiler
   (keeps the founding constraint intact). See
   [`dx.md`](./dx.md#4-future-an-in-house-linter).

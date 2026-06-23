@@ -76,20 +76,29 @@ The "zero dependency" stance extends past the shipped bundle to the dev
 environment itself:
 
 - **Runtime:** zero. The core imports nothing.
-- **Development:** a single, type-only dependency — `@types/bun` — is permitted
-  as a deliberate exception (it supplies the `bun:test` / Bun type surface). A
-  hand-written ambient shim was prototyped to reach literally zero, but
-  `@types/bun` was chosen instead: accurate, maintained types beat a shim that
-  must be extended every time a new test matcher is used.
+- **Development:** two pinned, exact-versioned dev dependencies are permitted as
+  deliberate exceptions: `@types/bun` (type-only; supplies the `bun:test` / Bun
+  type surface) and `typescript` (the project's sanctioned tool). A hand-written
+  ambient shim was prototyped to reach literally zero, but `@types/bun` was
+  chosen instead: accurate, maintained types beat a shim that must be extended
+  every time a new test matcher is used.
 - **TypeScript** is the project's sanctioned tool (per the founding charter,
-  "Bun and TypeScript only"), fetched on demand via `bunx tsc` rather than
-  vendored into `package.json`.
+  "Bun and TypeScript only"). It was previously fetched on demand via `bunx tsc`,
+  which floated to the latest release on every run — so a new TS version could
+  break typechecks with no code change, and offline/restricted environments
+  couldn't typecheck at all. It is now a **pinned** dev dependency for
+  reproducibility; `bunx tsc` resolves the committed local binary. (This is a
+  dev-time choice only — nothing reaches the browser, so the zero-*runtime*-
+  dependency stance is unchanged.)
+- **Bun** is pinned in `.bun-version` (a single source of truth that CI passes
+  to `oven-sh/setup-bun` via `bun-version-file`), so local and CI runs agree on
+  the runtime version.
 - **CI infrastructure** (GitHub Actions like `actions/checkout`,
   `oven-sh/setup-bun`) is not part of the project's dependency graph and is out
   of scope for this rule.
 
-The net effect: `bun install` pulls only `@types/bun`, and nothing reaches the
-browser but standard JS.
+The net effect: `bun install` pulls only `@types/bun` and `typescript` (both
+pinned), and nothing reaches the browser but standard JS.
 
 ## Conventions & tooling
 

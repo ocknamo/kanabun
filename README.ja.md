@@ -33,7 +33,7 @@ SSG(`kanabun generate`)、非同期データ(`resource` / `<Suspense>`)、エコ
 ([ロードマップ](docs/roadmap.ja.md)参照)。
 
 ```sh
-bun install            # 入るのは @types/bun のみ
+bun install            # 入るのは @types/bun と typescript(開発用)のみ
 bun test               # 全テスト
 ```
 
@@ -513,10 +513,10 @@ Phase 0〜5 は完了(TodoMVC 稼働、CLI 動作)。Phase 6 ではルーター(
 必要なのは [Bun](https://bun.com/) だけです。
 
 ```sh
-bun install            # 入るのは @types/bun(型定義)のみ。出荷物には乗らない
+bun install            # 入るのは @types/bun と typescript(いずれも型/開発用)。出荷物には乗らない
 bun test               # テスト実行
 bun run test:coverage  # カバレッジ付き実行(text + lcov)
-bun run typecheck      # bunx tsc --noEmit(TypeScript はオンデマンド取得)
+bun run typecheck      # bunx tsc --noEmit(TypeScript は固定版の dev 依存)
 ```
 
 npm への全パッケージ一括 publish（メンテナー向け）:
@@ -548,11 +548,14 @@ lcov レポートからカバレッジ率を算出し(`scripts/coverage-badge.ts
 
 - **ランタイム: ゼロ。** `@kanabun/core` は標準 JS のみ。アプリのバンドルに何も
   追加しません。
-- **開発: 1つ、型専用。** 唯一の dev 依存は
-  [`@types/bun`](https://www.npmjs.com/package/@types/bun) で、`bun:test` と
-  Bun の型を提供します。型なので出荷されません。
-- **TypeScript**(本プロジェクトが許可するツール)はベンダリングせず、
-  `bunx tsc` でオンデマンド取得します。
+- **開発: 2つ、固定版。** dev 依存は
+  [`@types/bun`](https://www.npmjs.com/package/@types/bun)(`bun:test` と Bun の
+  型を提供。型なので出荷されません)と
+  [`typescript`](https://www.npmjs.com/package/typescript)(本プロジェクトが許可する
+  ツール)の2つだけ。型チェックを再現可能にするため、いずれもバージョンを固定しており、
+  `bunx tsc` は毎回最新へ浮動せずローカルのバイナリを解決します。
+- **Bun** は `.bun-version`(CI が `bun-version-file` で `oven-sh/setup-bun` に渡す
+  単一の真実)で固定し、ローカルと CI を同じランタイムに揃えます。
 - CI 基盤(`actions/checkout` や `oven-sh/setup-bun` などの GitHub Actions)は
   プロジェクトの依存グラフには含まれません。
 

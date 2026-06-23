@@ -127,6 +127,10 @@ Phase 6 のルーター・**ネストルーティング**・**相対 `<Link>` hr
   - **生成する runtime エントリ(`kanabun-islands-runtime.ts`)が `@kanabun/core` を再 export**。これを第一エントリのディレクトリ内の一時ディレクトリ(`.kanabun-islands-<uuid>/`)に書くのは、`@kanabun/core` が島と同じ node_modules から解決されるため。ビルド後に temp ディレクトリごと削除(`finally`)。
   - **`hydrateIslandsLazy` は core 側**(ランタイム非依存)。loader 欠落は dev 警告+スキップ(`hydrateIslands` の throw と違い本番の白画面を防ぐ)。ロード解決時に dispose 済みなら mount しない(`disposed` フラグ)。テストは `() => Promise.resolve(...)` + `setTimeout(0)` の `tick()` で非同期排出。
   - **`buildIslands` のテストは in-process でフルカバー可能**(成功パスを含む)。`serve-split.ts` の実ブラウザ検証(network タブに `counter.js`/`clock.js` + 共有チャンクだけ出る)は検証のみで VRT 未追加。
+- **ツールチェーン固定(今セッション)**:
+  - **dev 依存は2つになった** ── `@types/bun`(`1.3.14`)に加え `typescript`(`6.0.2`)を固定版で `package.json` に追加。従来の `bunx tsc` オンデマンド取得(最新へ浮動)をやめ、再現性を確保。`bunx tsc` はローカル固定版を解決する。`bun.lock` も更新済み。ランタイムは依然ゼロ依存(これは dev 時のみの選択)。§1 や旧記述の「dev は `@types/bun` のみ」は古い。
+  - **Bun は `.bun-version`(`1.3.11`)で固定**。⚠️ `oven-sh/setup-bun@v2` は **`.bun-version` を自動では読まない** ── `bun-version-file: ".bun-version"` の明示指定が必須(これを忘れると `latest` に浮動する。前回ここを踏んだ)。CI 3 ジョブとも明示済み。
+  - **⚠️ `typecheck-next` ジョブは required status check に登録しないこと**。TS7 ネイティブ版(tsgo, `@typescript/native-preview`)の非ブロッキング canary(`continue-on-error: true`)。`continue-on-error` はワークフロー結論をブロックしないが、ブランチ保護の required checks に個別ジョブ名を入れるとセマンティクスが崩れる。本線は `verify`(固定 6.0.2)が真実。tsgo は `npx -y -p` で ad-hoc 実行=`package.json`/`bun.lock` を汚さない・preview は意図的に未ピン(upstream 追跡)。
 
 ## 5. 主要ファイル早見
 
