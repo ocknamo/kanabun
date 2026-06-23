@@ -19,5 +19,8 @@
   ],
   "scripts": {
     "test": "bun test"
+  },
+  "dependencies": {
+    "@kanabun/core": "*"
   }
 }

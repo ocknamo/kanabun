@@ -14,6 +14,9 @@
       "bin": {
         "kanabun": "./bin/kanabun.ts",
       },
+      "dependencies": {
+        "@kanabun/core": "workspace:*",
+      },
     },
     "packages/core": {
       "name": "@kanabun/core",
@@ -22,6 +25,9 @@
     "packages/router": {
       "name": "@kanabun/router",
       "version": "0.0.0",
+      "peerDependencies": {
+        "@kanabun/core": "workspace:*",
+      },
     },
   },
   "packages": {

@@ -27,6 +27,8 @@ SSG(`kanabun generate`)、非同期データ(`resource` / `<Suspense>`)、エコ
 
 ## クイックスタート
 
+**前提:** [Bun をインストール](https://bun.sh/docs/installation)してください。
+
 以下はすべてこのリポジトリのクローンから実行します ── パッケージはまだ npm に未公開です
 ([ロードマップ](docs/roadmap.ja.md)参照)。
 
@@ -516,6 +518,21 @@ bun test               # テスト実行
 bun run test:coverage  # カバレッジ付き実行(text + lcov)
 bun run typecheck      # bunx tsc --noEmit(TypeScript はオンデマンド取得)
 ```
+
+npm への全パッケージ一括 publish（メンテナー向け）:
+
+```sh
+bun run pub:dry   # プレパブリッシュチェックのみ実行。公開は行わない
+bun run pub       # チェック → 確認 → 依存順に publish
+                  # (core → router → cli)
+```
+
+`bun run pub` は publish 前に `bun test`、`tsc --noEmit`、全 example のビルドを
+実行します。パッケージ間の内部依存 (`"*"`) は publish 時だけ具体的なバージョン
+(`^x.y.z`) に書き換えられ、終了後にローカルは `"*"` へ戻ります。
+バージョンが `0.0.0` のままのパッケージは publish をブロックします
+（`--allow-zero-version` で上書き可）。
+その他のオプション: `--access public|restricted`、`--tag <dist-tag>`、`--yes`。
 
 CI は push / PR ごとに型チェック・テスト・カバレッジを実行します
 ([`.github/workflows/ci.yml`](.github/workflows/ci.yml))。`main` への push 時には
