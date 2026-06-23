@@ -142,3 +142,14 @@ Recorded so the next session can pick it up; nothing here ships yet.
   the typed `on*` props in §1, kept for plain-JS users).
 - **Tests.** Fixture sources as strings → parse → assert findings, held to the
   repo's 100% line/function coverage bar; no new runtime dependency.
+- **TS 7 (native `tsgo`) outlook.** Semantic mode is the part that stands to
+  gain: it drives `ts.createProgram` + a `TypeChecker`, which is exactly the
+  checker workload the Go-native compiler accelerates (~10×), and the win scales
+  with the *consumer's* codebase, not this repo. Syntactic mode (AST-only) sees
+  little: parsing was never the bottleneck and the node count is tiny. Caveat:
+  capturing that speedup depends on the native port exposing a usable in-process
+  compiler API — the preview leans toward an API-server / LSP model rather than
+  `import("typescript")`. So when this rule lands, build it on the native API
+  once that has stabilised rather than forcing today's pinned TS 6 into it. A
+  non-blocking `typecheck-next` CI job (`@typescript/native-preview`) already
+  tracks tsgo to surface divergence early.
