@@ -476,8 +476,10 @@ button. It is the *consumer* of the warning seam above.
   hot-swap client (`swapCss`), the overlay is a real, unit-tested function
   (`devOverlay`) serialised into the dev page via `.toString()` and installed by
   a classic inline `<script>` *before* the deferred app module — so it captures
-  even the earliest warnings/errors. `packages/core` stays runtime-independent
-  (it gains nothing for the overlay).
+  even the earliest warnings/errors (this assumes the app starts via a
+  deferred/`type="module"` script, as the standard template does; a non-deferred
+  classic `<script>` placed earlier could run before the overlay installs).
+  `packages/core` stays runtime-independent (it gains nothing for the overlay).
 - **It taps the warning sink's default destination rather than reaching across
   bundles.** The inline overlay script and the bundled core are separate module
   graphs, so the overlay can't call core's `setWarnHandler` directly. It doesn't
