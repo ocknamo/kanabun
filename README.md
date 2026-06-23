@@ -29,6 +29,8 @@ flow (`<Show>` / `<For>` keyed), DX primitives (`onMount`, `mergeProps`,
 
 ## Quickstart
 
+**Prerequisite:** [Install Bun](https://bun.sh/docs/installation)
+
 Everything below runs from a clone of this repo — the packages aren't published
 to npm yet (see the [roadmap](docs/roadmap.md)).
 
@@ -537,6 +539,21 @@ bun test               # run the test suite
 bun run test:coverage  # run with coverage (text + lcov)
 bun run typecheck      # bunx tsc --noEmit (TypeScript fetched on demand)
 ```
+
+To publish all workspace packages to npm (maintainers only):
+
+```sh
+bun run pub:dry   # pre-publish checks only; nothing is published
+bun run pub       # run checks, confirm, then publish in dependency order
+                  # (core → router → cli)
+```
+
+`bun run pub` runs `bun test`, `tsc --noEmit`, and a build of every example
+before publishing. Internal cross-package dependencies are pinned to concrete
+versions (`^x.y.z`) in the published `package.json` and restored to `*`
+locally afterwards. Publishing is blocked when any package is still at
+`0.0.0` — pass `--allow-zero-version` to override.
+Additional options: `--access public|restricted`, `--tag <dist-tag>`, `--yes`.
 
 CI runs typecheck, tests, and coverage on every push and PR
 (see [`.github/workflows/ci.yml`](.github/workflows/ci.yml)). On push to `main`
