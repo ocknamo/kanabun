@@ -38,8 +38,12 @@ reporting done.
 ## Conventions (the reviewer enforces these — so should you)
 
 - **Zero dependencies.** No runtime deps, ever. The only permitted dev
-  dependency is `@types/bun` (type-only). Do **not** add packages. TypeScript is
-  fetched on demand via `bunx tsc` (not vendored).
+  dependencies are `@types/bun` (type-only) and `typescript` (the project's
+  sanctioned tool) — both pinned to exact versions for reproducible typechecks.
+  Do **not** add any other packages.
+- **Pinned toolchain.** Bun is pinned in `.bun-version` (single source of truth;
+  CI's setup-bun reads it). TypeScript is a pinned dev dependency — `bunx tsc`
+  resolves the local binary, so typechecks no longer float to the latest TS.
 - **`packages/core/` stays runtime-independent.** Standard JS / Web APIs only
   (the DOM is fine). No `Bun.*`, `process`, `node:*`, `fs`, etc. Runtime-specific
   code belongs in a future thin CLI/dev layer.
