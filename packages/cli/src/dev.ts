@@ -98,6 +98,139 @@ const LIVE_RELOAD_SNIPPET = `
   })();
 </script>`;
 
+// Minimal structural shapes the dev overlay touches in the browser, so it can be
+// a real (unit-tested) function here without pulling in the DOM lib — it runs in
+// the browser via `.toString()` (below), and in tests against hand-rolled mocks.
+interface OverlayStyle {
+  cssText: string;
+  display: string;
+}
+interface OverlayEl {
+  style: OverlayStyle;
+  textContent: string;
+  appendChild(child: OverlayEl): void;
+  addEventListener(type: string, listener: () => void): void;
+}
+interface OverlayWindow {
+  document: { createElement(tag: string): OverlayEl; body: OverlayEl };
+  console: {
+    error: (...args: unknown[]) => void;
+    warn: (...args: unknown[]) => void;
+  };
+  addEventListener(
+    type: "error" | "unhandledrejection",
+    listener: (event: unknown) => void,
+  ): void;
+}
+
+/**
+ * Client-side dev overlay: surfaces problems on-screen instead of only in the
+ * console. It is the **consumer** of the dev-warning seam — core routes its
+ * `setDev`-gated warnings through a sink that defaults to `console.warn`, so by
+ * tapping `console.warn` (and `console.error`) the overlay sees every dev
+ * warning with no change to runtime-independent core. On top of that it listens
+ * for **uncaught** errors and unhandled promise rejections on `window`. The
+ * original `console` methods are still called, so nothing is swallowed.
+ *
+ * The panel is built lazily on the first message (so a clean page shows nothing)
+ * and pinned to the bottom of the viewport with a running error/warning count
+ * and a dismiss button. Defined as a real function (not inline source) so it's
+ * unit-tested; it is serialised into the dev page via `devOverlay.toString()` in
+ * {@link OVERLAY_SNIPPET}, where `window` is passed as the browser global.
+ */
+export function devOverlay(win: OverlayWindow): void {
+  const doc = win.document;
+  let panel: OverlayEl | null = null;
+  let list: OverlayEl | null = null;
+  let title: OverlayEl | null = null;
+  let errors = 0;
+  let warnings = 0;
+
+  const format = (v: unknown): string => {
+    if (typeof v === "string") return v;
+    if (v instanceof Error) return v.stack ?? v.message;
+    try {
+      return JSON.stringify(v);
+    } catch {
+      return String(v);
+    }
+  };
+
+  const ensurePanel = (): void => {
+    if (panel) {
+      panel.style.display = "block";
+      return;
+    }
+    panel = doc.createElement("div");
+    panel.style.cssText =
+      "position:fixed;left:0;right:0;bottom:0;z-index:2147483647;" +
+      "max-height:50vh;overflow:auto;font:12px/1.5 ui-monospace,monospace;" +
+      "background:#1b1b1f;color:#eee;border-top:2px solid #e5484d;" +
+      "box-shadow:0 -4px 16px rgba(0,0,0,.4);padding:8px 12px";
+    const header = doc.createElement("div");
+    header.style.cssText =
+      "display:flex;justify-content:space-between;align-items:center;" +
+      "font-weight:bold;margin-bottom:6px";
+    title = doc.createElement("span");
+    const close = doc.createElement("button");
+    close.textContent = "✕";
+    close.style.cssText =
+      "background:none;border:none;color:#eee;cursor:pointer;font-size:14px";
+    close.addEventListener("click", () => {
+      if (panel) panel.style.display = "none";
+    });
+    header.appendChild(title);
+    header.appendChild(close);
+    list = doc.createElement("div");
+    panel.appendChild(header);
+    panel.appendChild(list);
+    doc.body.appendChild(panel);
+  };
+
+  const push = (kind: "error" | "warning", message: string): void => {
+    ensurePanel();
+    if (kind === "error") errors++;
+    else warnings++;
+    if (title) {
+      title.textContent =
+        "kanabun dev — " + errors + " error(s), " + warnings + " warning(s)";
+    }
+    const entry = doc.createElement("div");
+    entry.style.cssText =
+      "white-space:pre-wrap;padding:4px 0;border-top:1px solid #333;" +
+      (kind === "error" ? "color:#ff9ea0" : "color:#ffd479");
+    entry.textContent = message;
+    if (list) list.appendChild(entry);
+  };
+
+  const origError = win.console.error;
+  const origWarn = win.console.warn;
+  win.console.error = (...args: unknown[]): void => {
+    push("error", args.map(format).join(" "));
+    origError.apply(win.console, args);
+  };
+  win.console.warn = (...args: unknown[]): void => {
+    push("warning", args.map(format).join(" "));
+    origWarn.apply(win.console, args);
+  };
+  win.addEventListener("error", (event: unknown): void => {
+    const e = event as { message?: string; error?: unknown };
+    push("error", format(e.error ?? e.message ?? event));
+  });
+  win.addEventListener("unhandledrejection", (event: unknown): void => {
+    const e = event as { reason?: unknown };
+    push("error", "Unhandled rejection: " + format(e.reason ?? event));
+  });
+}
+
+// Installs the overlay before the deferred app module runs, so it captures even
+// the earliest warnings/errors. A classic inline script (shares `globalThis`).
+const OVERLAY_SNIPPET = `
+<script>
+  ${devOverlay.toString()}
+  devOverlay(window);
+</script>`;
+
 export interface DevHandlerOptions {
   /** Absolute path to the HTML entry. */
   htmlPath: string;
@@ -132,7 +265,7 @@ export function createDevHandler(
 
     if (pathname === "/" || pathname === "/index.html") {
       const html = await Bun.file(htmlPath).text();
-      const prelude = `${DEV_FLAG_SNIPPET}${LIVE_RELOAD_SNIPPET}`;
+      const prelude = `${DEV_FLAG_SNIPPET}${OVERLAY_SNIPPET}${LIVE_RELOAD_SNIPPET}`;
       const injected = html.includes("</body>")
         ? html.replace("</body>", `${prelude}\n</body>`)
         : html + prelude;

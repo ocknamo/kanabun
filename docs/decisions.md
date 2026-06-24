@@ -465,6 +465,37 @@ convention makes easy to get wrong.
 Held to the same bar: 100% line/function coverage and a clean `tsc`, zero
 dependencies, runtime independent.
 
+## Dev overlay (Phase 7)
+
+`kanabun dev` now surfaces problems **on-screen**, not just in the console: a
+panel pinned to the bottom of the viewport collects dev warnings, uncaught
+errors, and unhandled promise rejections, with a running count and a dismiss
+button. It is the *consumer* of the warning seam above.
+
+- **Lives entirely in the CLI/Bun layer; core is untouched.** Like the CSS
+  hot-swap client (`swapCss`), the overlay is a real, unit-tested function
+  (`devOverlay`) serialised into the dev page via `.toString()` and installed by
+  a classic inline `<script>` *before* the deferred app module — so it captures
+  even the earliest warnings/errors (this assumes the app starts via a
+  deferred/`type="module"` script, as the standard template does; a non-deferred
+  classic `<script>` placed earlier could run before the overlay installs).
+  `packages/core` stays runtime-independent (it gains nothing for the overlay).
+- **It taps the warning sink's default destination rather than reaching across
+  bundles.** The inline overlay script and the bundled core are separate module
+  graphs, so the overlay can't call core's `setWarnHandler` directly. It doesn't
+  need to: dev warnings already route through a sink that *defaults to*
+  `console.warn`, so the overlay patches `console.warn`/`console.error` (still
+  forwarding to the originals — nothing is swallowed) and thereby sees every dev
+  warning with no cross-bundle wiring and no core change. Uncaught errors and
+  rejections come from `window` `error` / `unhandledrejection` listeners.
+- **`<ErrorBoundary>`-handled errors** show their fallback in-app by design and
+  aren't separately logged, so they reach the overlay only if the app/boundary
+  logs them — routing every caught error there would need a core seam, out of
+  scope for a dev-only overlay.
+
+Held to the same bar: 100% line/function coverage on `dev.ts`, clean `tsc`, zero
+dependencies.
+
 ## SSR, hydration & SSG (Phase 6)
 
 The framing decision: **SSG is not a separate feature — it is SSR run at build

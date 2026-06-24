@@ -67,6 +67,11 @@ off — and `kanabun dev` turns them on automatically (it injects
 `globalThis.__KANABUN_DEV__`). Warnings are deduplicated and routed through a
 settable sink (`setWarnHandler`).
 
+Under `kanabun dev` these don't just hit the console: a **dev overlay** collects
+them (plus uncaught errors and unhandled promise rejections) into an on-screen
+panel, so a warning isn't lost in a noisy console. It's a CLI-layer consumer of
+the same sink — see [`decisions.md`](./decisions.md#dev-overlay-phase-7).
+
 ```ts
 import { setDev } from "@kanabun/core";
 setDev(true); // or rely on `kanabun dev`
