@@ -8,12 +8,14 @@ import { build } from "./build";
 import { create } from "./create";
 import { dev, type DevServer } from "./dev";
 import { generate } from "./generate";
+import { formatFindings, lint } from "./lint";
 
 export { build } from "./build";
 export { create, templateFiles } from "./create";
 export { dev, createDevHandler } from "./dev";
 export { generate } from "./generate";
 export { buildIslands } from "./islands";
+export { lint, lintSource, formatFindings } from "./lint";
 export type { BuildOptions, BuildResult } from "./build";
 export type { CreateOptions } from "./create";
 export type { DevOptions, DevServer, DevHandlerOptions } from "./dev";
@@ -24,6 +26,7 @@ export type {
   DocumentContext,
 } from "./generate";
 export type { BuildIslandsOptions, BuildIslandsResult } from "./islands";
+export type { LintOptions, LintResult, LintFinding } from "./lint";
 
 const VERSION = "0.0.0";
 
@@ -34,6 +37,7 @@ Usage:
   kanabun dev [entry]       start the dev server (default: index.html)
   kanabun build [entry]     bundle for the browser (default: index.html)
   kanabun generate [entry]  prerender to static HTML (default: ssg.tsx)
+  kanabun lint [globs...]   check reactive-convention slips (default: **/*.tsx)
 
 Options:
   --outdir <dir>            build output directory (default: dist)
@@ -154,6 +158,22 @@ export async function run(argv: string[]): Promise<DevServer | undefined> {
         throw new Error(`kanabun: generate failed:\n${result.logs.join("\n")}`);
       }
       console.log(`Generated ${result.pages.length} page(s) to ${outdir}`);
+      return undefined;
+    }
+    case "lint": {
+      const globs = positionals.length > 0 ? positionals : undefined;
+      const result = await lint({ globs });
+      if (result.findings.length > 0) console.log(formatFindings(result.findings));
+      if (!result.success) {
+        // An internal failure (logs) vs. lint problems — same non-zero exit,
+        // different detail.
+        const reason =
+          result.logs.length > 0
+            ? `\n${result.logs.join("\n")}`
+            : ` ${result.findings.length} problem(s) found.`;
+        throw new Error(`kanabun: lint reported problems.${reason}`);
+      }
+      console.log("No lint problems found.");
       return undefined;
     }
     case "dev": {

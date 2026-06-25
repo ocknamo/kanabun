@@ -16,7 +16,7 @@
 | 4 | コンポーネントモデルと DX | ✅ 完了 — `onMount`/`mergeProps`/`splitProps`/スコープド `css`/`context` |
 | 5 | Bun 連携: `create` / `dev` / `build` CLI | ✅ 完了 |
 | 6 | 堅牢化・周辺(ルーター、SSR 等) | 🟡 進行中 — **ルーター + エラーバウンダリ + 開発時警告 + SSR/ハイドレーション + 非同期(`resource`/`<Suspense>`)+ SSG(`kanabun generate`)+ CSS HMR 完了**;残りは任意 |
-| 7 | アイランド / 部分ハイドレーション + エコシステムプリミティブ(`lazy`・`<Portal>`・`<Dynamic>`・head API)+ 作成支援ツール(`kanabun lint`・dev オーバーレイ) | 🟡 進行中 — **エコシステムプリミティブ(`lazy`・`<Portal>`・`<Dynamic>`・`<Head>`/`<Title>`)+ アイランドのコア(`<Island>`・`registerIsland`・`hydrateIslands`)+ アイランド単位のバンドル分割(CLI `buildIslands` + `hydrateIslandsLazy`)+ dev オーバーレイ完了**;自前 linter は計画。設計メモ: [`decisions.ja.md`](./decisions.ja.md#アイランド--部分ハイドレーションphase-7--設計メモ)(アイランド)、[`decisions.ja.md`](./decisions.ja.md#dev-オーバーレイphase-7)(オーバーレイ)、[`dx.ja.md`](./dx.ja.md#4-将来自前-linter)(linter) |
+| 7 | アイランド / 部分ハイドレーション + エコシステムプリミティブ(`lazy`・`<Portal>`・`<Dynamic>`・head API)+ 作成支援ツール(`kanabun lint`・dev オーバーレイ) | 🟡 進行中 — **エコシステムプリミティブ(`lazy`・`<Portal>`・`<Dynamic>`・`<Head>`/`<Title>`)+ アイランドのコア(`<Island>`・`registerIsland`・`hydrateIslands`)+ アイランド単位のバンドル分割(CLI `buildIslands` + `hydrateIslandsLazy`)+ dev オーバーレイ + 自前 linter(`kanabun lint`)完了**。設計メモ: [`decisions.ja.md`](./decisions.ja.md#アイランド--部分ハイドレーションphase-7--設計メモ)(アイランド)、[`decisions.ja.md`](./decisions.ja.md#dev-オーバーレイphase-7)(オーバーレイ)、[`dx.ja.md`](./dx.ja.md#4-自前-linterkanabun-lint)(linter) |
 | 8 | 重量級エコシステム: SSR ストリーミング(`renderToStream`)、リアクティブ store(`createStore`)、`@kanabun/testing` | 🔜 計画 — Phase 7 から先送り(大きめのサブシステム) |
 
 全期間で維持した品質基準: **ランタイム依存ゼロ**、`packages/core` のランタイム非依存、
@@ -139,13 +139,18 @@
   resumability(ランタイム JSX 設計と矛盾)。
 
 **作成支援ツール。**
-- [ ] **自前 linter(`kanabun lint`)。** ランタイムでは捕まえられない取り違えを静的解析で
-  拾う ── 主に子/属性で `{count}` のつもりの `{count()}`(呼び出しが値に潰れる前にソースを
-  見る必要がある)と、関連する規約違反。ESLint プラグインでは **ない**(ESLint は外部依存で、
-  kanabun は依存ゼロ)── Bun レイヤーの第一級 CLI コマンドで、型チェックで既に使っている
-  固定版の TypeScript パーサを再利用する。オプトインかつ開発時のみの作成支援ツールで
-  あって、ランタイムコンパイラではない(創設時の制約を保つ)。詳細は
-  [`dx.ja.md`](./dx.ja.md#4-将来自前-linter)。
+- [x] **自前 linter(`kanabun lint`)。** 完了 ── ランタイムでは捕まえられない取り違えを
+  静的解析で拾う:JSX リアクティブ位置の引数なし accessor 呼び出し(`{count}` / `{() => …}`
+  のつもりの `{count()}`)。一度きり読み取って静かに更新が止まる。目玉ルール
+  `reactive-call-in-jsx` が各 JSX 子 / `on*` 以外の属性を走査して指摘(ネストしたアロー/関数は
+  既に遅延 thunk なのでスキップ、`on*` はイベント)。ESLint プラグインでは **ない**(ESLint は
+  外部依存で、kanabun は依存ゼロ)── Bun レイヤーの第一級 `kanabun lint [globs]` コマンド
+  (`packages/cli/src/lint.ts`)で、固定版 `typescript` dev 依存を素の `import("typescript")` で
+  再利用(ランタイム依存ゼロ)。`file:line:col rule message` を報告し検出時は非ゼロ終了
+  (CI ゲート)。never-throw(`build`/`generate` と同型)。設計スケッチの *シンタクティック* 段階で、
+  セマンティック(`TypeChecker` で誤検知ほぼゼロ)は記録済みの follow-up。オプトインかつ
+  開発時のみの作成支援ツールで、ランタイムコンパイラではない。詳細は
+  [`dx.ja.md`](./dx.ja.md#4-自前-linterkanabun-lint)。
 - [x] **dev オーバーレイ。** 完了 ── `kanabun dev` が問題をコンソールだけでなく画面上でも
   表示する:ビューポート下部に固定したパネルが、開発時警告・未捕捉エラー・unhandled
   rejection を件数バッジ + 閉じるボタン付きで集約する。警告 seam の*消費側*:モジュール
