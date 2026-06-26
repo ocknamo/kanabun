@@ -8,10 +8,18 @@
  * reactive position — `{count()}` where `{count}` (or `{() => …}`) was meant —
  * which silently reads once and stops updating.
  *
- * It reuses the project's pinned `typescript` dev dependency via a plain
- * `import("typescript")` (no auto-install, nothing added to the runtime); the
- * parser only ever runs as opt-in, dev-only authoring tooling. Like `build` /
- * `generate`, it never throws — failures come back as `logs`.
+ * It reuses the project's pinned `typescript` dev dependency, loaded lazily via
+ * a dynamic `import("typescript")` (not a static import) for two reasons:
+ *   - TypeScript is heavy (~1s to load), and only `lint` needs it — the other
+ *     commands (`build`/`dev`/`create`/`generate`, even `--version`) reach this
+ *     module through `index.ts`, so a static import would make every one of them
+ *     pay that cost on startup;
+ *   - `@kanabun/cli` deliberately does not list `typescript` as a dependency
+ *     (it's a root *dev* dependency, not a CLI runtime dep), so the parser is
+ *     required only when `lint` actually runs — a published CLI without
+ *     TypeScript still runs every other command.
+ * Like `build`/`generate`, `lint()` never throws; failures — including a missing
+ * `typescript` (see {@link lintSource}) — come back as `logs`.
  */
 import { relative, resolve } from "node:path";
 import type * as TS from "typescript";
