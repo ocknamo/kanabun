@@ -102,46 +102,58 @@ Backstops:
 - The **`snapshot` skill** captures before/after screenshots, surfacing a UI that
   silently stopped reacting.
 
-## 4. Future: an in-house linter
+## 4. An in-house linter (`kanabun lint`)
 
 The `{count()}` slip is exactly the kind of thing **static analysis** can catch
 that runtime checks can't — it needs to see the *source* (`count` is a signal,
 and it's being called in a reactive position) before the call collapses to a
-value. The plan is a **first-party `kanabun lint`**, *not* an ESLint plugin:
+value. So kanabun ships a **first-party `kanabun lint`**, *not* an ESLint plugin:
 ESLint (and its plugin ecosystem) is an external dependency, and kanabun ships
 **zero dependencies** — adopting it would break the founding constraint. Instead
-the linter lives in the CLI / Bun layer and reuses the **TypeScript parser** the
-project already leans on for typechecking (the pinned `typescript` dev dep), so
-it adds no runtime dependency — it's opt-in, dev-only authoring tooling, not a
+the linter lives in the CLI / Bun layer (`packages/cli/src/lint.ts`) and reuses
+the **TypeScript parser** the project already leans on for typechecking (the
+pinned `typescript` dev dep, loaded with a plain `import("typescript")`), so it
+adds no runtime dependency — it's opt-in, dev-only authoring tooling, not a
 runtime compiler the framework depends on.
 
-It would flag the reactive-position call (`{count()}` → suggest `{count}` /
-`{() => …}`) and related convention violations (a thunk that reads no signals, an
-`on*` thunk, …). This keeps the runtime small while still offering compiler-grade
-guardrails to those who want them. Tracked under *Tooling & publishing* in
-[`roadmap.md`](./roadmap.md).
+```sh
+kanabun lint                 # lint **/*.tsx under the current directory
+kanabun lint "src/**/*.tsx"  # explicit globs
+```
 
-### Design sketch (not yet implemented)
+It flags the reactive-position call (`{count()}` → suggests `{count}` /
+`{() => …}`), reporting `file:line:col  rule  message` and exiting non-zero on
+findings (a CI gate). Like `build`/`generate` it never throws — an internal
+failure comes back as a logged error, not a crash.
 
-Recorded so the next session can pick it up; nothing here ships yet.
+### Implementation
 
-- **Shape.** A `kanabun lint [globs]` subcommand in the CLI/Bun layer
-  (`packages/cli/src/lint.ts`), reporting `file:line:col  message` and exiting
-  non-zero on findings (a CI gate). Mirrors the diagnostics style of
-  `packages/cli/src/errors.ts`.
-- **Parser.** The TypeScript compiler API, via a plain `import("typescript")`
+- **Shape.** A `kanabun lint [globs]` subcommand
+  (`packages/cli/src/lint.ts`); `lint()` enumerates files (`Bun.Glob`, skipping
+  `node_modules`) and `lintSource(source, file)` analyzes one TSX string — the
+  latter is exported so the rules unit-test from fixture strings with no
+  filesystem. Diagnostics style mirrors `packages/cli/src/errors.ts`.
+- **Parser.** The TypeScript compiler API via a plain `import("typescript")`
   that resolves to the project's pinned `typescript` dev dependency — no
   auto-install gamble, and consistent with "TS is a pinned dev dep" (it still
-  adds nothing to the runtime). If running outside an install (e.g. a global
-  CLI), fall back to spawning TS as a child process.
+  adds nothing to the runtime). Each file is parsed with
+  `ts.createSourceFile(…, ScriptKind.TSX)`.
 - **Flagship rule — `reactive-call-in-jsx`.** Walk each JSX child / non-`on*`
-  attribute; flag a zero-arg call (`count()`, `obj.sig()`) sitting *directly* in
-  that reactive position (not wrapped in an arrow). Two precision levels:
-  - *Semantic* (preferred): resolve the callee's type via the checker and flag
-    only `Accessor`/`Signal` calls → near-zero false positives. Needs
-    `ts.createProgram` + a `TypeChecker`.
-  - *Syntactic*: AST only, heuristic on the call shape → lighter, but
-    false-positives on intentionally-static function calls.
+  attribute and scan that reactive-position expression for a zero-arg call
+  (`count()`, `store.sig()`) whose callee is an accessor-like identifier or
+  member access — skipping any subtree under a nested arrow/function (already a
+  deferred thunk, so its calls stay reactive). `on*` props are events (mirroring
+  `dom.ts`), never scanned. This catches `{count()}`, `{count() + 1}`,
+  `class={theme()}`, and an accessor read nested in an object/`style` value.
+  - This is the **syntactic** level: AST only, no `TypeChecker`. It can't tell an
+    accessor call from an intentional static one-shot read or a plain zero-arg
+    helper (`{getId()}`), so those are reported too — acceptable for opt-in
+    tooling. (That also includes a bare `{item()}` read inside a `<For>` /
+    `<Show>` render callback: with no compiler it still reads once, so the rule
+    points you at the reactive `{item}`.) The **semantic** level (resolve the
+    callee's type via
+    `ts.createProgram` + a `TypeChecker`, flag only `Accessor`/`Signal` calls →
+    near-zero false positives) is a documented follow-up.
 - **Later rules.** `static-thunk` (a `() => …` child/attribute that reads no
   signal — needlessly lazy) and `on-handler-not-a-function` (largely subsumed by
   the typed `on*` props in §1, kept for plain-JS users).
@@ -154,7 +166,8 @@ Recorded so the next session can pick it up; nothing here ships yet.
   little: parsing was never the bottleneck and the node count is tiny. Caveat:
   capturing that speedup depends on the native port exposing a usable in-process
   compiler API — the preview leans toward an API-server / LSP model rather than
-  `import("typescript")`. So when this rule lands, build it on the native API
-  once that has stabilised rather than forcing today's pinned TS 6 into it. A
+  `import("typescript")`. So when the **semantic** refinement lands, build it on
+  the native API once that has stabilised rather than forcing today's pinned TS 6
+  into it (today's syntactic rule uses only the parser). A
   non-blocking `typecheck-next` CI job (`@typescript/native-preview`) already
   tracks tsgo to surface divergence early.

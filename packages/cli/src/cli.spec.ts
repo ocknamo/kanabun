@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { parseArgs, run } from "./index";
-import { mkdtemp, rm, readFile } from "node:fs/promises";
+import { mkdtemp, rm, readFile, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -131,6 +131,32 @@ describe("run", () => {
         run(["generate", join(dir, "missing.tsx"), "--outdir", join(dir, "site")]),
       ).rejects.toThrow(/generate failed/);
     } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("lint prints findings and exits non-zero, then passes a clean tree", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "kanabun-run-lint-"));
+    const prev = process.cwd();
+    const logs: string[] = [];
+    const original = console.log;
+    console.log = (...args: unknown[]) => logs.push(args.map(String).join(" "));
+    try {
+      // A bad file in cwd → default `**/*.tsx` glob → findings printed + throw.
+      await writeFile(join(dir, "bad.tsx"), "const A = () => <div>{count()}</div>;");
+      process.chdir(dir);
+      await expect(run(["lint"])).rejects.toThrow(/lint reported problems/);
+      expect(logs.join("\n")).toContain("reactive-call-in-jsx");
+
+      // Clean tree → "No lint problems found." and no throw.
+      logs.length = 0;
+      await rm(join(dir, "bad.tsx"));
+      await writeFile(join(dir, "ok.tsx"), "const B = () => <div>{count}</div>;");
+      await run(["lint"]);
+      expect(logs.join("\n")).toContain("No lint problems found.");
+    } finally {
+      console.log = original;
+      process.chdir(prev);
       await rm(dir, { recursive: true, force: true });
     }
   });
