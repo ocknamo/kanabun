@@ -1,5 +1,11 @@
 import { describe, expect, test, afterAll } from "bun:test";
-import { lint, lintSource, formatFindings } from "./lint";
+import {
+  lint,
+  lintSource,
+  formatFindings,
+  isMissingTypeScript,
+  loadTypeScript,
+} from "./lint";
 import { mkdtemp, rm, writeFile, mkdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -137,6 +143,59 @@ describe("lintSource — reactive-call-in-jsx", () => {
     expect(finding!.file).toBe("x.tsx");
     expect(finding!.line).toBe(2);
     expect(finding!.column).toBe(9); // 2 spaces + "<div>{" → `count` at col 9
+  });
+});
+
+describe("loadTypeScript / isMissingTypeScript", () => {
+  // Bun's real `import()` failure: a `ResolveMessage` that does NOT extend Error
+  // but carries `code` + `message`. (Verified against Bun 1.3.11.)
+  const bunResolveMessage = {
+    name: "ResolveMessage",
+    code: "ERR_MODULE_NOT_FOUND",
+    message: "Cannot find package 'typescript' from '/x/lint.ts'",
+  };
+  // Node's ESM failure: a real Error with the same `code`.
+  const nodeError = Object.assign(
+    new Error("Cannot find package 'typescript' imported from /x/lint.ts"),
+    { code: "ERR_MODULE_NOT_FOUND" },
+  );
+
+  test("matches Bun's non-Error ResolveMessage and Node's Error alike", () => {
+    expect(isMissingTypeScript(bunResolveMessage)).toBe(true);
+    expect(isMissingTypeScript(nodeError)).toBe(true);
+  });
+
+  test("ignores a different missing package, a missing code, and non-objects", () => {
+    // Right code, wrong package → not ours.
+    expect(
+      isMissingTypeScript({
+        code: "ERR_MODULE_NOT_FOUND",
+        message: "Cannot find package 'typescript-eslint' from '/x'",
+      }),
+    ).toBe(false);
+    // Right message, but no module-not-found code → some other failure.
+    expect(
+      isMissingTypeScript({ message: "Cannot find package 'typescript' from '/x'" }),
+    ).toBe(false);
+    expect(isMissingTypeScript("not an object")).toBe(false);
+    expect(isMissingTypeScript(null)).toBe(false);
+  });
+
+  test("loads the parser with the default importer", async () => {
+    const ts = await loadTypeScript();
+    expect(typeof ts.createSourceFile).toBe("function");
+  });
+
+  test("gives an install hint when typescript is absent (real Bun error shape)", async () => {
+    await expect(
+      loadTypeScript(() => Promise.reject(bunResolveMessage)),
+    ).rejects.toThrow(/needs the `typescript` dev dependency/);
+  });
+
+  test("rethrows an unrelated import failure untouched", async () => {
+    await expect(
+      loadTypeScript(() => Promise.reject(new Error("boom"))),
+    ).rejects.toThrow(/^boom$/);
   });
 });
 

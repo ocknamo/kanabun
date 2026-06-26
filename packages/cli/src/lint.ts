@@ -82,19 +82,64 @@ function isAccessorLikeCallee(ts: typeof TS, callee: TS.Expression): boolean {
 }
 
 /**
+ * True when `error` is the module-resolution failure `import("typescript")`
+ * raises when the dev dependency isn't installed. `@kanabun/cli` doesn't depend
+ * on TypeScript itself (it's a dev-only dep), so a consumer can genuinely hit
+ * this — worth a tailored hint instead of a raw resolver error.
+ *
+ * Keyed off the `code` (`*MODULE_NOT_FOUND`) plus a `typescript`-specific message
+ * — deliberately **not** `instanceof Error`: Bun's `ResolveMessage` does not
+ * extend `Error`, so an `instanceof` check would miss the very runtime kanabun
+ * targets. Both Bun and Node set the same `code` on a failed dynamic import.
+ */
+export function isMissingTypeScript(error: unknown): boolean {
+  if (typeof error !== "object" || error === null) return false;
+  const { code, message } = error as { code?: unknown; message?: unknown };
+  return (
+    typeof code === "string" &&
+    code.includes("MODULE_NOT_FOUND") &&
+    typeof message === "string" &&
+    /Cannot find (package|module) ['"]typescript['"]/.test(message)
+  );
+}
+
+/**
+ * Load the pinned `typescript` parser. When it isn't installed, throw a clear
+ * "install it" hint rather than leaking the raw resolver error; any other import
+ * failure is rethrown untouched. `importer` is injectable so the absent-/failed-
+ * load paths are unit-testable without uninstalling TypeScript.
+ */
+export async function loadTypeScript(
+  importer: () => Promise<typeof TS> = () => import("typescript"),
+): Promise<typeof TS> {
+  try {
+    return await importer();
+  } catch (error) {
+    if (isMissingTypeScript(error)) {
+      throw new Error(
+        "`kanabun lint` needs the `typescript` dev dependency to parse sources. " +
+          "Install it with `bun add -d typescript`.",
+      );
+    }
+    throw error;
+  }
+}
+
+/**
  * Analyze a single TSX source string and return its findings. Exposed (and used
  * by {@link lint}) so the rule can be unit-tested from fixture strings without
  * touching the filesystem. `fileName` is only used to label findings.
  *
  * Note: unlike {@link lint}, this is not wrapped in the never-throw contract —
- * it rejects if the TypeScript parser can't be loaded. (Parsing itself never
- * throws: `createSourceFile` tolerates syntax errors, producing a partial AST.)
+ * it rejects if the TypeScript parser can't be loaded (with an install hint when
+ * `typescript` is simply absent — see {@link loadTypeScript}). Parsing itself
+ * never throws: `createSourceFile` tolerates syntax errors, yielding a partial AST.
  */
 export async function lintSource(
   source: string,
   fileName = "input.tsx",
 ): Promise<LintFinding[]> {
-  const ts = await import("typescript");
+  const ts = await loadTypeScript();
   const sf = ts.createSourceFile(
     fileName,
     source,
