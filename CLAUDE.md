@@ -9,31 +9,18 @@ compiler). See `docs/decisions.md` (and `.ja.md`) for the design rationale.
 ## ⚠️ Required workflow: review before reporting done
 
 **Before reporting any implementation/fix task as complete, you MUST run the
-`skeptical-reviewer` subagent** (`.claude/agents/skeptical-reviewer.md`) and act
-on its findings:
-
-- Fix every 🔴 (must-fix) before reporting completion.
-- Address or explicitly justify 🟡 (recommended).
-- Run it per meaningful step / phase, not only at the very end.
-
-Do not declare a phase or task finished without a clean (or consciously
-accepted) review.
+`skeptical-reviewer` subagent** and act on its findings: fix every 🔴 before
+reporting, address or justify every 🟡. Run it per meaningful step / phase, not
+only at the very end.
 
 **After the task and `skeptical-reviewer` are both complete, run the
-`pr-finalizer` subagent** (`.claude/agents/pr-finalizer.md`):
-
-- Confirms CI is green; reports failures with log summaries if not.
-- Reviews the PR description and updates it to be bilingual (Japanese + English)
-  if it is missing content or not bilingual.
+`pr-finalizer` subagent.**
 
 ## ⚠️ Visual changes: use the `snapshot` skill
 
 **When a task touches the rendered look — CSS / styling, layout, or any visual
-change — use the `snapshot` skill** (`.claude/skills/snapshot/SKILL.md`) to
-capture PC + mobile screenshots of an example and confirm the result. Tests and
-`bun build` stay green even when styles don't actually apply (e.g. a `<style>`
-isn't injected or a class doesn't match), so verify the real picture before
-reporting done.
+change — use the `snapshot` skill** to confirm the result. Tests and `bun build`
+stay green even when styles don't actually apply, so don't trust them alone.
 
 ## Conventions (the reviewer enforces these — so should you)
 
