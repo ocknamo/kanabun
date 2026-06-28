@@ -79,7 +79,7 @@ Run all of these (and the example builds) before considering work done.
   Runtime-independent — no Bun/Node APIs.
 - `packages/cli/` — the `kanabun` command (`build`/`dev`/`create`). The **only**
   Bun-dependent layer; `Bun.*`, `node:*`, `process` live here, never in core.
-- `examples/` — runnable `counter` and `todomvc` (TSX). Not shipped; excluded
+- `examples/` — runnable examples (TSX). Not shipped; excluded
   from coverage. `main.tsx` mounts; larger examples (todomvc) split the
   component into `app.tsx`.
 - `docs/` — design decisions and the roadmap / remaining TODO (EN + JA:
@@ -88,5 +88,5 @@ Run all of these (and the example builds) before considering work done.
 
 ## Git
 
-Develop on `claude/bun-svelte-framework-mpn6g0`. Commit with clear messages and
-push when work is complete. Do not open a PR unless asked.
+Commit with clear messages and push when work is complete. Do not open a PR
+unless asked.
