@@ -62,9 +62,8 @@ reporting done.
 ## Commands
 
 ```sh
-bun install            # installs @types/bun + typescript (dev-only)
 bun test               # run the suite
-bun test --coverage    # coverage (threshold 0.9 in bunfig.toml; core is 100%)
+bun test --coverage    # coverage (threshold in bunfig.toml; core is 100%)
 bunx tsc --noEmit      # typecheck
 bun build ./examples/<name>/main.tsx --target browser --outfile /tmp/out.js
 ```
@@ -73,18 +72,13 @@ Run all of these (and the example builds) before considering work done.
 
 ## Layout
 
-- `packages/core/src/` — `reactive.ts` (signals, owner tree, lifecycle),
-  `dom.ts` (render + keyed reconcile), `control-flow.ts` (`<Show>`/`<For>`),
-  `props.ts` (`mergeProps`/`splitProps`), `jsx-runtime.ts` / `jsx-dev-runtime.ts`.
-  Runtime-independent — no Bun/Node APIs.
-- `packages/cli/` — the `kanabun` command (`build`/`dev`/`create`). The **only**
-  Bun-dependent layer; `Bun.*`, `node:*`, `process` live here, never in core.
-- `examples/` — runnable examples (TSX). Not shipped; excluded
-  from coverage. `main.tsx` mounts; larger examples (todomvc) split the
-  component into `app.tsx`.
-- `docs/` — design decisions and the roadmap / remaining TODO (EN + JA:
-  `decisions.md`, `roadmap.md`). Check `roadmap.md` for what's left, and
-  `docs/handoff.md` for a session handoff (current state + gotchas).
+- `packages/core/` — the runtime. Runtime-independent: no Bun/Node APIs.
+- `packages/cli/` — the `kanabun` command. The **only** Bun-dependent layer;
+  `Bun.*`, `node:*`, `process` live here, never in core.
+- `examples/` — runnable examples (TSX), excluded from coverage. `main.tsx`
+  mounts; larger examples split the component into `app.tsx`.
+- `docs/` — design decisions, roadmap, and handoff (EN + JA). Check `roadmap.md`
+  for what's left and `docs/handoff.md` before starting.
 
 ## Git
 
