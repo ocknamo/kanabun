@@ -9,31 +9,18 @@ compiler). See `docs/decisions.md` (and `.ja.md`) for the design rationale.
 ## ⚠️ Required workflow: review before reporting done
 
 **Before reporting any implementation/fix task as complete, you MUST run the
-`skeptical-reviewer` subagent** (`.claude/agents/skeptical-reviewer.md`) and act
-on its findings:
-
-- Fix every 🔴 (must-fix) before reporting completion.
-- Address or explicitly justify 🟡 (recommended).
-- Run it per meaningful step / phase, not only at the very end.
-
-Do not declare a phase or task finished without a clean (or consciously
-accepted) review.
+`skeptical-reviewer` subagent** and act on its findings: fix every 🔴 before
+reporting, address or justify every 🟡. Run it per meaningful step / phase, not
+only at the very end.
 
 **After the task and `skeptical-reviewer` are both complete, run the
-`pr-finalizer` subagent** (`.claude/agents/pr-finalizer.md`):
-
-- Confirms CI is green; reports failures with log summaries if not.
-- Reviews the PR description and updates it to be bilingual (Japanese + English)
-  if it is missing content or not bilingual.
+`pr-finalizer` subagent.**
 
 ## ⚠️ Visual changes: use the `snapshot` skill
 
 **When a task touches the rendered look — CSS / styling, layout, or any visual
-change — use the `snapshot` skill** (`.claude/skills/snapshot/SKILL.md`) to
-capture PC + mobile screenshots of an example and confirm the result. Tests and
-`bun build` stay green even when styles don't actually apply (e.g. a `<style>`
-isn't injected or a class doesn't match), so verify the real picture before
-reporting done.
+change — use the `snapshot` skill** to confirm the result. Tests and `bun build`
+stay green even when styles don't actually apply, so don't trust them alone.
 
 ## Conventions (the reviewer enforces these — so should you)
 
@@ -62,9 +49,8 @@ reporting done.
 ## Commands
 
 ```sh
-bun install            # installs @types/bun + typescript (dev-only)
 bun test               # run the suite
-bun test --coverage    # coverage (threshold 0.9 in bunfig.toml; core is 100%)
+bun test --coverage    # coverage (threshold in bunfig.toml; core is 100%)
 bunx tsc --noEmit      # typecheck
 bun build ./examples/<name>/main.tsx --target browser --outfile /tmp/out.js
 ```
@@ -73,20 +59,15 @@ Run all of these (and the example builds) before considering work done.
 
 ## Layout
 
-- `packages/core/src/` — `reactive.ts` (signals, owner tree, lifecycle),
-  `dom.ts` (render + keyed reconcile), `control-flow.ts` (`<Show>`/`<For>`),
-  `props.ts` (`mergeProps`/`splitProps`), `jsx-runtime.ts` / `jsx-dev-runtime.ts`.
-  Runtime-independent — no Bun/Node APIs.
-- `packages/cli/` — the `kanabun` command (`build`/`dev`/`create`). The **only**
-  Bun-dependent layer; `Bun.*`, `node:*`, `process` live here, never in core.
-- `examples/` — runnable `counter` and `todomvc` (TSX). Not shipped; excluded
-  from coverage. `main.tsx` mounts; larger examples (todomvc) split the
-  component into `app.tsx`.
-- `docs/` — design decisions and the roadmap / remaining TODO (EN + JA:
-  `decisions.md`, `roadmap.md`). Check `roadmap.md` for what's left, and
-  `docs/handoff.md` for a session handoff (current state + gotchas).
+- `packages/core/` — the runtime. Runtime-independent: no Bun/Node APIs.
+- `packages/cli/` — the `kanabun` command. The **only** Bun-dependent layer;
+  `Bun.*`, `node:*`, `process` live here, never in core.
+- `examples/` — runnable examples (TSX), excluded from coverage. `main.tsx`
+  mounts; larger examples split the component into `app.tsx`.
+- `docs/` — design decisions, roadmap, and handoff (EN + JA). Check `roadmap.md`
+  for what's left and `docs/handoff.md` before starting.
 
 ## Git
 
-Develop on `claude/bun-svelte-framework-mpn6g0`. Commit with clear messages and
-push when work is complete. Do not open a PR unless asked.
+Commit with clear messages and push when work is complete. Do not open a PR
+unless asked.
