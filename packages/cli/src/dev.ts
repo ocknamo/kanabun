@@ -252,6 +252,27 @@ export function createDevHandler(
   const notFound = (): Response => new Response("Not found", { status: 404 });
   const escapesRoot = (p: string): boolean => p !== root && !p.startsWith(root + sep);
 
+  // Serve the HTML entry with the dev preludes injected. A `<base href="/">` is
+  // added (when absent, and the entry has a `<head>`) so a page served under a
+  // client route like `/users/2` resolves its relative `<script src="./main.tsx">`
+  // and asset URLs against the server root rather than the route's directory —
+  // otherwise the SPA fallback below would serve HTML whose module never loads.
+  const serveHtml = async (): Promise<Response> => {
+    let html = await Bun.file(htmlPath).text();
+    // Insert right after the opening `<head>` (any attributes, any case); a no-op
+    // when the entry has no head or already declares its own `<base>`.
+    if (!/<base\b/i.test(html)) {
+      html = html.replace(/<head\b[^>]*>/i, (head) => `${head}\n    <base href="/" />`);
+    }
+    const prelude = `${DEV_FLAG_SNIPPET}${OVERLAY_SNIPPET}${LIVE_RELOAD_SNIPPET}`;
+    const injected = html.includes("</body>")
+      ? html.replace("</body>", `${prelude}\n</body>`)
+      : html + prelude;
+    return new Response(injected, {
+      headers: { "content-type": CONTENT_TYPES[".html"]! },
+    });
+  };
+
   return async (req: Request): Promise<Response> => {
     // A malformed percent-escape (`/%ZZ`, a lone `%`) makes decodeURIComponent
     // throw a URIError; treat such a request as a 404 rather than letting it
@@ -263,16 +284,7 @@ export function createDevHandler(
       return notFound();
     }
 
-    if (pathname === "/" || pathname === "/index.html") {
-      const html = await Bun.file(htmlPath).text();
-      const prelude = `${DEV_FLAG_SNIPPET}${OVERLAY_SNIPPET}${LIVE_RELOAD_SNIPPET}`;
-      const injected = html.includes("</body>")
-        ? html.replace("</body>", `${prelude}\n</body>`)
-        : html + prelude;
-      return new Response(injected, {
-        headers: { "content-type": CONTENT_TYPES[".html"]! },
-      });
-    }
+    if (pathname === "/" || pathname === "/index.html") return serveHtml();
 
     const filePath = join(root, pathname);
     // Two containment checks must both pass:
@@ -308,6 +320,11 @@ export function createDevHandler(
       const type = CONTENT_TYPES[extname(pathname)];
       return new Response(file, type ? { headers: { "content-type": type } } : {});
     }
+    // SPA fallback: a navigation request (no file extension) that matched no
+    // static file is a client-side route — serve the HTML entry so the in-page
+    // router can render it, making deep links and refreshes work. A request for
+    // a missing asset (one with an extension, e.g. `.png`) still 404s.
+    if (extname(pathname) === "") return serveHtml();
     return notFound();
   };
 }

@@ -1,13 +1,5 @@
 import { render, For, css } from "@kanabun/core";
-import {
-  Router,
-  Routes,
-  Route,
-  Link,
-  useParams,
-  useLocation,
-  createMemorySource,
-} from "@kanabun/router";
+import { Router, Routes, Route, Link, useParams, useLocation } from "@kanabun/router";
 
 // A handful of demo "users", looked up by the `:id` route param.
 const users: Record<string, { name: string; bio: string }> = {
@@ -152,11 +144,10 @@ function App() {
   );
 }
 
-// Use an in-memory history so the example runs anywhere (incl. file://) without
-// touching the address bar. In a real app, omit `source` for the browser
-// history, or use `createHashSource()` for static hosts like GitHub Pages (deep
-// links/refreshes work with no server rewrites).
-const source = createMemorySource("/");
-
+// Default (browser) history: the address bar reflects the active route, and
+// deep links / refreshes work because `kanabun dev` serves index.html for
+// unknown paths so the in-page router can render them. For static hosts without
+// that server rewrite (GitHub Pages, S3), pass `source={createHashSource()}`
+// instead — the route then lives in the URL hash.
 const root = document.getElementById("app");
-if (root) render(() => <Router source={source}>{() => <App />}</Router>, root);
+if (root) render(() => <Router>{() => <App />}</Router>, root);
