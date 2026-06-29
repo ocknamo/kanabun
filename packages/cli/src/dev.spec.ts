@@ -98,6 +98,28 @@ describe("createDevHandler", () => {
     expect(res.status).toBe(404);
   });
 
+  test("serves the HTML entry for an unknown client route (SPA deep link)", async () => {
+    const res = await handler()(new Request("http://localhost/users/2"));
+    expect(res.headers.get("content-type")).toContain("text/html");
+    expect(await res.text()).toContain("__kanabun_livereload");
+  });
+
+  test("injects <base href> so a deep-linked page resolves assets from root", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "kanabun-dev-base-"));
+    const entry = join(dir, "index.html");
+    await writeFile(
+      entry,
+      `<!doctype html><html><head><title>x</title></head><body><script type="module" src="./main.tsx"></script></body></html>`,
+    );
+    try {
+      const h = createDevHandler({ htmlPath: entry, root: dir });
+      const body = await h(new Request("http://localhost/users/2")).then((r) => r.text());
+      expect(body).toContain('<base href="/"');
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
   test("rejects path traversal across encodings without leaking files", async () => {
     const h = handler();
     const vectors = [
