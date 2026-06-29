@@ -158,6 +158,37 @@ describe("reactive list (precursor to <For>)", () => {
     render(() => jsx("p", { children: () => ["a", () => "b"] }), asEl(container));
     expect(serialize(container)).toBe("<div><p>ab</p></div>");
   });
+
+  test("a reactive slot returning another thunk insulates the inner deps", () => {
+    // The outer thunk reads `outer`, the inner thunk it returns reads `inner`.
+    // Each function level gets its own slot, so writing `inner` must NOT re-run
+    // the outer (which would rebuild the subtree). We prove the outer ran once.
+    const outer = signal("L");
+    const inner = signal(0);
+    let outerRuns = 0;
+    const container = createContainer();
+    render(
+      () =>
+        jsx("p", {
+          children: () => {
+            outerRuns++;
+            outer(); // subscribe the outer slot to `outer` only
+            return () => `n${inner()}`;
+          },
+        }),
+      asEl(container),
+    );
+    expect(serialize(container)).toBe("<div><p>n0</p></div>");
+    expect(outerRuns).toBe(1);
+
+    inner.set(1); // inner-only change — outer slot must not re-run
+    expect(serialize(container)).toBe("<div><p>n1</p></div>");
+    expect(outerRuns).toBe(1);
+
+    outer.set("R"); // outer change re-runs the outer (and re-creates the inner slot)
+    expect(serialize(container)).toBe("<div><p>n1</p></div>");
+    expect(outerRuns).toBe(2);
+  });
 });
 
 describe("events", () => {

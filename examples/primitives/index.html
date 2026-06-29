@@ -3,7 +3,14 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>kanabun — primitives</title>
+    <!--
+      No static <title> here on purpose. The <Title> in main.tsx owns the tab
+      title and drives it reactively from the Head/Title card. The browser
+      honours only the *first* <title> in tree order, so a static one here would
+      shadow the dynamic one and the tab would never update — which is exactly
+      the bug this demo is meant to show off the fix for. (main.tsx seeds the
+      same initial text, so the tab reads "kanabun — primitives" once mounted.)
+    -->
     <style>
       /* Page layout (global). Component styling lives in main.tsx via `css`. */
       html,

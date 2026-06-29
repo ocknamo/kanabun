@@ -136,13 +136,13 @@ describe("nested routing", () => {
     expect(serialize(container)).toBe("<div></div>");
   });
 
-  test("a nested router returned bare (not in a host element) rebuilds the layout", () => {
-    // Pins the documented constraint (decisions.md / handoff §4): a layout must
-    // put its nested <Routes> inside a host element. Returned *bare*, the thunk
-    // reaches the parent route's reconcile/normalize, which reads it eagerly —
-    // so the nested $matched read leaks into the parent's tracking and an inner
-    // switch rebuilds the layout. This is the failing side of the contract; if
-    // core ever insulates bare thunks, this test should be revisited.
+  test("a nested router returned bare (not in a host element) keeps the layout", () => {
+    // Core insulates every reactive thunk in its own insert slot (dom.ts →
+    // bindSlot), so a nested <Routes> behaves the same whether it sits inside a
+    // host element or is returned *bare*: its $matched read no longer leaks into
+    // the parent's tracking, so an inner switch re-selects only the child and the
+    // layout stays mounted. (This used to rebuild the layout, making a wrapper
+    // mandatory; that constraint was lifted — see decisions.md.)
     const src = createMemorySource("/x/a");
     const cleaned: string[] = [];
     const container = createContainer();
@@ -164,9 +164,13 @@ describe("nested routing", () => {
       asEl(container),
     );
     expect(cleaned).toEqual([]);
-    src.go("/x/b"); // inner switch — without a host element, the layout rebuilds
-    expect(cleaned).toEqual(["layout"]);
+    src.go("/x/b"); // inner switch — the layout is preserved, only the child swaps
+    expect(cleaned).toEqual([]);
     expect(serialize(container)).toBe("<div><p>B</p></div>");
+
+    src.go("/elsewhere"); // the layout prefix no longer matches → layout torn down
+    expect(cleaned).toEqual(["layout"]);
+    expect(serialize(container)).toBe("<div></div>");
   });
 
   test("a nested <Routes> shows its own fallback for an unmatched leftover", () => {

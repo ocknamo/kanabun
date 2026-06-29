@@ -155,6 +155,15 @@ once. `on*` props are always events. So `{count}` and `{() => count() * 2}` are
 reactive, while `{count()}` is read once. This is the one bit of ceremony the
 no-compiler choice costs, and it is small and explicit.
 
+A reactive slot whose value resolves to **another function** (a reactive child
+returned by a component — e.g. `<Show>{() => <Suspense>…</Suspense>}`) gives that
+inner function its *own* nested slot rather than reading it inline. Each function
+level is therefore insulated: a dependency change re-runs only the level that
+read it, never rebuilding the subtree above. Without this, an inner component's
+reactive reads would leak into the outer slot's tracking and rebuild the whole
+subtree on every change — and for a suspending child (which re-creates its
+resource on rebuild) that is an infinite load/render loop.
+
 ### Testing the DOM without a DOM dependency
 
 The renderer needs a DOM, but Bun ships none and jsdom/happy-dom would violate
@@ -368,13 +377,14 @@ the same owner-tree context the flat router already uses.
   ancestor's (`{ ...parent, ...local }`), so a descendant `useParams()` reads the
   whole chain (`{ org, id }`). The stable empty reference is preserved at the top
   level for unmatched reads.
-- **One caveat, the same one core already has.** The nested `<Routes>` must sit
-  inside a host element (a layout's chrome — `<div class="users-layout">`), so it
-  gets its own reactive insert boundary. A *bare* thunk returned straight up to
-  the parent route is flattened into the parent's tracking (functions reaching
-  `reconcile` are read once), which would rebuild the layout on every inner
-  navigation. The flat example already follows this (its `<Routes>` lives inside
-  `<div class={shell}>`); layouts naturally have a wrapper, so it costs nothing.
+- **No wrapper required (a former caveat, now lifted).** A nested `<Routes>` works
+  the same whether it sits inside a host element (a layout's chrome —
+  `<div class="users-layout">`) or is returned *bare* straight up to the parent
+  route. Core now gives every reactive thunk its own insert slot (see "functions
+  are reactive" above), so a bare nested router no longer leaks its `$matched`
+  read into the parent's tracking: an inner navigation re-selects only the child
+  and keeps the layout mounted. (Previously the bare form rebuilt the layout on
+  every inner navigation, so a host-element wrapper was mandatory.)
 
 `examples/router` demonstrates it: a `/users/*` layout keeps the master list
 mounted while a nested `<Routes>` swaps the detail pane. *Relative `<Link>` hrefs

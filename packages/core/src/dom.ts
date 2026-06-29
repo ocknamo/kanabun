@@ -159,13 +159,48 @@ export function insert(parent: Node, value: unknown, before: Node | null = null)
   }
   if (typeof value === "function") {
     const marker = parent.insertBefore(doc().createComment(""), before);
-    let current: Rendered = null;
-    effect(() => {
-      current = reconcile(parent, (value as () => unknown)(), current, marker);
-    });
+    bindSlot(parent, value as () => unknown, marker, { current: null });
     return;
   }
   reconcile(parent, value, null, before);
+}
+
+/** A reactive slot's currently-rendered nodes, shared across nested levels. */
+type SlotState = { current: Rendered };
+
+/**
+ * Drive a reactive slot anchored at `marker`: re-evaluate `getValue` in an
+ * `effect` and reconcile the result into `parent`.
+ *
+ * If the value resolves to **another function** — a reactive child returned by a
+ * component, e.g. `<Show>{() => <Suspense>…</Suspense>}` — that inner function is
+ * given its *own* nested effect rather than being read inline. Without this, the
+ * inner function's dependencies (here `<Suspense>`'s pending count) would be
+ * tracked by *this* slot, so every change would re-run it and **rebuild** the
+ * whole subtree from scratch — for a suspending child that re-creates the
+ * resource, kicking off a new load whose resolution re-runs the slot again: an
+ * infinite loop. Isolating each function level keeps a dependency change scoped
+ * to the level that actually reads it.
+ *
+ * All levels share one `state` (and the one `marker`), so whichever level is
+ * currently the leaf reconciles against the nodes actually on screen, and a
+ * re-run higher up (which disposes the nested effects via the owner tree) still
+ * has the live node list to reconcile away.
+ */
+function bindSlot(
+  parent: Node,
+  getValue: () => unknown,
+  marker: Node,
+  state: SlotState,
+): void {
+  effect(() => {
+    const value = getValue();
+    if (typeof value === "function") {
+      bindSlot(parent, value as () => unknown, marker, state);
+    } else {
+      state.current = reconcile(parent, value, state.current, marker);
+    }
+  });
 }
 
 function reconcile(
