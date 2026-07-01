@@ -33,7 +33,7 @@ framework. Each class becomes a review item in Part 2.
 | Angular | CVE-2025-66412 (8.5) | Sanitizer bypass | Stored XSS via mis-classified SVG/MathML attributes bypassing the sanitizer |
 | Angular | CVE-2026-32635 (8.6) | Sanitizer bypass | i18n-marked `href`/`src` skips URL sanitization |
 | Angular | CVE-2026-52725 / CVE-2026-50557 | Sanitizer bypass | Namespaced `<svg:script>` / attribute bypasses compile-time script-stripping |
-| AngularJS | CVE-2022-27665 & class | Client-side template injection | `{{…}}` expression evaluated in the browser → sandbox escape → XSS |
+| AngularJS | sandbox-escape class (e.g. CVE-2022-27665) | Client-side template injection | `{{…}}` expression evaluated in the browser → sandbox escape → XSS |
 | React | CVE-2025-55182 "React2Shell" (10.0) | Insecure deserialization | RSC deserializes attacker POST body → RCE on the server |
 | React | CVE-2025-55184 / CVE-2025-67779 (7.5) | DoS | RSC request handling exhausts CPU/memory |
 | Vue | CVE-2024-6783 | Prototype-pollution → XSS | Polluted `Object.prototype.staticClass/staticStyle` renders into the DOM |
@@ -183,7 +183,9 @@ Two candidate sinks exist and both are safe:
 - **Router query parsing** (`location.ts:29`) uses the standard
   `URLSearchParams`, which produces flat string→string pairs. There is no
   `qs`-style `a[b]=c` nested-bracket parser, so `?__proto__[x]=y` yields a plain
-  key `"__proto__[x]"`, not a prototype write. *(V4.)*
+  key `"__proto__[x]"`, not a prototype write. Even the bare `?__proto__=y` case
+  is inert: `query[key] = value` (`location.ts:32`) assigns a *string* value to
+  an own key of a fresh object, which does not alter `Object.prototype`. *(V4.)*
 
 The island props path (`islands.ts:208`) does `JSON.parse` attacker-*readable*
 (server-authored) markup, but `JSON.parse` does not pollute the prototype (a
@@ -271,7 +273,13 @@ documented in `dom.ts` and `decisions.md`). No state is smuggled through comment
 or hydration markers, so there is nothing to break out of. The comment nodes the
 runtime *does* create (reactive-slot / portal anchors, `dom.ts:161`,
 `portal.ts:43`) always have an empty or constant string body — never untrusted
-data — and on the server `serialize` would escape a comment's content anyway.
+data — so nothing attacker-controlled reaches a comment position in the first
+place. Note that this safety rests entirely on that invariant, **not** on
+escaping: `serialize` emits a comment body verbatim (`server-dom.ts:246` returns
+`` `<!--${node.data}-->` ``), so a `-->` in the body *would* break out. That is
+fine today because comment bodies are only ever framework-constant strings; if a
+future change ever routes dynamic data into a comment, it must neutralise `-->`
+at that point (the runtime does not do it for you).
 
 ### A12 — Client-side memory exhaustion ✅ solid (no leak found)
 
@@ -315,13 +323,50 @@ the S1–S7 audit, and remain closed as verified by V1–V8.
 
 ---
 
+## Appendix — reproduced checks (V1–V8)
+
+Each check was run against the real source (`@kanabun/core` + the router), all
+pass. They are the empirical backing for the "why not vulnerable" claims above.
+
+| # | Vector | What it asserts |
+| --- | --- | --- |
+| V1 | A2 | `renderToString(() => jsx("div", { ...{ onclick: "alert(1)" }, children: "x" }))` → exactly `<div>x</div>` (no inline handler emitted). |
+| V2 | A1 | `renderToString(() => jsx("div", { "x><img src=x onerror=alert(1)": "y" }))` **throws** (attribute-name validation). |
+| V3 | A5 | `mergeProps({}, JSON.parse('{"__proto__":{"polluted":1}}'))` leaves `({}).polluted` undefined. |
+| V4 | A5 | `parsePath("/x?__proto__[polluted]=1")` leaves `({}).polluted` undefined. |
+| V5 | A1 | `css` with an interpolated `</style><img …>` → the rendered `head` does **not** contain `</style><img`. |
+| V6 | A1 | A `{"<img src=x onerror=alert(1)>"}` text child renders as `&lt;img …`, never `<img`. |
+| V7 | A1 | A `title` of `"><img …>` renders with `&quot;` and `&lt;`, never a literal `><img`. |
+| V8 | A1/A3 | `jsx("img src=x onerror=alert(1)", …)` under `renderToString` **throws** (tag-name validation). |
+
+```ts
+// Representative excerpt (V1, V2, V8) — run under bun test against the real source.
+import { renderToString, jsx, mergeProps, css } from "@kanabun/core";
+
+// V1 — spread on* is never serialized (vs Svelte CVE-2026-27121)
+expect(renderToString(() => jsx("div", { ...{ onclick: "alert(1)" }, children: "x" })).html)
+  .toBe("<div>x</div>");
+
+// V2 — attacker-controlled spread key is rejected (S1)
+expect(() =>
+  renderToString(() => jsx("div", { "x><img src=x onerror=alert(1)": "y" })),
+).toThrow();
+
+// V8 — untrusted tag name is rejected (S6, vs Svelte CVE-2026-27122)
+expect(() =>
+  renderToString(() => jsx("img src=x onerror=alert(1)", { children: "" })),
+).toThrow();
+```
+
+---
+
 ## References
 
 **Angular / AngularJS**
 - CVE-2025-66412 — Stored XSS via SVG/MathML attribute mis-classification: <https://github.com/angular/angular/security/advisories/GHSA-v4hv-rgfq-gp49>
 - CVE-2026-32635 — i18n sanitization bypass: <https://securityonline.info/translation-trap-high-severity-angular-xss-flaw-cve-2026-32635/>
-- CVE-2026-52725 — Namespace sanitization bypass: <https://advisories.gitlab.com/npm/@angular/compiler/CVE-2026-50557/>
-- AngularJS client-side template injection & sandbox escape: <https://portswigger.net/research/xss-without-html-client-side-template-injection-with-angularjs>, <https://portswigger.net/research/dom-based-angularjs-sandbox-escapes>
+- CVE-2026-50557 — Template/attribute namespace sanitization bypass (the namespace-bypass class, tracked alongside CVE-2026-52725): <https://advisories.gitlab.com/npm/@angular/compiler/CVE-2026-50557/>
+- AngularJS client-side template injection & sandbox escape (background): <https://portswigger.net/research/xss-without-html-client-side-template-injection-with-angularjs>, <https://portswigger.net/research/dom-based-angularjs-sandbox-escapes>; sandbox-escape reflected-XSS instance CVE-2022-27665: <https://github.com/advisories/GHSA-prxf-5xrr-96cp>
 
 **React**
 - CVE-2025-55182 "React2Shell" (RSC deserialization RCE): <https://react.dev/blog/2025/12/03/critical-security-vulnerability-in-react-server-components>, <https://www.wiz.io/blog/critical-vulnerability-in-react-cve-2025-55182>
