@@ -608,6 +608,45 @@ document, and writes `<outdir>/<route>/index.html` (`/` → `index.html`,
 Held to the same bar: zero dependencies, `packages/core` runtime-independent,
 100% line/function coverage, `tsc` clean, docs bilingual.
 
+### `serve` / `preview` — the SSR serve layer (Phase 6 follow-up)
+
+For a while SSR was asymmetric with SSG: `generate` gave SSG a config + command,
+but every SSR entry hand-rolled ~55 lines of `Bun.serve` + `Bun.build` + an HTML
+shell + `process.env.PORT` (and the repo grew four copies of the shell and three
+of the traversal-guarded static-file loop). The examples doubled as a
+demonstration that Bun-specific code lives outside core — a point worth one
+demo, not four copies of boilerplate every user would have to re-write. The fix
+applies the `generate` decision symmetrically:
+
+- **The SSR config mirrors the SSG config.** `serve(config)` /
+  `createSSRHandler(config)` (`packages/cli/src/serve.ts`) take `{ render(path),
+  client?, islands?, title?, base?, document? }` — the `SSGConfig` shape minus
+  `routes` (a server renders whatever path arrives), plus `islands`. The same
+  mental model drives both: SSG runs `render` at build time, SSR per request.
+- **One document template.** The built-in HTML shell moved to
+  `packages/cli/src/document.ts` (`DocumentContext` + `defaultDocument`) and is
+  shared by `generate` and `serve`, so prerendered and per-request pages are
+  identical. One lexical containment helper (`resolveWithin` in `paths.ts`)
+  replaced the three hand-rolled static-serving guards (dev / SSG preview /
+  islands preview).
+- **`client` is bundled once at startup** (kept in memory) — the old examples
+  re-ran `Bun.build` per request. An `islands` map instead builds per-island
+  chunks (`buildIslands`) into a temp dir and serves them next to the pages, so
+  `examples/islands/serve-split.ts` collapsed to a config too.
+- **Startup failures throw** (unlike `build`/`generate`'s `{ success: false }`):
+  there is no result object to report through, and a server that can't build its
+  client should not start. Render-time errors surface per request.
+- **`preview`** (`packages/cli/src/preview.ts`) is `generate` into a temp dir (or
+  `--outdir`) + the static-file handler — the SSG counterpart for "just let me
+  look at it", and what the visual-regression lane boots. Both ship as commands
+  (`kanabun serve [ssr.tsx]` / `kanabun preview [ssg.tsx]`) and as library
+  exports; the default port comes from `$PORT` (then 3000) so entries never read
+  `process.env` themselves.
+
+The examples (`examples/ssr/server.tsx`, `examples/islands/server.tsx`,
+`examples/islands/serve-split.ts`, `examples/ssg/serve.ts`) are now ~10-line
+configs; the runtime-independence demo lives in this layer's own docs instead.
+
 ## Async / Suspense (Phase 6)
 
 `resource` turns an async function into reactive state, and `<Suspense>` shows a

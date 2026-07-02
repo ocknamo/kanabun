@@ -14,26 +14,11 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { renderToString } from "@kanabun/core";
+import { defaultDocument, type DocumentContext } from "./document";
 import { errorMessages } from "./errors";
 import { normalizeBase } from "./paths";
 
-/** Context handed to a custom {@link SSGConfig.document} template. */
-export interface DocumentContext {
-  /** The serialized app markup for this route (place in the mount container). */
-  html: string;
-  /** Collected scoped-CSS `<style>` tags to place in `<head>`. */
-  head: string;
-  /** The route path being rendered (e.g. `"/"`, `"/about/"`). */
-  path: string;
-  /** The `<script>` tag for the client bundle, or `""` when there is no client. */
-  script: string;
-  /**
-   * The normalized public base path (always leading + trailing slash, e.g.
-   * `"/"` or `"/repo/"`). Use it to prefix asset/link URLs in a custom
-   * template when the site is served from a sub-path.
-   */
-  base: string;
-}
+export type { DocumentContext } from "./document";
 
 /** The shape a `generate` entry module default-exports (or exports directly). */
 export interface SSGConfig {
@@ -82,18 +67,6 @@ export interface GenerateResult {
 function routeToFile(path: string): string {
   const trimmed = path.replace(/^\/+|\/+$/g, "");
   return trimmed === "" ? "index.html" : join(trimmed, "index.html");
-}
-
-/** The built-in HTML document used when the config supplies no `document`. */
-function defaultDocument(ctx: DocumentContext, title: string): string {
-  return (
-    `<!doctype html>\n<html lang="en">\n<head>\n` +
-    `<meta charset="utf-8" />\n` +
-    `<meta name="viewport" content="width=device-width, initial-scale=1" />\n` +
-    `<title>${title}</title>\n${ctx.head}\n` +
-    `</head>\n<body>\n<div id="app">${ctx.html}</div>\n${ctx.script}\n` +
-    `</body>\n</html>\n`
-  );
 }
 
 /**

@@ -11,9 +11,10 @@
  */
 import { realpathSync, watch } from "node:fs";
 import { realpath } from "node:fs/promises";
-import { dirname, extname, join, resolve, sep } from "node:path";
+import { dirname, extname, resolve, sep } from "node:path";
 import type { ServerWebSocket } from "bun";
 import { errorMessages } from "./errors";
+import { resolveWithin } from "./paths";
 
 const LIVE_RELOAD_PATH = "/__kanabun_livereload";
 const MODULE_RE = /\.(tsx|ts|jsx|js)$/;
@@ -286,13 +287,13 @@ export function createDevHandler(
 
     if (pathname === "/" || pathname === "/index.html") return serveHtml();
 
-    const filePath = join(root, pathname);
     // Two containment checks must both pass:
-    //  1. lexical — blocks `..` (incl. `%2e%2e%2f`, which decodeURIComponent
-    //     turns back into `../`).
+    //  1. lexical (resolveWithin) — blocks `..` (incl. `%2e%2e%2f`, which
+    //     decodeURIComponent turns back into `../`).
     //  2. real path — blocks a symlink *inside* root pointing outside it
     //     (which would otherwise be followed by Bun.file / Bun.build).
-    if (escapesRoot(resolve(filePath))) return notFound();
+    const filePath = resolveWithin(root, pathname);
+    if (filePath === undefined) return notFound();
     try {
       if (escapesRoot(await realpath(filePath))) return notFound();
     } catch {

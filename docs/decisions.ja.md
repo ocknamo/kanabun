@@ -527,6 +527,43 @@ SSG  = ビルド時に renderToString し、.html に書き出す(+任意で hyd
 これも同じ基準 ── 依存ゼロ・`packages/core` はランタイム非依存・全ソース カバレッジ 100%・
 `tsc` クリーン・ドキュメントはバイリンガル。
 
+### `serve` / `preview` ── SSR の serve 層(Phase 6 follow-up)
+
+しばらくの間、SSR は SSG と非対称だった: `generate` は SSG に config + コマンドを与えたが、
+SSR のエントリは毎回 `Bun.serve` + `Bun.build` + HTML シェル + `process.env.PORT` の
+約 55 行を手書きしていた(リポジトリには HTML シェルのコピーが 4 つ、トラバーサルガード付き
+静的配信ループが 3 つ育っていた)。サンプルは「Bun 依存コードは core の外」という設計主張の
+デモを兼ねていたが、それはデモ 1 つで足りる話で、全ユーザーが書き直すボイラープレート 4 部の
+理由にはならない。解決は `generate` の決定を対称に適用すること:
+
+- **SSR config は SSG config を鏡写しにする。** `serve(config)` /
+  `createSSRHandler(config)`(`packages/cli/src/serve.ts`)は `{ render(path),
+  client?, islands?, title?, base?, document? }` を取る ── `SSGConfig` から
+  `routes` を除き(サーバーは来たパスをそのまま描画する)、`islands` を足した形。
+  メンタルモデルは共通: SSG は `render` をビルド時に、SSR はリクエストごとに走らせる。
+- **ドキュメントテンプレートは 1 つ。** 組み込みの HTML シェルは
+  `packages/cli/src/document.ts`(`DocumentContext` + `defaultDocument`)へ移し、
+  `generate` と `serve` で共有 ── prerender されたページとリクエスト描画のページが同一になる。
+  静的配信の封じ込めも `paths.ts` の `resolveWithin` 1 つに集約し、手書きガード 3 実装
+  (dev / SSG プレビュー / islands プレビュー)を置き換えた。
+- **`client` は起動時に一度だけバンドル**(メモリ保持)── 旧サンプルはリクエストごとに
+  `Bun.build` を走らせていた。代わりに `islands` マップを渡すとアイランド単位のチャンク
+  (`buildIslands`)を temp dir にビルドしてページと並べて配信するので、
+  `examples/islands/serve-split.ts` も config に畳めた。
+- **起動時の失敗は throw する**(`build`/`generate` の `{ success: false }` と違い):
+  報告先の結果オブジェクトが無く、クライアントをビルドできないサーバーは起動すべきでない。
+  描画時のエラーはリクエスト単位で表面化する。
+- **`preview`**(`packages/cli/src/preview.ts`)は temp dir(または `--outdir`)への
+  `generate` + 静的配信ハンドラ ──「とにかく見たい」に応える SSG 側の対で、
+  ビジュアルリグレッションレーンが起動するのもこれ。どちらもコマンド
+  (`kanabun serve [ssr.tsx]` / `kanabun preview [ssg.tsx]`)とライブラリ export の
+  両方で提供する。既定ポートは `$PORT`(無ければ 3000)なので、エントリが自分で
+  `process.env` を読むことはない。
+
+サンプル(`examples/ssr/server.tsx`・`examples/islands/server.tsx`・
+`examples/islands/serve-split.ts`・`examples/ssg/serve.ts`)は約 10 行の config になった。
+ランタイム非依存性のデモはこの層自身のドキュメントが引き受ける。
+
 ## 非同期 / Suspense(Phase 6)
 
 `resource` は非同期関数をリアクティブな状態に変え、`<Suspense>` はそのロード中に

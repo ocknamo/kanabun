@@ -15,7 +15,7 @@ see [`decisions.md`](./decisions.md).
 | 3 | Control flow: `<Show>`, `<For>` (keyed); **TodoMVC runs** | ✅ done |
 | 4 | Component model & DX | ✅ done — `onMount`, `mergeProps`, `splitProps`, scoped `css`, `context` |
 | 5 | Bun integration: `create` / `dev` / `build` CLI | ✅ done |
-| 6 | Hardening & ecosystem (router, SSR, etc.) | 🟡 in progress — **router + error boundaries + dev-time warnings + SSR/hydration + async (`resource`/`<Suspense>`) + SSG (`kanabun generate`) + CSS HMR done**; rest optional |
+| 6 | Hardening & ecosystem (router, SSR, etc.) | 🟡 in progress — **router + error boundaries + dev-time warnings + SSR/hydration + async (`resource`/`<Suspense>`) + SSG (`kanabun generate`) + SSR serve layer (`kanabun serve` / `preview`) + CSS HMR done**; rest optional |
 | 7 | Islands / partial hydration + ecosystem primitives (`lazy`, `<Portal>`, `<Dynamic>`, head API) + authoring tooling (`kanabun lint`, dev overlay) | 🟡 in progress — **ecosystem primitives (`lazy`, `<Portal>`, `<Dynamic>`, `<Head>`/`<Title>`) + islands core (`<Island>` / `registerIsland` / `hydrateIslands`) + per-island bundle split (CLI `buildIslands` + `hydrateIslandsLazy`) + dev overlay + in-house linter (`kanabun lint`) done**. Design memos: [`decisions.md`](./decisions.md#islands--partial-hydration-phase-7--design-memo) (islands), [`decisions.md`](./decisions.md#dev-overlay-phase-7) (overlay), [`dx.md`](./dx.md#4-an-in-house-linter-kanabun-lint) (linter) |
 | 8 | Heavyweight ecosystem: SSR streaming (`renderToStream`), reactive store (`createStore`), `@kanabun/testing` | 🔜 planned — deferred from Phase 7 (larger subsystems) |
 
@@ -77,6 +77,19 @@ clean, docs bilingual.
   `getStaticPaths` for dynamic params + build-time data baking are follow-ups).
   Runnable demo: `examples/ssg`. See
   [`decisions.md`](./decisions.md#kanabun-generate--the-ssg-command).
+- [x] **SSR serve layer (`kanabun serve` / `kanabun preview`).** Done (follow-up
+  to SSR + SSG) — `serve(config)` / `createSSRHandler` (`packages/cli/src/serve.ts`)
+  take an SSR config mirroring the SSG one (`{ render(path), client?, islands?,
+  title?, base?, document? }`) and own the Bun plumbing the examples used to
+  hand-roll: client bundled once at startup (or per-island chunks via
+  `buildIslands` with `islands`), the shared HTML document
+  (`packages/cli/src/document.ts`, also used by `generate`), and
+  containment-guarded static serving (`resolveWithin` in `paths.ts`, shared with
+  the dev server). `preview` (`packages/cli/src/preview.ts`) = `generate` to a
+  temp dir + static serving. The four example harnesses
+  (`ssr/server.tsx`, `islands/server.tsx`, `islands/serve-split.ts`,
+  `ssg/serve.ts`) are now ~10-line configs. See
+  [`decisions.md`](./decisions.md#serve--preview--the-ssr-serve-layer-phase-6-follow-up).
 - [x] **CSS hot-replacement (HMR)** in the dev server. Done — a `.css` change is
   hot-swapped (the dev server pushes a targeted `css:<path>` message and the
   client re-fetches just the matching `<link rel="stylesheet">` in place, so all
