@@ -161,6 +161,63 @@ describe("run", () => {
     }
   });
 
+  test("serve starts an SSR server from a config module", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "kanabun-serve-fix-"));
+    try {
+      await writeFile(
+        join(dir, "ssr.ts"),
+        `export default { render: (p) => "cli serve " + p, title: "cli" };\n`,
+      );
+      let server;
+      const out = await capture(async () => {
+        server = await run(["serve", join(dir, "ssr.ts"), "--port", "0"]);
+      });
+      try {
+        expect(out).toContain("kanabun serve running at");
+        expect(server!.port).toBeGreaterThan(0);
+        const page = await (await fetch(`${server!.url}x`)).text();
+        expect(page).toContain("cli serve /x");
+      } finally {
+        server!.stop();
+      }
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("preview builds the SSG entry and serves it", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "kanabun-run-preview-"));
+    try {
+      let server;
+      const out = await capture(async () => {
+        server = await run([
+          "preview",
+          resolve(root, "examples/ssg/ssg.tsx"),
+          "--outdir",
+          join(dir, "site"),
+          "--port",
+          "0",
+          "--no-minify",
+        ]);
+      });
+      try {
+        expect(out).toContain("kanabun preview running at");
+        const index = await (await fetch(server!.url)).text();
+        expect(index).toContain("<title>kanabun SSG</title>");
+      } finally {
+        server!.stop();
+      }
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("serve rejects an invalid --port before importing anything", async () => {
+    await expect(run(["serve", "whatever.ts", "--port", "nope"])).rejects.toThrow(
+      /invalid --port/,
+    );
+  });
+
   test("dev rejects an invalid --port (non-numeric or out of range)", async () => {
     const html = resolve(root, "examples/counter/index.html");
     await expect(run(["dev", html, "--port", "abc"])).rejects.toThrow(/invalid --port/);

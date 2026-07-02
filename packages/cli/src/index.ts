@@ -4,11 +4,14 @@
  * This package is the Bun-dependent layer. It is the only place Bun/Node APIs
  * are used; `@kanabun/core` stays runtime-independent.
  */
+import { dirname, resolve } from "node:path";
 import { build } from "./build";
 import { create } from "./create";
 import { dev, type DevServer } from "./dev";
 import { generate } from "./generate";
 import { formatFindings, lint } from "./lint";
+import { preview } from "./preview";
+import { serve, type SSRConfig, type SSRServer } from "./serve";
 
 export { build } from "./build";
 export { create, templateFiles } from "./create";
@@ -16,17 +19,17 @@ export { dev, createDevHandler } from "./dev";
 export { generate } from "./generate";
 export { buildIslands } from "./islands";
 export { lint, lintSource, formatFindings } from "./lint";
+export { preview } from "./preview";
+export { serve, createSSRHandler } from "./serve";
 export type { BuildOptions, BuildResult } from "./build";
 export type { CreateOptions } from "./create";
 export type { DevOptions, DevServer, DevHandlerOptions } from "./dev";
-export type {
-  GenerateOptions,
-  GenerateResult,
-  SSGConfig,
-  DocumentContext,
-} from "./generate";
+export type { DocumentContext } from "./document";
+export type { GenerateOptions, GenerateResult, SSGConfig } from "./generate";
 export type { BuildIslandsOptions, BuildIslandsResult } from "./islands";
 export type { LintOptions, LintResult, LintFinding } from "./lint";
+export type { PreviewOptions, PreviewServer } from "./preview";
+export type { SSRConfig, ServeOptions, SSRServer } from "./serve";
 
 const VERSION = "0.0.0";
 
@@ -37,13 +40,15 @@ Usage:
   kanabun dev [entry]       start the dev server (default: index.html)
   kanabun build [entry]     bundle for the browser (default: index.html)
   kanabun generate [entry]  prerender to static HTML (default: ssg.tsx)
+  kanabun serve [entry]     start an SSR server (default: ssr.tsx)
+  kanabun preview [entry]   build the SSG output and serve it (default: ssg.tsx)
   kanabun lint [globs...]   check reactive-convention slips (default: **/*.tsx)
 
 Options:
   --outdir <dir>            build output directory (default: dist)
-  --base <path>             public base path for generate (default: /)
+  --base <path>             public base path for generate/serve (default: /)
   --no-minify               disable minification for build
-  --port <n>                dev server port (default: 3000)
+  --port <n>                server port (default: $PORT or 3000)
   -h, --help                show this help
   -v, --version             print the version
 `;
@@ -98,12 +103,23 @@ export function parseArgs(argv: string[]): ParsedArgs {
   return { command, positionals, flags };
 }
 
+/** Parse and validate the `--port` flag; `undefined` when it wasn't given. */
+function portFlag(flags: ParsedArgs["flags"]): number | undefined {
+  const portStr = stringFlag(flags, "port");
+  if (portStr === undefined) return undefined;
+  const port = Number(portStr);
+  if (!Number.isInteger(port) || port < 0 || port > 65535) {
+    throw new Error(`kanabun: invalid --port \`${portStr}\`.`);
+  }
+  return port;
+}
+
 /**
  * Run the CLI for the given argv (without the `bun cli.ts` prefix). Returns the
- * running dev server for `dev` (so it can be stopped), otherwise `undefined`.
- * Throws on user errors; the bin turns that into a non-zero exit.
+ * running server for `dev`/`serve`/`preview` (so it can be stopped), otherwise
+ * `undefined`. Throws on user errors; the bin turns that into a non-zero exit.
  */
-export async function run(argv: string[]): Promise<DevServer | undefined> {
+export async function run(argv: string[]): Promise<DevServer | SSRServer | undefined> {
   const { command, positionals, flags } = parseArgs(argv);
 
   if (flags.version === true || flags.v === true || command === "version") {
@@ -176,17 +192,34 @@ export async function run(argv: string[]): Promise<DevServer | undefined> {
       console.log("No lint problems found.");
       return undefined;
     }
+    case "serve": {
+      const port = portFlag(flags); // validate before importing the config
+      const entry = resolve(positionals[0] ?? "ssr.tsx");
+      const mod = (await import(entry)) as { default?: SSRConfig };
+      const config = (mod.default ?? (mod as unknown as SSRConfig)) as SSRConfig;
+      const server = await serve(config, {
+        dir: dirname(entry),
+        port,
+        minify: flags["no-minify"] !== true,
+        base: stringFlag(flags, "base"),
+      });
+      console.log(`kanabun serve running at ${server.url}`);
+      return server;
+    }
+    case "preview": {
+      const server = await preview({
+        entry: positionals[0] ?? "ssg.tsx",
+        outdir: stringFlag(flags, "outdir"),
+        port: portFlag(flags),
+        minify: flags["no-minify"] !== true,
+        base: stringFlag(flags, "base"),
+      });
+      console.log(`kanabun preview running at ${server.url} (built to ${server.outdir})`);
+      return server;
+    }
     case "dev": {
       const entry = positionals[0] ?? "index.html";
-      let port = 3000;
-      const portStr = stringFlag(flags, "port");
-      if (portStr !== undefined) {
-        port = Number(portStr);
-        if (!Number.isInteger(port) || port < 0 || port > 65535) {
-          throw new Error(`kanabun: invalid --port \`${portStr}\`.`);
-        }
-      }
-      const server = dev({ entry, port });
+      const server = dev({ entry, port: portFlag(flags) });
       console.log(`kanabun dev running at ${server.url}`);
       return server;
     }

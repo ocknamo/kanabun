@@ -343,17 +343,23 @@ not subscribed; `onMount` does not fire), and returns the markup plus the
 scoped-CSS to inline in `<head>`.
 
 ```tsx
-// server (or a build-time prerender)
-import { renderToString } from "@kanabun/core";
-const { html, head } = renderToString(() => <App />);
-const page = `<!doctype html><html><head>${head}</head>` +
-             `<body><div id="app">${html}</div>` +
-             `<script type="module" src="/main.js"></script></body></html>`;
+// server (server.tsx) — the CLI owns the Bun plumbing: it bundles the client,
+// wraps each render in the shared HTML document, and serves both.
+import { serve } from "@kanabun/cli";
+await serve(
+  { render: () => <App />, client: "./main.tsx", title: "my app" },
+  { dir: import.meta.dir },
+);
 
 // client (main.tsx)
 import { hydrate } from "@kanabun/core";
 hydrate(() => <App />, document.getElementById("app")!);
 ```
+
+(`renderToString` is also usable directly — `const { html, head } =
+renderToString(() => <App />)` — when you want to own the server; `serve` is
+that plumbing packaged: the same config shape as SSG, an `islands` option for
+per-island code splitting, and a `document` override for custom HTML shells.)
 
 **SSG is the same `renderToString`, run at build time** and written to `.html`
 files instead of returned per request — shipped as the **`kanabun generate`**
@@ -375,6 +381,8 @@ kanabun create my-app     # scaffold a new project
 kanabun dev               # dev server for ./index.html, full reload on change
 kanabun build             # bundle ./index.html to ./dist for the browser
 kanabun generate ssg.tsx  # prerender routes to static .html (SSG)
+kanabun serve ssr.tsx     # SSR server (render per request + client bundle)
+kanabun preview ssg.tsx   # build the SSG output and serve it statically
 ```
 
 `dev` serves the HTML entry, bundles TS/TSX on the fly, and live-reloads over a
@@ -388,6 +396,17 @@ referenced from every page so the static HTML hydrates into a live app; without
 it the output is static-only. `base` (or `--base`, e.g. `/repo/`) prefixes the
 client `<script>` src so the output deploys under a sub-path (GitHub Pages). See
 [`examples/ssg/`](examples/ssg/).
+
+`serve` is the SSR counterpart: the same config shape minus `routes` (`{
+render(path), client?, islands?, title?, base?, document? }`), rendered per
+request instead of at build time. The client entry is bundled once at startup
+and served next to the pages; an `islands` map (name → entry) swaps it for
+per-island chunks via `buildIslands`, so a page only downloads the islands it
+contains. `preview` runs `generate` into a temp dir (or `--outdir`) and serves
+the result statically — the shape a static deploy would have. Both are also
+importable (`serve(config, opts)` / `preview(opts)` / `createSSRHandler` for
+embedding the fetch handler); see [`examples/ssr/`](examples/ssr/) and
+[`examples/islands/`](examples/islands/).
 
 ---
 
@@ -496,6 +515,9 @@ function UsersLayout() {
 | `buildIslands(opts)` | Per-island code split + a lazy bootstrap; returns `{ success, script, outputs, logs }`. |
 | `dev(opts)` | Start the dev server; returns `{ url, port, stop() }`. |
 | `createDevHandler(opts)` | The dev `fetch` handler, for embedding/testing. |
+| `serve(config, opts?)` | Start an SSR server (render per request, client/islands bundled once); returns `{ url, port, stop() }`. |
+| `createSSRHandler(config, opts?)` | The SSR `fetch` handler, for embedding/testing. |
+| `preview(opts)` | Build the SSG output and serve it statically; returns `{ url, port, outdir, stop() }`. |
 | `create(name, opts?)` / `templateFiles(name)` | Scaffold a project / get its files. |
 | `parseArgs(argv)` / `run(argv)` | Parse and dispatch CLI arguments. |
 
@@ -597,7 +619,7 @@ packages/
       jsx-runtime.ts      jsx/jsxs/Fragment + JSX type namespace
       jsx-dev-runtime.ts  dev transform entry
   cli/         @kanabun/cli — the `kanabun` command (Bun-only layer)
-    src/        build.ts, generate.ts, islands.ts, create.ts, dev.ts, index.ts (argv + dispatch)
+    src/        build.ts, generate.ts, serve.ts, preview.ts, islands.ts, document.ts, create.ts, dev.ts, index.ts (argv + dispatch)
     bin/        kanabun.ts
   router/      @kanabun/router — history-based router (runtime-independent)
     src/        location.ts (parse/match), source.ts (history sources), router.ts (components + hooks)

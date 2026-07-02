@@ -15,7 +15,7 @@
 | 3 | 制御構文: `<Show>`、`<For>`(keyed); **TodoMVC 稼働** | ✅ 完了 |
 | 4 | コンポーネントモデルと DX | ✅ 完了 — `onMount`/`mergeProps`/`splitProps`/スコープド `css`/`context` |
 | 5 | Bun 連携: `create` / `dev` / `build` CLI | ✅ 完了 |
-| 6 | 堅牢化・周辺(ルーター、SSR 等) | 🟡 進行中 — **ルーター + エラーバウンダリ + 開発時警告 + SSR/ハイドレーション + 非同期(`resource`/`<Suspense>`)+ SSG(`kanabun generate`)+ CSS HMR 完了**;残りは任意 |
+| 6 | 堅牢化・周辺(ルーター、SSR 等) | 🟡 進行中 — **ルーター + エラーバウンダリ + 開発時警告 + SSR/ハイドレーション + 非同期(`resource`/`<Suspense>`)+ SSG(`kanabun generate`)+ SSR serve 層(`kanabun serve` / `preview`)+ CSS HMR 完了**;残りは任意 |
 | 7 | アイランド / 部分ハイドレーション + エコシステムプリミティブ(`lazy`・`<Portal>`・`<Dynamic>`・head API)+ 作成支援ツール(`kanabun lint`・dev オーバーレイ) | 🟡 進行中 — **エコシステムプリミティブ(`lazy`・`<Portal>`・`<Dynamic>`・`<Head>`/`<Title>`)+ アイランドのコア(`<Island>`・`registerIsland`・`hydrateIslands`)+ アイランド単位のバンドル分割(CLI `buildIslands` + `hydrateIslandsLazy`)+ dev オーバーレイ + 自前 linter(`kanabun lint`)完了**。設計メモ: [`decisions.ja.md`](./decisions.ja.md#アイランド--部分ハイドレーションphase-7--設計メモ)(アイランド)、[`decisions.ja.md`](./decisions.ja.md#dev-オーバーレイphase-7)(オーバーレイ)、[`dx.ja.md`](./dx.ja.md#4-自前-linterkanabun-lint)(linter) |
 | 8 | 重量級エコシステム: SSR ストリーミング(`renderToStream`)、リアクティブ store(`createStore`)、`@kanabun/testing` | 🔜 計画 — Phase 7 から先送り(大きめのサブシステム) |
 
@@ -71,6 +71,17 @@
   配列(router 連動の列挙・動的パラメータ向け `getStaticPaths`・ビルド時データ焼き込みは
   follow-up)。動く例は `examples/ssg`。
   [`decisions.md`](./decisions.md#kanabun-generate--ssg-コマンド) 参照。
+- [x] **SSR の serve 層(`kanabun serve` / `kanabun preview`)。** 完了(SSR + SSG の
+  follow-up)── `serve(config)` / `createSSRHandler`(`packages/cli/src/serve.ts`)が
+  SSG config を鏡写しにした SSR config(`{ render(path), client?, islands?, title?,
+  base?, document? }`)を取り、サンプルが手書きしていた Bun 配管を引き受ける: クライアントは
+  起動時に一度だけバンドル(`islands` を渡すと `buildIslands` によるアイランド単位チャンク)、
+  HTML ドキュメントは `generate` と共有(`packages/cli/src/document.ts`)、静的配信の
+  封じ込めは `paths.ts` の `resolveWithin`(dev サーバとも共有)。`preview`
+  (`packages/cli/src/preview.ts`)= temp dir への `generate` + 静的配信。サンプルの
+  ハーネス 4 つ(`ssr/server.tsx`・`islands/server.tsx`・`islands/serve-split.ts`・
+  `ssg/serve.ts`)は約 10 行の config になった。
+  [`decisions.ja.md`](./decisions.ja.md#serve--preview--ssr-の-serve-層phase-6-follow-up) 参照。
 - [x] **CSS ホットリプレース(HMR)。** 完了 ── `.css` の変更はホットスワップ(dev サーバが
   ターゲットメッセージ `css:<path>` を送り、クライアントが該当する `<link rel="stylesheet">`
   だけをその場で再フェッチ ── アプリの状態は全て保持される。一致するスタイルシートが無ければ
