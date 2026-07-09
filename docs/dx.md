@@ -104,6 +104,13 @@ Backstops:
 
 ## 4. An in-house linter (`kanabun lint`)
 
+> ⚠️ **Paused on TypeScript 7.** TS 7 (the native port) removed the in-process
+> `import("typescript")` parser this rule relied on, so `kanabun lint` currently
+> reports itself unavailable (a non-zero exit, never a false clean pass) instead
+> of running. The public surface is preserved so the native-API port is a
+> drop-in — see the "Parser" bullet and "TS 7 outlook" below. The rest of this
+> section describes the intended behaviour, which returns with that port.
+
 The `{count()}` slip is exactly the kind of thing **static analysis** can catch
 that runtime checks can't — it needs to see the *source* (`count` is a signal,
 and it's being called in a reactive position) before the call collapses to a
@@ -123,8 +130,12 @@ kanabun lint "src/**/*.tsx"  # explicit globs
 
 It flags the reactive-position call (`{count()}` → suggests `{count}` /
 `{() => …}`), reporting `file:line:col  rule  message` and exiting non-zero on
-findings (a CI gate). Like `build`/`generate` it never throws — an internal
-failure comes back as a logged error, not a crash.
+findings (a CI gate). The `lint()` / `lintSource()` API mirrors `build`/`generate`:
+`lint()` never throws — an internal failure (including the TS 7 pause) comes back
+as `success: false` with a logged reason, not a crash — while the `kanabun lint`
+CLI command turns any non-success into a non-zero exit. (While paused, that
+non-success is the "unavailable on TS 7" notice, so the command always exits
+non-zero until the rule is ported.)
 
 ### Implementation
 

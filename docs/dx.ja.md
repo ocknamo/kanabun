@@ -93,6 +93,12 @@ setDev(true); // または kanabun dev に任せる
 
 ## 4. 自前 linter(`kanabun lint`)
 
+> ⚠️ **TypeScript 7 で一時停止。** TS 7(ネイティブ移植版)がこのルールの使う in-process の
+> `import("typescript")` パーサを廃止したため、`kanabun lint` は現在、実行の代わりに利用不可を
+> 報告する(非ゼロ終了。誤った clean 判定はしない)。公開面は温存しネイティブ API 移植は
+> drop-in ── 後述の「パーサ」bullet と「TS 7 の見通し」を参照。以降はその移植で復帰する
+> 本来の挙動の説明。
+
 `{count()}` の取り違えは、まさに **静的解析** なら捕まえられてランタイム検査では無理な類の
 ものです ── 呼び出しが値に潰れる前に *ソース*(`count` はシグナルで、リアクティブな位置で
 呼ばれている)を見る必要があるからです。そこで kanabun は **第一級の `kanabun lint`** を出荷
@@ -109,8 +115,11 @@ kanabun lint "src/**/*.tsx"  # glob を明示
 ```
 
 リアクティブ位置での呼び出し(`{count()}` → `{count}` / `{() => …}` を提案)を指摘し、
-`file:line:col  rule  message` を報告して検出時は非ゼロ終了(CI ゲート)。`build`/`generate`
-同様 never-throw ── 内部失敗はクラッシュせずログとして返ります。
+`file:line:col  rule  message` を報告して検出時は非ゼロ終了(CI ゲート)。`lint()` /
+`lintSource()` の API は `build`/`generate` に倣い、`lint()` は never-throw ── 内部失敗
+(TS 7 の一時停止を含む)はクラッシュせず `success: false` とログ理由で返る。一方 `kanabun lint`
+CLI コマンドは非 success をすべて非ゼロ終了に変える。(一時停止中はその非 success が
+「TS 7 で利用不可」通知なので、移植までコマンドは常に非ゼロ終了する。)
 
 ### 実装
 
