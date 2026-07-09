@@ -185,6 +185,12 @@ boundaries in [`decisions.md`](./decisions.md#islands--partial-hydration-phase-7
   `TypeChecker`) is a documented follow-up. Opt-in, dev-only authoring tooling,
   *not* a runtime compiler. See
   [`dx.md`](./dx.md#4-an-in-house-linter-kanabun-lint).
+  - ⚠️ **Paused on TypeScript 7.** TS 7 (native) removed the in-process
+    `import("typescript")` parser the rule used, so `kanabun lint` reports itself
+    unavailable (never a false clean pass) until it is ported to the native
+    server API (`typescript/unstable/sync`). The public surface is preserved so
+    the port is a drop-in; migration plan in
+    [`dx.md`](./dx.md#4-an-in-house-linter-kanabun-lint) ("TS 7 outlook").
 - [x] **Dev overlay.** Done — `kanabun dev` surfaces problems on-screen, not just
   in the console: a panel pinned to the bottom of the viewport collects dev
   warnings, uncaught errors, and unhandled promise rejections (count badge +

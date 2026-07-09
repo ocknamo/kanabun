@@ -134,9 +134,13 @@ Phase 6 のルーター・**ネストルーティング**・**相対 `<Link>` hr
   - **`join(root, "/")` は末尾セパレータを保持する**(`/srv/site/`)── `resolveWithin` の戻り値の同値比較に注意。
   - シェルの後始末に `pkill -f <パターン>` を使わない ── パターンが自分のコマンドラインにも一致して**自分ごと殺される**(exit 144)。PID を控えて `kill $PID`、または `lsof -ti tcp:<port>`。
 - **ツールチェーン固定(今セッション)**:
-  - **dev 依存は2つになった** ── `@types/bun`(`1.3.14`)に加え `typescript`(`6.0.2`)を固定版で `package.json` に追加。従来の `bunx tsc` オンデマンド取得(最新へ浮動)をやめ、再現性を確保。`bunx tsc` はローカル固定版を解決する。`bun.lock` も更新済み。ランタイムは依然ゼロ依存(これは dev 時のみの選択)。§1 や旧記述の「dev は `@types/bun` のみ」は古い。
-  - **Bun は `.bun-version`(`1.3.11`)で固定**。⚠️ `oven-sh/setup-bun@v2` は **`.bun-version` を自動では読まない** ── `bun-version-file: ".bun-version"` の明示指定が必須(これを忘れると `latest` に浮動する。前回ここを踏んだ)。CI 3 ジョブとも明示済み。
-  - **⚠️ `typecheck-next` ジョブは required status check に登録しないこと**。TS7 ネイティブ版(tsgo, `@typescript/native-preview`)の非ブロッキング canary(`continue-on-error: true`)。`continue-on-error` はワークフロー結論をブロックしないが、ブランチ保護の required checks に個別ジョブ名を入れるとセマンティクスが崩れる。本線は `verify`(固定 6.0.2)が真実。tsgo は `npx -y -p` で ad-hoc 実行=`package.json`/`bun.lock` を汚さない・preview は意図的に未ピン(upstream 追跡)。
+  - **dev 依存は2つ** ── `@types/bun`(`1.3.14`)に加え `typescript` を固定版で `package.json` に。従来の `bunx tsc` オンデマンド取得(最新へ浮動)をやめ、再現性を確保。`bunx tsc` はローカル固定版を解決する。`bun.lock` も更新済み。ランタイムは依然ゼロ依存(これは dev 時のみの選択)。§1 や旧記述の「dev は `@types/bun` のみ」は古い。
+  - **Bun は `.bun-version`(`1.3.11`)で固定**。⚠️ `oven-sh/setup-bun@v2` は **`.bun-version` を自動では読まない** ── `bun-version-file: ".bun-version"` の明示指定が必須(これを忘れると `latest` に浮動する。前回ここを踏んだ)。CI は明示済み。
+- **TypeScript 7 へアップデート(今セッション)**:
+  - **`typescript` を `6.0.2` → `7.0.2`(ネイティブ移植版が本体パッケージで GA)**。`package.json` / `bun.lock` 更新済み。プラットフォーム別バイナリを依存に持ち `type: module`、bin は `tsc` のみ(`tsserver` は消えた)。コア/CLI/router は `bunx tsc --noEmit`(高速)・全テスト・example ビルドとも緑。
+  - **⚠️ TS 7 は in-process の `import("typescript")` コンパイラ API を廃止した**。パーサはネイティブバイナリ内で、起動するサーバー API(`typescript/unstable/sync`)経由でしか使えない。AST の型/ガードは `typescript/unstable/ast(/is)` 配下、ノードのメソッド(`forEachChild`・`getStart`・`getLineAndCharacterOfPosition`)は残る。in-process の `createSourceFile` はもう無い。
+  - **`kanabun lint` は一時停止(移行保留、ユーザー承認済み)**。in-process パーサ前提の `reactive-call-in-jsx` が TS 7 で壊れるため、`lint()` は内部失敗(`LINT_UNAVAILABLE_ON_TS7` を logs に返し、誤 clean 判定はしない)、`lintSource()` は同メッセージで throw、CLI は「lint could not run」で非ゼロ終了。公開面(`lint`/`lintSource`/`formatFindings` と結果型)は温存し移植は drop-in。⚠️ **本環境ではサーバー API(tsgo 起動)が hang** したため、サーバー API 移植は動作検証できず未着手。移植方針は `docs/dx.md` §4「TS 7 の見通し」に記載(走査ロジックは不変、`SourceFile` 取得とガード呼び出しの差し替えのみ。代償は `lint` がサブプロセスを抱える点)。
+  - **非ブロッキング `typecheck-next` canary(`@typescript/native-preview` tsgo)は削除**。役目(GA へ向かう乖離の早期検知)は本線 `verify` が TS 7 を回すことで達成。CI は `verify` と `visual` の 2 ジョブに。
 
 ## 5. 主要ファイル早見
 

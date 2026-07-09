@@ -140,31 +140,3 @@ jobs:
             test-results/
             test-results-e2e/
           if-no-files-found: warn
-
-  # Experimental early-warning canary — never gates the build (continue-on-error).
-  # Typechecks with the TypeScript 7 native preview (tsgo) so we see divergence
-  # from the pinned typescript@6.0.2 (the source of truth in the `verify` job)
-  # as the native port heads to GA. tsgo is run ad-hoc via npx so package.json /
-  # bun.lock stay untouched; the preview is intentionally unpinned to track
-  # upstream. See docs/dx.md — v7 matters most for the future semantic linter.
-  typecheck-next:
-    name: Typecheck (TS7 native preview, non-blocking)
-    runs-on: ubuntu-latest
-    continue-on-error: true
-    steps:
-      - uses: actions/checkout@v4
-
-      # Version pinned via `.bun-version`, passed with bun-version-file.
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version-file: ".bun-version"
-
-      # Brings in @types/bun so the native compiler can resolve the type surface.
-      - name: Install (dev toolchain only)
-        run: bun install --frozen-lockfile
-
-      # tsgo ships as a bin inside @typescript/native-preview; npx -p fetches it
-      # on demand without writing it to the manifest.
-      - name: Typecheck with tsgo
-        run: npx -y -p @typescript/native-preview tsgo --noEmit

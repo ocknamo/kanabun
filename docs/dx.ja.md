@@ -118,10 +118,17 @@ kanabun lint "src/**/*.tsx"  # glob を明示
   ファイルを列挙(`Bun.Glob`、`node_modules` は除外)し、`lintSource(source, file)` が TSX
   文字列を 1 本解析する ── 後者は export してあり、ルールはファイルシステム無しでフィクスチャ
   文字列から単体テストできる。診断の作法は `packages/cli/src/errors.ts` に倣う。
-- **パーサ。** TypeScript コンパイラ API を、素の `import("typescript")` で取得 ──
-  プロジェクトの固定版 `typescript` dev 依存に解決されるため、auto-install 頼みの賭けが
-  不要で、「TS は固定版の dev 依存」とも整合します(ランタイムには何も足さない)。各ファイルは
-  `ts.createSourceFile(…, ScriptKind.TSX)` でパース。
+- **パーサ(⚠️ TypeScript 7 で一時停止)。** ルールは元々、各ファイルを **in-process** で
+  TypeScript コンパイラ API(素の `import("typescript")` で固定版 `typescript` dev 依存に
+  解決、`ts.createSourceFile(…, ScriptKind.TSX)`)によりパースしていた ── auto-install 頼みが
+  不要で「TS は固定版の dev 依存」とも整合し、ランタイムには何も足さない。**TypeScript 7
+  (ネイティブ移植版)はその in-process API を廃止した**:パーサはネイティブバイナリ内にあり、
+  起動するサーバー API(`typescript/unstable/sync`)経由でしか使えず、AST の型/ガードは
+  `typescript/unstable/ast` 配下に分割された ── in-process の `createSourceFile` はもう無い。
+  そこで TS 7 へのツールチェーン更新に合わせ linter は **一時停止**:`lint()` は内部失敗を
+  返し(誤った clean 判定は決してしない)、`lintSource()` は説明付きで throw する。一方で公開面
+  (`lint` / `lintSource` / `formatFindings` と結果型)は温存し、移植を drop-in に保つ。移植は
+  後述「TS 7 の見通し」を参照。
 - **目玉ルール `reactive-call-in-jsx`。** 各 JSX 子 / `on*` 以外の属性を走査し、その
   リアクティブ位置の式から、accessor 風の識別子・メンバアクセスを callee に持つ引数なし
   呼び出し(`count()`、`store.sig()`)を指摘。ネストしたアロー/関数の部分木はスキップ(既に
@@ -137,15 +144,19 @@ kanabun lint "src/**/*.tsx"  # glob を明示
     誤検知ほぼゼロ)は記録済みの follow-up。
 - **後続ルール。** `static-thunk`(シグナルを読まない `() => …` の子/属性 ── 無駄に遅延)と
   `on-handler-not-a-function`(§1 の `on*` 型付けで概ね吸収済み。素の JS 利用者向けに残す)。
-- **テスト。** フィクスチャ文字列をパースして検出を assert。リポジトリの 100% カバレッジ基準を
-  維持。新たなランタイム依存は増やさない。
-- **TS 7(ネイティブ `tsgo`)の見通し。** 効くのはセマンティックモード。`ts.createProgram` +
-  `TypeChecker` を駆動する=Go ネイティブ版が約10倍速にするチェッカー処理そのもので、
-  恩恵は本リポジトリではなく *利用者のコードベース規模* に比例する。シンタクティックモード
-  (AST のみ)はほぼ効かない ── パースは元々ボトルネックでなく対象ノードも少量。注意点:
-  この高速化を取りに行けるかは、ネイティブ移植版が in-process のコンパイラ API を提供する
-  かどうか次第。プレビューは `import("typescript")` ではなく API サーバー / LSP 寄りの方向。
-  よって **セマンティック** 改良を実装する際は、いまの固定 TS 6 を無理に使うのではなく、
-  ネイティブ API が安定してからその上に作る(今のシンタクティックルールはパーサのみ使用)。
-  差分を早期検知するため、非ブロッキングの `typecheck-next` CI
-  ジョブ(`@typescript/native-preview`)が既に tsgo を追跡している。
+- **テスト。** 一時停止中は「TS 7 で利用不可」の契約(`lint()` は説明付きで失敗、`lintSource()`
+  は throw)を固定し、パーサ非依存の `formatFindings` は手組みの findings で網羅 ── リポジトリの
+  カバレッジ基準を維持。ルールのフィクスチャテスト(ソース文字列→パース→検出を assert)は
+  ネイティブ API 移植とともに復帰する。新たなランタイム依存は増やさない。
+- **TS 7(ネイティブ)の見通し ── 移植方針。** TS 7 は先の注意点を現実にした:ネイティブ移植版は
+  **in-process のコンパイラ API を提供しない**。パースはサーバー API(`typescript/unstable/sync`)
+  経由のみ ── `API` を起動し、仮想ファイルシステム(`typescript/unstable/fs`)でソースを渡し、
+  返ってきた `SourceFile` を `typescript/unstable/ast/is` のガードとノードのメソッド
+  (`forEachChild`・`getStart`・`getLineAndCharacterOfPosition` は依然メソッド)で走査する。
+  よって移植は:(1)`ts.createSourceFile` の代わりにサーバー API から `SourceFile` を得る、
+  (2)`ts.isX(...)` のガード呼び出しを `typescript/unstable/ast/is` の関数に差し替える ── の
+  2 点で、走査ロジック自体は不変。代償として `lint` は **サブプロセス**(ネイティブサーバー)を
+  抱える(純 in-process の JS パースからの逸脱)ため、ネイティブ API が安定し Bun 上で検証できて
+  から着地させる。**セマンティックモード**(同じサーバー API の `Checker` で callee の型を解決し
+  `Accessor`/`Signal` だけ指摘 → 誤検知ほぼゼロ)が自然な後続で、Go ネイティブ版が約10倍速に
+  するチェッカー処理そのもの。恩恵は本リポジトリではなく *利用者のコードベース規模* に比例する。

@@ -8,22 +8,25 @@
  * reactive position — `{count()}` where `{count}` (or `{() => …}`) was meant —
  * which silently reads once and stops updating.
  *
- * It reuses the project's pinned `typescript` dev dependency, loaded lazily via
- * a dynamic `import("typescript")` (not a static import) for two reasons:
- *   - TypeScript is heavy (~1s to load), and only `lint` needs it — the other
- *     commands (`build`/`dev`/`create`/`generate`, even `--version`) reach this
- *     module through `index.ts`, so a static import would make every one of them
- *     pay that cost on startup;
- *   - `@kanabun/cli` deliberately does not list `typescript` as a dependency
- *     (it's a root *dev* dependency, not a CLI runtime dep), so the parser is
- *     required only when `lint` actually runs — a published CLI without
- *     TypeScript still runs every other command.
- * Like `build`/`generate`, `lint()` never throws; failures — including a missing
- * `typescript` (see {@link lintSource}) — come back as `logs`.
+ * ## ⚠️ Temporarily disabled on TypeScript 7
+ *
+ * The `reactive-call-in-jsx` rule parsed each TSX source **in-process** with the
+ * TypeScript compiler API, loaded via a plain `import("typescript")`. TypeScript
+ * 7 (the native port) **removed that in-process API**: the parser now lives
+ * inside the native binary and is reachable only through a spawned server API
+ * (`typescript/unstable/sync`), with the AST types/guards split out under
+ * `typescript/unstable/ast`. There is no in-process `createSourceFile` any more.
+ *
+ * Rather than force a subprocess-based rewrite in as part of the TS 7 toolchain
+ * bump, the linter is **paused**: `lint()` reports it as an internal failure
+ * (never a false "clean" pass) and `lintSource()` throws the same explanation.
+ * The public surface (`lint` / `lintSource` / `formatFindings` and the result
+ * types) is preserved so the port is a drop-in. The full rule algorithm remains
+ * specified in `docs/dx.md` §4 and recoverable from git history.
+ *
+ * Follow-up: re-implement the walk on `typescript/unstable/ast` + the native
+ * server API once that has stabilised (tracked in `docs/dx.md` / `roadmap.md`).
  */
-import { relative, resolve } from "node:path";
-import type * as TS from "typescript";
-import { errorMessages } from "./errors";
 
 /** A single lint problem at a source location. */
 export interface LintFinding {
@@ -55,204 +58,46 @@ export interface LintResult {
   logs: string[];
 }
 
-const RULE = "reactive-call-in-jsx";
-
 /**
- * Mirror the DOM runtime's rule (`dom.ts` → `applyProp`): a prop named `on*`
- * (length > 2) is always an event listener, never a reactive thunk — so a call
- * in its value is correct, not a slip. Keeping this identical to the runtime
- * means the linter never flags what the runtime treats as an event.
+ * Why `kanabun lint` currently reports a failure instead of running its rules.
+ * See the module header: TypeScript 7 removed the in-process parser the linter
+ * relied on. Kept as a single constant so `lint`/`lintSource` stay in sync and
+ * tests assert one source of truth.
  */
-function isEventName(name: string): boolean {
-  return name.length > 2 && name[0] === "o" && name[1] === "n";
-}
+export const LINT_UNAVAILABLE_ON_TS7 =
+  '`kanabun lint` is temporarily disabled on TypeScript 7. TS 7 removed the ' +
+  'in-process compiler API (`import("typescript")`) the linter parsed sources ' +
+  "with; the port to the native server API (`typescript/unstable/sync`) is a " +
+  "tracked follow-up (see docs/dx.md §4). No sources were analyzed.";
 
 /**
- * A callee that looks like a reactive accessor read: a bare identifier
- * (`count`) or a property/element access chain (`store.count`, `obj["sig"]`).
- * Excludes calls whose callee is itself a call (`a()()`) or other shapes, where
- * intent is murkier — keeping false positives down for this syntactic rule.
- */
-function isAccessorLikeCallee(ts: typeof TS, callee: TS.Expression): boolean {
-  return (
-    ts.isIdentifier(callee) ||
-    ts.isPropertyAccessExpression(callee) ||
-    ts.isElementAccessExpression(callee)
-  );
-}
-
-/**
- * True when `error` is the module-resolution failure `import("typescript")`
- * raises when the dev dependency isn't installed. `@kanabun/cli` doesn't depend
- * on TypeScript itself (it's a dev-only dep), so a consumer can genuinely hit
- * this — worth a tailored hint instead of a raw resolver error.
+ * Analyze a single TSX source string and return its findings.
  *
- * Keyed off the `code` (`*MODULE_NOT_FOUND`) plus a `typescript`-specific message
- * — deliberately **not** `instanceof Error`: Bun's `ResolveMessage` does not
- * extend `Error`, so an `instanceof` check would miss the very runtime kanabun
- * targets. Both Bun and Node set the same `code` on a failed dynamic import.
- */
-export function isMissingTypeScript(error: unknown): boolean {
-  if (typeof error !== "object" || error === null) return false;
-  const { code, message } = error as { code?: unknown; message?: unknown };
-  return (
-    typeof code === "string" &&
-    code.includes("MODULE_NOT_FOUND") &&
-    typeof message === "string" &&
-    /Cannot find (package|module) ['"]typescript['"]/.test(message)
-  );
-}
-
-/**
- * Load the pinned `typescript` parser. When it isn't installed, throw a clear
- * "install it" hint rather than leaking the raw resolver error; any other import
- * failure is rethrown untouched. `importer` is injectable so the absent-/failed-
- * load paths are unit-testable without uninstalling TypeScript.
- */
-export async function loadTypeScript(
-  importer: () => Promise<typeof TS> = () => import("typescript"),
-): Promise<typeof TS> {
-  try {
-    return await importer();
-  } catch (error) {
-    if (isMissingTypeScript(error)) {
-      throw new Error(
-        "`kanabun lint` needs the `typescript` dev dependency to parse sources. " +
-          "Install it with `bun add -d typescript`.",
-      );
-    }
-    throw error;
-  }
-}
-
-/**
- * Analyze a single TSX source string and return its findings. Exposed (and used
- * by {@link lint}) so the rule can be unit-tested from fixture strings without
- * touching the filesystem. `fileName` is only used to label findings.
- *
- * Note: unlike {@link lint}, this is not wrapped in the never-throw contract —
- * it rejects if the TypeScript parser can't be loaded (with an install hint when
- * `typescript` is simply absent — see {@link loadTypeScript}). Parsing itself
- * never throws: `createSourceFile` tolerates syntax errors, yielding a partial AST.
+ * **Paused on TypeScript 7** — see the module header. Until the rule is ported
+ * to the native parser this always throws {@link LINT_UNAVAILABLE_ON_TS7},
+ * preserving the previous contract (this function rejected when the parser could
+ * not be loaded). Kept exported so the port stays a drop-in and callers/tests do
+ * not have to change shape.
  */
 export async function lintSource(
-  source: string,
-  fileName = "input.tsx",
+  _source: string,
+  _fileName = "input.tsx",
 ): Promise<LintFinding[]> {
-  const ts = await loadTypeScript();
-  const sf = ts.createSourceFile(
-    fileName,
-    source,
-    ts.ScriptTarget.Latest,
-    /* setParentNodes */ true,
-    ts.ScriptKind.TSX,
-  );
-  return collectFindings(ts, sf, fileName);
-}
-
-/** Walk the AST and flag accessor calls sitting in JSX reactive positions. */
-function collectFindings(
-  ts: typeof TS,
-  sf: TS.SourceFile,
-  fileName: string,
-): LintFinding[] {
-  const findings: LintFinding[] = [];
-
-  const report = (call: TS.CallExpression): void => {
-    const callee = call.expression.getText(sf);
-    const { line, character } = sf.getLineAndCharacterOfPosition(call.getStart(sf));
-    findings.push({
-      file: fileName,
-      line: line + 1,
-      column: character + 1,
-      rule: RULE,
-      message:
-        `\`${callee}()\` is called directly in a JSX reactive position, so it is ` +
-        `read once and the view won't update. Pass \`${callee}\` to keep it ` +
-        `reactive, or wrap it in a thunk: \`() => ${callee}()\`.`,
-    });
-  };
-
-  // Scan one reactive-position expression for zero-arg accessor calls. Stop
-  // descending at two kinds of boundary, so each is handled exactly once:
-  //   - a nested function (arrow/function) is a deferred thunk — its calls run
-  //     later and stay reactive, so they are not slips;
-  //   - a nested JSX element/fragment opens its own reactive positions (its
-  //     children and attributes), which the main `visit` walk reaches on its
-  //     own. Descending into it here would double-count those calls.
-  const scanReactive = (expr: TS.Expression): void => {
-    const walk = (node: TS.Node): void => {
-      if (
-        ts.isArrowFunction(node) ||
-        ts.isFunctionExpression(node) ||
-        ts.isJsxElement(node) ||
-        ts.isJsxFragment(node) ||
-        ts.isJsxSelfClosingElement(node)
-      ) {
-        return;
-      }
-      if (
-        ts.isCallExpression(node) &&
-        node.arguments.length === 0 &&
-        isAccessorLikeCallee(ts, node.expression)
-      ) {
-        report(node);
-      }
-      ts.forEachChild(node, walk);
-    };
-    walk(expr);
-  };
-
-  const visit = (node: TS.Node): void => {
-    if (ts.isJsxExpression(node) && node.expression) {
-      const parent = node.parent;
-      if (ts.isJsxAttribute(parent)) {
-        // An attribute value. Skip event props (`on*`), which are listeners.
-        const name = ts.isIdentifier(parent.name)
-          ? parent.name.text
-          : parent.name.getText(sf);
-        if (!isEventName(name)) scanReactive(node.expression);
-      } else if (ts.isJsxElement(parent) || ts.isJsxFragment(parent)) {
-        // A child expression (`<div>{…}</div>`, `<>{…}</>`).
-        scanReactive(node.expression);
-      }
-      // Other parents (e.g. a spread `{...x}`) are not reactive positions.
-    }
-    ts.forEachChild(node, visit);
-  };
-  visit(sf);
-
-  return findings;
+  throw new Error(LINT_UNAVAILABLE_ON_TS7);
 }
 
 /**
  * Lint every file matched by `globs` and collect their findings. Never throws:
- * an internal failure (an unreadable cwd, a parser that won't load) comes back
- * as `success: false` with the reason in `logs`, mirroring {@link build} /
- * {@link generate}. Findings themselves are not errors — `success` is simply
- * "clean", so the CLI can distinguish a failed run from a run that found problems.
+ * an internal failure comes back as `success: false` with the reason in `logs`,
+ * mirroring {@link build} / {@link generate}.
+ *
+ * **Paused on TypeScript 7** — see the module header. The linter cannot parse
+ * sources in-process any more, so rather than scan the tree and silently report
+ * a (false) clean pass, it returns `success: false` with
+ * {@link LINT_UNAVAILABLE_ON_TS7} in `logs` and no findings.
  */
-export async function lint(options: LintOptions = {}): Promise<LintResult> {
-  const cwd = resolve(options.cwd ?? ".");
-  const globs = options.globs ?? ["**/*.tsx"];
-  const findings: LintFinding[] = [];
-  try {
-    const seen = new Set<string>();
-    for (const pattern of globs) {
-      const glob = new Bun.Glob(pattern);
-      for await (const match of glob.scan({ cwd, absolute: true })) {
-        // node_modules is third-party; never lint it.
-        if (match.includes("/node_modules/") || seen.has(match)) continue;
-        seen.add(match);
-        const source = await Bun.file(match).text();
-        const rel = relative(cwd, match);
-        for (const f of await lintSource(source, rel)) findings.push(f);
-      }
-    }
-    return { success: findings.length === 0, findings, logs: [] };
-  } catch (error) {
-    return { success: false, findings, logs: errorMessages(error) };
-  }
+export async function lint(_options: LintOptions = {}): Promise<LintResult> {
+  return { success: false, findings: [], logs: [LINT_UNAVAILABLE_ON_TS7] };
 }
 
 /** Format findings as `file:line:col  rule  message` lines (one per finding). */
