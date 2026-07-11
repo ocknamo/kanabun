@@ -23,7 +23,12 @@ export class MockEvent {
 }
 
 class Style {
-  private props = new Map<string, string>();
+  // Explicit constructor so bun's coverage can attribute a function hit
+  // (an implicit constructor never registers one — see server-dom.ts).
+  private props: Map<string, string>;
+  constructor() {
+    this.props = new Map();
+  }
   setProperty(name: string, value: string): void {
     if (value === "") this.props.delete(name);
     else this.props.set(name, value);

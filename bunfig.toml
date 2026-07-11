@@ -8,14 +8,13 @@ coverageReporter = ["text", "lcov"]
 coverageDir = "coverage"
 # Exclude the *.spec.ts files themselves from the coverage denominator.
 coverageSkipTestFiles = true
-# Test-only helpers (the DOM mock) and example apps are not product code.
-# Specs sit next to the source they cover, so the shared mock is ignored by
-# name rather than by directory.
+# Test-only fixtures and example apps are not product code. (The DOM mock now
+# ships as part of `@kanabun/testing`, so it is covered like any other source;
+# only the router's WindowLike fakes stay ignored by name.)
 # `kanabun-generate-fix-*` / `kanabun-serve-fix-*` are the tmp dirs of
 # throwaway config modules that `generate.spec.ts` / `cli.spec.ts` import at
 # runtime (so they'd otherwise count) — test fixtures, not product code.
 coveragePathIgnorePatterns = [
-  "**/dom-mock.ts",
   "**/router-test-utils.ts",
   "**/examples/**",
   "**/kanabun-generate-fix-*/**",

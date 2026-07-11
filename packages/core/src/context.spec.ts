@@ -9,7 +9,7 @@ import {
   jsx,
   For,
 } from "./index";
-import { installDOM, createContainer, serialize, asEl } from "./dom-mock";
+import { installDOM, createContainer, serialize, asEl } from "@kanabun/testing";
 
 describe("createContext / useContext", () => {
   test("returns the default value when no Provider is above the reader", () => {

@@ -15,7 +15,8 @@ import {
   createContainer,
   asEl,
   type MockNode,
-} from "./dom-mock";
+  tick,
+} from "@kanabun/testing";
 import { setDev, setWarnHandler, __resetDev } from "./dev";
 
 let teardown: () => void;
@@ -245,8 +246,6 @@ describe("hydrateIslandsLazy", () => {
     div.setAttribute("data-props", JSON.stringify(props));
     return div;
   }
-
-  const tick = (): Promise<void> => new Promise((r) => setTimeout(r, 0));
 
   test("loads only the present islands' chunks and hydrates them", async () => {
     const container = createContainer();

@@ -1,6 +1,6 @@
 import { describe, expect, test, beforeEach, afterEach, mock } from "bun:test";
 import { render, jsx, signal, effect, onMount, onCleanup, createRoot } from "./index";
-import { installDOM, createContainer, asEl } from "./dom-mock";
+import { installDOM, createContainer, asEl } from "@kanabun/testing";
 
 let teardown: () => void;
 beforeEach(() => {

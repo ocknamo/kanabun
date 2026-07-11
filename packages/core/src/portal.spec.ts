@@ -6,7 +6,9 @@ import {
   serialize,
   asEl,
   type MockNode,
-} from "./dom-mock";
+  tick,
+  childByTag as byTag,
+} from "@kanabun/testing";
 
 let teardown: () => void;
 beforeEach(() => {
@@ -18,14 +20,6 @@ afterEach(() => {
 
 const body = (): MockNode =>
   (globalThis as unknown as { document: { body: MockNode } }).document.body;
-
-const tick = () => new Promise<void>((r) => setTimeout(r, 0));
-
-function byTag(parent: MockNode, tag: string): MockNode | undefined {
-  return parent.childNodes.find(
-    (n) => n.nodeType === 1 && n.tagName.toLowerCase() === tag,
-  );
-}
 
 describe("<Portal>", () => {
   test("teleports children into document.body and renders nothing in place", () => {

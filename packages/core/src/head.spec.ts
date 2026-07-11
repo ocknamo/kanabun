@@ -6,7 +6,8 @@ import {
   serialize,
   asEl,
   type MockNode,
-} from "./dom-mock";
+  childByTag as byTag,
+} from "@kanabun/testing";
 
 let teardown: () => void;
 beforeEach(() => {
@@ -18,12 +19,6 @@ afterEach(() => {
 
 const head = (): MockNode =>
   (globalThis as unknown as { document: { head: MockNode } }).document.head;
-
-function byTag(parent: MockNode, tag: string): MockNode | undefined {
-  return parent.childNodes.find(
-    (n) => n.nodeType === 1 && n.tagName.toLowerCase() === tag,
-  );
-}
 
 describe("<Head>", () => {
   test("appends children to <head> and nothing in place", () => {

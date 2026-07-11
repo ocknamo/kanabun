@@ -7,7 +7,16 @@
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
 import { render, jsx } from "./index";
 import { TodoApp } from "../../../examples/todomvc/app";
-import { installDOM, createContainer, asEl, type MockNode } from "./dom-mock";
+import {
+  installDOM,
+  createContainer,
+  asEl,
+  hasClass,
+  queryAllByTag as byTag,
+  queryByClass as oneByClass,
+  typeAndEnter as enter,
+  type MockNode,
+} from "@kanabun/testing";
 
 let teardown: () => void;
 beforeEach(() => {
@@ -17,20 +26,7 @@ afterEach(() => {
   teardown();
 });
 
-// Recursive query helpers (the mock has no querySelector).
-function walk(node: MockNode, out: MockNode[] = []): MockNode[] {
-  out.push(node);
-  for (const child of node.childNodes) walk(child, out);
-  return out;
-}
-const elements = (root: MockNode) => walk(root).filter((n) => n.nodeType === 1);
-const byTag = (root: MockNode, tag: string) =>
-  elements(root).filter((n) => n.tagName.toLowerCase() === tag);
-const hasClass = (n: MockNode, cls: string) =>
-  (n.getAttribute("class") ?? "").split(" ").filter(Boolean).includes(cls);
-const oneByClass = (root: MockNode, cls: string) =>
-  elements(root).find((n) => hasClass(n, cls));
-
+// App-specific lookups over the shared query helpers.
 const titles = (root: MockNode) =>
   byTag(root, "span")
     .filter((s) => hasClass(s, "title"))
@@ -47,9 +43,7 @@ const liByTitle = (root: MockNode, title: string) =>
   );
 
 function typeAndEnter(root: MockNode, text: string): void {
-  const input = oneByClass(root, "new-todo")!;
-  (input as unknown as { value: string }).value = text;
-  input.dispatch("keydown", { key: "Enter" });
+  enter(oneByClass(root, "new-todo")!, text);
 }
 
 describe("TodoMVC example (real component)", () => {

@@ -1,41 +1,12 @@
 /**
- * Shared test helpers for the router specs.
+ * Router-specific test helpers: in-memory `WindowLike` stand-ins.
  * ------------------------------------------------------------------
- * Test-only utilities pulled out of `router.spec.ts` so the suite can be split
- * by feature (router / nested / link / browser) without duplicating them.
- * Not product code — excluded from coverage by name in `bunfig.toml`, the same
- * way the DOM mock is.
+ * Test-only utilities for the router specs. Generic DOM helpers (queries,
+ * event payloads) live in `@kanabun/testing`; only the fakes coupled to the
+ * router's `WindowLike` surface stay here. Not product code — excluded from
+ * coverage by name in `bunfig.toml`.
  */
 import { type WindowLike } from "./index";
-import { type MockNode } from "../../core/src/dom-mock";
-
-/** Depth-first search for the first node matching `pred`. */
-function find(
-  node: MockNode,
-  pred: (n: MockNode) => boolean,
-): MockNode | undefined {
-  if (pred(node)) return node;
-  for (const child of node.childNodes) {
-    const hit = find(child, pred);
-    if (hit) return hit;
-  }
-  return undefined;
-}
-
-/** Find the first element with the given tag name. */
-export function findTag(root: MockNode, tag: string): MockNode | undefined {
-  return find(root, (n) => n.nodeType === 1 && n.tagName.toLowerCase() === tag);
-}
-
-/** A left-click event payload the mock dispatcher understands. */
-export const leftClick = {
-  button: 0,
-  defaultPrevented: false,
-  metaKey: false,
-  ctrlKey: false,
-  shiftKey: false,
-  altKey: false,
-};
 
 /** A structural stand-in for `window`, backed by an in-memory URL. */
 export function fakeWindow(initial = "/"): WindowLike & { popstate(): void } {

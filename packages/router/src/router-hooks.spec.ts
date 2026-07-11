@@ -1,7 +1,7 @@
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
 import { render, jsx } from "@kanabun/core";
 import { Router, Route, useNavigate, useLocation, createMemorySource } from "./index";
-import { installDOM, createContainer, serialize, asEl } from "../../core/src/dom-mock";
+import { installDOM, createContainer, serialize, asEl } from "@kanabun/testing";
 
 let teardown: () => void;
 beforeEach(() => {

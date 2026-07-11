@@ -8,7 +8,7 @@ import {
   jsx,
   ErrorBoundary,
 } from "./index";
-import { installDOM, createContainer, serialize, asEl } from "./dom-mock";
+import { installDOM, createContainer, serialize, asEl } from "@kanabun/testing";
 
 // ── catchError: the reactive primitive (no DOM needed) ──────────────
 describe("catchError", () => {

@@ -1,8 +1,15 @@
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
 import { render, jsx } from "@kanabun/core";
 import { Router, Route, Link, createHashSource } from "./index";
-import { installDOM, createContainer, serialize, asEl } from "../../core/src/dom-mock";
-import { findTag, leftClick, fakeWindow, fakeHashWindow } from "./router-test-utils";
+import {
+  installDOM,
+  createContainer,
+  serialize,
+  asEl,
+  queryByTag as findTag,
+  leftClick,
+} from "@kanabun/testing";
+import { fakeWindow, fakeHashWindow } from "./router-test-utils";
 
 let teardown: () => void;
 beforeEach(() => {
