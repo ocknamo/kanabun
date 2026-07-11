@@ -41,8 +41,10 @@ stay green even when styles don't actually apply, so don't trust them alone.
   (`{count}`, `{() => …}`); `{count()}` is read once; `on*` props are events.
 - **Tests are named `*.spec.ts`** and live next to the source they cover (e.g.
   `dom.spec.ts` sits beside `dom.ts` in `packages/core/src/`). Aim to keep source
-  files at 100% coverage. The renderer is tested against the in-repo DOM mock
-  (`packages/core/src/dom-mock.ts`) — never add jsdom/happy-dom.
+  files at 100% coverage. The renderer is tested against the in-repo DOM mock,
+  which ships as `@kanabun/testing` (`packages/testing/src/dom-mock.ts`; specs
+  import the mock and helpers from `@kanabun/testing`) — never add
+  jsdom/happy-dom.
 - **Docs are bilingual.** Keep English and 日本語 in sync (`README.md` /
   `README.ja.md`, `docs/decisions.md` / `docs/decisions.ja.md`).
 
@@ -62,6 +64,9 @@ Run all of these (and the example builds) before considering work done.
 - `packages/core/` — the runtime. Runtime-independent: no Bun/Node APIs.
 - `packages/cli/` — the `kanabun` command. The **only** Bun-dependent layer;
   `Bun.*`, `node:*`, `process` live here, never in core.
+- `packages/testing/` — `@kanabun/testing`: the DOM mock + test helpers
+  (`renderTest`, queries, `fireEvent`, `tick`). Runtime-independent (no
+  `bun:test` import) and covered like product code.
 - `examples/` — runnable examples (TSX), excluded from coverage. `main.tsx`
   mounts; larger examples split the component into `app.tsx`.
 - `docs/` — design decisions, roadmap, and handoff (EN + JA). Check `roadmap.md`
