@@ -265,21 +265,34 @@ primitive. None is required for the founding goal; all must hold the same bar
   for consumers (a devDependency), published like the other packages. See
   [`decisions.md`](./decisions.md#kanabuntesting-phase-8).
   **Follow-ups (agreed, two stages):**
-  - [ ] **Stage 1 — absorb the remaining spec helpers.** `deferred<T>()`
-    (copy-pasted in `async.spec.ts` / `lazy.spec.ts`), `docBody()` / `docHead()`
-    typed accessors (hand-rolled in `portal` / `islands` / `head` specs),
-    `childById` / `queryById` (`control-flow.spec.ts`'s `byId`); consider
-    `styles()` / `ruleFor()` (`css.spec.ts`) and `captureWarnings()`
-    (`dev.spec.ts`). Also dedupe `source.spec.ts`'s `fakeWindow` copy into
+  - [x] **Stage 1 — absorb the remaining spec helpers.** Done — `deferred<T>()`
+    (was copy-pasted in `async.spec.ts` / `lazy.spec.ts`), `docBody()` /
+    `docHead()` typed accessors (were hand-rolled in `portal` / `islands` /
+    `head` / `css` specs; throw a pointer at `installDOM` when no document is
+    installed), `childById` / `queryById` (`control-flow.spec.ts`'s `byId`,
+    named symmetrically with `childByTag` / `queryByTag`), `styles()` /
+    `ruleFor()` (`css.spec.ts`'s scoped-CSS inspectors; `ruleFor` now *throws*
+    unless exactly one rule matches instead of asserting — the package never
+    imports `bun:test`), and `captureWarnings()` (`dev.spec.ts`'s sink
+    collector; restore with `setWarnHandler(null)` — core's process-wide
+    dedupe is out of its reach, see the docstring). `source.spec.ts`'s
+    `fakeWindow` / `fakeHashWindow` copies were deduped into
     `router-test-utils.ts` (router-local, not this package).
-  - [ ] **Stage 2 — testing-library-style ergonomics (partial adoption).**
-    A `getBy*` (throws with the container's serialized HTML) / `queryBy*`
-    (returns `undefined`) two-tier API, `getByText`, and container-bound
-    queries returned by `renderTest`. Deliberately *not* adopted: `getByRole`
-    (needs an implicit-ARIA table — conflicts with the deliberately minimal
-    mock), `findBy*`/`waitFor` (reactivity is synchronous; `await tick()`
-    suffices), and user-event (the mock has no bubbling/default actions —
-    `fireEvent`'s honesty is the point).
+  - [x] **Stage 2 — testing-library-style ergonomics (partial adoption).**
+    Done — a `getBy*` (throws `Unable to find …` with the serialized tree) /
+    `queryBy*` (returns `undefined`) two-tier API over the same lookups
+    (`getByTag` / `getByClass` / `getById` / `getByText`; both tiers return
+    the *first* match in document order — no multiple-match throw, unlike
+    testing-library), `getByText` / `queryByText` matching an element's *own*
+    text (direct text-node children joined, child elements excluded — the
+    innermost element wins, ancestors don't also match; string equality or a
+    RegExp, no whitespace normalization), `within(root)` binding every
+    subtree query, and `renderTest` returning the container-bound queries
+    (`RenderTestResult extends BoundQueries`). Deliberately *not* adopted:
+    `getByRole` (needs an implicit-ARIA table — conflicts with the
+    deliberately minimal mock), `findBy*`/`waitFor` (reactivity is
+    synchronous; `await tick()` suffices), and user-event (the mock has no
+    bubbling/default actions — `fireEvent`'s honesty is the point).
 - (Also tracked elsewhere, not Phase 8: SSG dynamic params / `getStaticPaths` +
   build-time data baking remain a **Phase 6 (SSG)** follow-up; the router VRT
   baseline is a CI chore under *Known minor items*.)

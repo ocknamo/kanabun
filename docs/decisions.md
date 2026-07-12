@@ -976,6 +976,39 @@ hand-rolling around it — for consumers. Decisions:
   `fireEvent` just adds the common payloads (a real `leftClick`, `keydown` with
   a `key`) on top.
 
+Two follow-up stages (agreed at ship time) landed later:
+
+- **Stage 1 absorbed the last hand-rolled helpers**: `deferred()` (the
+  controllable promise `async`/`lazy` specs copy-pasted), `docHead()`/`docBody()`
+  (typed accessors over the installed document; a missing document throws a
+  pointer at `installDOM`), `childById`/`queryById` (named symmetrically with
+  the tag lookups), the scoped-CSS inspectors `styles()`/`ruleFor()`, and
+  `captureWarnings()` (a collecting sink over core's `setWarnHandler`; restore
+  with `setWarnHandler(null)`). Two decisions fell out of the no-`bun:test`
+  rule: `ruleFor` *throws* unless exactly one rule matches (the original
+  asserted with `expect`, which a shipped, runner-independent helper can't),
+  and `captureWarnings` can't register cleanup hooks — nor can it clear core's
+  process-wide warning dedupe, which stays out of reach by design (`__resetDev`
+  is core-internal); its docstring says so.
+- **Stage 2 added testing-library-style ergonomics — partially, on purpose.**
+  A two-tier API over the same lookups: `queryBy*` returns `undefined` (assert
+  absence), `getBy*` throws `Unable to find …` carrying the serialized tree
+  (a failed lookup reads as a real failure, not `.toBeDefined()` on
+  `undefined`). Both tiers return the *first* match in document order — unlike
+  testing-library, a multiple match does not throw (the roadmap asked for a
+  miss to throw; multiple-match detection buys little against a mock this
+  small and is documented as the deviation it is). `getByText`/`queryByText`
+  match an element's **own text** — its direct text-node children joined,
+  child elements excluded (testing-library's `getNodeText`) — so the innermost
+  element wins and wrapping ancestors don't also match; string equality or a
+  RegExp, no whitespace normalization (the mock stays literal). `within(root)`
+  binds every subtree query, and `renderTest` spreads those bound to its
+  container (`RenderTestResult extends BoundQueries`). Still deliberately
+  unadopted: `getByRole` (needs an implicit-ARIA table — conflicts with the
+  minimal mock), `findBy*`/`waitFor` (reactivity is synchronous; `await
+  tick()` suffices), and user-event (the mock has no bubbling/default
+  actions — `fireEvent`'s honesty is the point).
+
 Held to the same bar: zero dependencies, runtime-independent, 100%
 line/function coverage, `tsc` clean, docs bilingual.
 

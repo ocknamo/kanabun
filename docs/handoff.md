@@ -3,7 +3,7 @@
 > このファイルは作業の引き継ぎ用メモです(プロダクト文書ではないので日本語のみ)。
 > 規約は [`../CLAUDE.md`](../CLAUDE.md)、残作業は [`roadmap.md`](./roadmap.md) が一次情報。
 > ここは「いまの状態」と「今セッションで得た知見・落とし穴」に絞ります。
-> 最終更新: 2026-07-11 / 最終コミット: **Phase 8 `@kanabun/testing`**(DOM モックのパッケージ化 + `renderTest`/クエリ/`fireEvent`/`tick`、core/router 全 spec を移行)(ブランチ `claude/project-tasks-1vg4ua`)。直前は SSR serve 層(`kanabun serve` / `preview`、PR #36)
+> 最終更新: 2026-07-12 / 最終コミット: **`@kanabun/testing` フォローアップ Stage 1+2**(残り spec ヘルパーの吸収 + `getBy*`/`queryBy*` 二層 API・`within`・`renderTest` 束縛クエリ)(ブランチ `claude/kanabun-testing-followup-fnx3iv`)。直前は Phase 8 `@kanabun/testing` 本体(PR #38)
 
 ## 1. いまどこにいるか
 
@@ -26,7 +26,7 @@
 - **Phase 7(前セッション)**: **エコシステムプリミティブ完了** ── `lazy()`(動的 import + `<Suspense>` 連携、モジュールは成功・失敗ともキャッシュ)/ `<Portal>`(別 DOM ノードへテレポート、所有は現在ツリー、2 コメントマーカー間を cleanup で除去)/ `<Dynamic>`(実行時ホスト、`component` は関数=リアクティブ規約)/ `<Head>`・`<Title>`(SSR head channel に乗る、`renderToString` は dispose 前に head を読む)。`packages/core/src/{lazy,portal,dynamic,head}.ts`。`dom.ts` は `normalize` を export、`server-dom.ts`/`dom-mock.ts` に `body` を追加。デモは `examples/primitives`。
 - **Phase 7(今セッション)**: **アイランドのコア完了** ── `packages/core/src/islands.ts`。`<Island name props>` はモジュールレベルのレジストリ(`registerIsland(name, Component)`)から引いてサーバで `<div data-island data-props>` に描画(props は属性へ JSON 直列化)。クライアントは `hydrateIslands({root?, registry?})` が `[data-island]` を走査(既定は `doc()` 全体)→ `data-props` を `JSON.parse`(無ければ `{}`)→ 同じレジストリで解決 → 各コンテナを `hydrate`。返り値は全アイランドを破棄する disposer。未登録 name は両側で throw。**レジストリ駆動を両側に**したのが設計判断(子で受け取らない=name → component 単一の真実、props は一度だけ)。登録モジュールはサーバ描画・クライアントエントリの両方から副作用 import する。`dom-mock.ts` に最小 `querySelectorAll`(属性セレクタのみ)を追加(テスト専用・カバレッジ除外)。**型安全な経路 `defineIslands({ Counter })`**(レビュー後のユーザー指摘#1で追加)── 型付きマップを受け取り、束ねた `<Island>`(`name` がマップのキーに制約=タイポはコンパイルエラー、`props` もコンポーネント別に型付く)/ `hydrateIslands`(マップを explicit registry として渡す)を返す。内部は同じ `lookup`/`hydrateIslands` 再利用=ランタイム一本、ファクトリは型のみ。`const` 型引数でリテラルキーを残すのが肝。型テストは islands.spec.ts「checks the name and props at compile time」(`@ts-expect-error`)。**ネストしたアイランドは元ツリーで検出→スキップ + dev 警告**(レビュー🟡#1)。デモは `examples/islands`(`defineIslands` 配線・SSR サーバ + 静的外殻 + 独立カウンター 2 つ)。playwright でクリック→増加を実機確認済み。
 - **Phase 7 アイランド単位バンドル分割(今セッション)**: **CLI `buildIslands` + core `hydrateIslandsLazy` 完了**。`packages/cli/src/islands.ts` の `buildIslands({ islands })` が各アイランドを個別エントリ + `splitting:true` でバンドル(共有コードは共有チャンクへ集約)+ **非バンドルの**ブートストラップ `islands.js`(名前→`import("./chunk.js")` を `hydrateIslandsLazy` に渡す素の ESM)を書き出す。実行時、ページに存在するアイランドのチャンクだけ取得。`core/src/islands.ts` に `hydrateIslandsLazy(loaders, {root?})`(`collectIslands` を `hydrateIslands` と共有、loader 欠落は dev 警告+スキップ、ロード後に dispose 済みなら mount しない)。`normalizeBase` は `packages/cli/src/paths.ts` に抽出して generate と共有。デモは `examples/islands/{counter,clock}.tsx`(default export)+ `serve-split.ts`(build→SSR→配信)。playwright で「Counter/Clock のチャンクだけ読まれる + 増加/時刻更新」を実機確認済み。**残る Phase 7**: 作成支援ツール(`kanabun lint`・dev オーバーレイ)。
-- **品質**: **383 テスト / 0 fail、全ソース 100% カバレッジ、`tsc` クリーン**。依存ゼロ(dev は `@types/bun` のみ)、`packages/{core,router}` はランタイム非依存を維持。
+- **品質**: **512 テスト / 0 fail、全ソース 100% カバレッジ、`tsc` クリーン**。依存ゼロ(dev は `@types/bun` + 固定版 `typescript` のみ)、`packages/{core,router,testing}` はランタイム非依存を維持。
 - **成果物**: `@kanabun/core`、`@kanabun/cli`(`create`/`dev`/`build`/**`generate`**)、**`@kanabun/router`**、`examples/{counter,todomvc,router,primitives,islands,ssr,ssg}`、VRT(スクショ回帰)ゲート、バイリンガル docs。
 
 ## 2. 必須ワークフロー(CLAUDE.md より)
@@ -47,7 +47,7 @@
 Phase 6 のルーター・**ネストルーティング**・**相対 `<Link>` href**・エラーバウンダリ・開発時警告・`on*` イベント + **要素ごとの属性**型付け・**`splitProps` タプル型**・SSR + ハイドレーション・**非同期(`resource`/`<Suspense>`)**・**SSG(`kanabun generate`)**・**CSS HMR** は **完了**。残るは(いずれも任意):
   - **状態保持 HMR** ── コンパイラ無しでは到達不可(非CSS編集は全リロードのまま)。
   - **Phase 7** ── **エコシステムプリミティブ(`lazy`・`<Portal>`・`<Dynamic>`・`<Head>`/`<Title>`)+ アイランドのコア(`<Island>`・`registerIsland`・`hydrateIslands`)は完了**(上記 §1、設計は `decisions.md`「Ecosystem primitives (Phase 7)」「Islands / partial hydration」)。**残り**: アイランド単位のバンドル分割(CLI ── ページに含まれるアイランドのチャンクだけを読む code-split + クライアントブートストラップ)/ 作成支援ツール ── **自前 linter(`kanabun lint`)** / **dev オーバーレイ**(`setWarnHandler` の消費側)。設計メモは `decisions.md`(アイランド)/ `dx.md`(linter、下記)。これらはコード未着手。
-  - **Phase 8** ── 重量級エコシステム(Phase 7 から先送り)。**`@kanabun/testing` は完了**(下記 §「@kanabun/testing」)。残り: **SSR ストリーミング(`renderToStream`)**(eager 同期とは別の非同期描画経路 + チャンク縫合クライアントが要る)/ **リアクティブ store(`createStore`)**(プロキシベースのネスト store・パス単位細粒度更新)。いずれも大物。
+  - **Phase 8** ── 重量級エコシステム(Phase 7 から先送り)。**`@kanabun/testing` は完了、フォローアップ Stage 1+2(ヘルパー吸収・二層クエリ API)も完了**(下記 §「@kanabun/testing」)。残り: **SSR ストリーミング(`renderToStream`)**(eager 同期とは別の非同期描画経路 + チャンク縫合クライアントが要る)/ **リアクティブ store(`createStore`)**(プロキシベースのネスト store・パス単位細粒度更新)。いずれも大物。
   - **npm 公開の残り**(`@kanabun/testing`)+ **バージョニング/リリース戦略** ── `@kanabun/core`・`@kanabun/cli`・`@kanabun/router` は 0.0.0 で公開済み。`@kanabun/testing` のみ未公開(レジストリ 404)で、配布スキル `spa-quickstart`(`plugins/kanabun/`)のテスト雛形手順 `bun add -d @kanabun/testing` は公開されるまで他リポジトリで失敗する。
   - **SSG 動的パラメータ**(`getStaticPaths` + ビルド時データ焼き込み)── Phase 6(SSG)の follow-up(`roadmap.md:76` / `decisions.md`)。
   - 軽微: dev サーバの `realpath` 二重 stat / `parseArgs` の `--a --b` 挙動 / router の VRT ベースライン commit(note のみ)。
@@ -145,6 +145,11 @@ Phase 6 のルーター・**ネストルーティング**・**相対 `<Link>` hr
   - testing 自身の spec は「document なし」ケースを global の save/delete/restore で明示ガード(単一プロセス実行のため他 spec の document が残っている可能性がある)。`css` import・モジュールレベル副作用は禁止(pending スタイルレジストリ汚染、§4 SSR serve 層の項参照)。
   - core の tarball(`files:["src"]`)には spec も同梱され、移行後は `@kanabun/testing` を参照するが、出荷コードから spec を import するものは無いので無害(decisions.md に明記)。
 
+- **`@kanabun/testing` フォローアップ Stage 1+2(今セッション)**:
+  - **Stage 1 = 残り spec ヘルパーの吸収**: `deferred()`(async/lazy spec のコピペ)/ `docHead()`・`docBody()`(portal・islands・head・css spec の手書きグローバルキャスト。document 未設置は `installDOM` を指して throw)/ `childById`・`queryById`(control-flow の `byId`)/ `styles()`・`ruleFor()`(css spec。**`ruleFor` は expect でなく「ちょうど 1 件でなければ throw」** ── パッケージは `bun:test` 禁止)/ `captureWarnings()`(dev spec。復帰は `setWarnHandler(null)`。**core の dedupe Set はクリア不能**(`__resetDev` は core 内部)── 先に同じ警告を消費した spec がいると捕捉できない。dev.spec は afterEach `__resetDev` で自己回復するので現状無害・両実行順で検証済み)。router の `source.spec.ts` ローカル `fakeWindow`/`fakeHashWindow` は `router-test-utils.ts` へ集約(差分は引数名のみ・挙動同一を確認)。
+  - **Stage 2 = 二層クエリ API**: `getByTag`/`getByClass`/`getById`/`getByText` は miss で `Unable to find …` + `serialize(root)` を投げ、`queryBy*` は `undefined`。**どちらも文書順の先頭マッチ ── testing-library と違い複数マッチで throw しない**(docstring に明記)。`getByText`/`queryByText` は **own text**(直接の子テキストノード連結・子要素除外 = testing-library の `getNodeText`)にマッチ ── 最内要素が当たる。正規化なし・string か RegExp。`within(root)` が全クエリを束縛し、`renderTest` は `...within(container)` をスプレッド(`RenderTestResult extends BoundQueries` ── 既存キー container/html/dispose と衝突なし)。不採用(`getByRole`/`findBy*`/`waitFor`/user-event)は roadmap の理由のまま維持。
+  - core/router の既存 spec は Stage 1 の移行のみで Stage 2 では書き換えない(新 API は testing 自身の spec で全分岐カバー)。
+
 ## 5. 主要ファイル早見
 
 - `packages/core/src/reactive.ts` — signals・owner ツリー(親リンク)・`signal`/`computed`/`effect`/`batch`/`untrack`・`catchError`(push-pull 3色塗り、glitch-free)。`lifecycle.ts` = `onCleanup`/`createRoot`/`onMount`、`context.ts` = `createContext`/`useContext`(どちらもエンジンの owner-scope ヘルパー上の薄い層)
@@ -158,5 +163,5 @@ Phase 6 のルーター・**ネストルーティング**・**相対 `<Link>` hr
 - `packages/cli/src/{build,dev,create,generate,serve,preview,document,islands,paths,index,errors}.ts` — CLI(Bun 依存はここだけ)。`generate.ts` = SSG(config → ルートごとに `renderToString` → `.html` 書き出し + 任意 client バンドル)、`serve.ts` = SSR サーバ(`serve`/`createSSRHandler`/`serveFile`/`defaultPort`。config は SSG と対称 + `islands`)、`preview.ts` = `generate` + 静的配信、`document.ts` = 共有 HTML シェル(`DocumentContext`/`defaultDocument`)、`islands.ts` = `buildIslands`(島を複数エントリ + splitting でバンドル + 非バンドルブートストラップ)、`paths.ts` = `normalizeBase`・`resolveWithin`(generate/serve/preview/dev と共有)。デモハーネスは `examples/{ssr,islands}/server.tsx`・`examples/islands/serve-split.ts`・`examples/ssg/serve.ts`(いずれも新 API の薄い config)
 - `examples/ssg/{app,ssg,main}.tsx` — SSG 例(`ssg.tsx` が config、`main.tsx` が hydrate エントリ)
 - `packages/router/src/{location,source,router,index}.ts` — ルーター(`parsePath`/`matchPath`・history ソース・`<Router>`/`<Route>`/`<Link>`+フック)。ランタイム非依存(`window` は遅延解決)
-- `packages/testing/src/{dom-mock,render,queries,events,async,index}.ts` — `@kanabun/testing`(Phase 8)。DOM モック(core から移設)+ `renderTest`・クエリ(`childByTag`/`queryByTag` ほか)・`fireEvent`/`typeAndEnter`・`tick`。ランタイム非依存・カバレッジ 100%・core/router の全 DOM 系 spec が利用
+- `packages/testing/src/{dom-mock,render,queries,events,async,css,warnings,index}.ts` — `@kanabun/testing`(Phase 8 + フォローアップ)。DOM モック(core から移設)+ `renderTest`(束縛クエリ付き)・クエリ(`childByTag`/`queryByTag`/`getBy*`/`queryByText`/`within` ほか)・`fireEvent`/`typeAndEnter`・`tick`/`deferred`・`styles`/`ruleFor`・`captureWarnings`。ランタイム非依存・カバレッジ 100%・core/router の全 DOM 系 spec が利用
 - `docs/{decisions,roadmap}.md`(+ `.ja.md`)— 設計判断 / 残作業
