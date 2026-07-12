@@ -4,13 +4,19 @@ import {
   childById,
   childByTag,
   elements,
+  getByClass,
+  getById,
+  getByTag,
+  getByText,
   hasClass,
   queryAllByClass,
   queryAllByTag,
   queryByClass,
   queryById,
   queryByTag,
+  queryByText,
   walk,
+  within,
 } from "./queries";
 
 /**
@@ -84,6 +90,78 @@ describe("childById vs queryById", () => {
     const { root, inner } = tree();
     expect(queryById(root, "inner")).toBe(inner);
     expect(queryById(root, "missing")).toBeUndefined();
+  });
+});
+
+describe("text queries", () => {
+  //   <p> "Hello " <b> "world"
+  function textTree(): { p: MockNode; b: MockNode } {
+    const doc = new MockDocument();
+    const p = doc.createElement("p");
+    p.appendChild(doc.createTextNode("Hello "));
+    const b = doc.createElement("b");
+    b.appendChild(doc.createTextNode("world"));
+    p.appendChild(b);
+    return { p, b };
+  }
+
+  test("queryByText matches an element's own text — the innermost element wins", () => {
+    const { p, b } = textTree();
+    expect(queryByText(p, "world")).toBe(b);
+    expect(queryByText(p, "Hello ")).toBe(p); // own text excludes <b>
+    // textContent ("Hello world") is NOT the match target — no element owns it.
+    expect(queryByText(p, "Hello world")).toBeUndefined();
+  });
+
+  test("queryByText accepts a RegExp", () => {
+    const { p, b } = textTree();
+    expect(queryByText(p, /^wor/)).toBe(b);
+    expect(queryByText(p, /^nope/)).toBeUndefined();
+  });
+});
+
+describe("getBy* (the throwing tier)", () => {
+  test("return the same node as their queryBy* counterpart", () => {
+    const { root, outer, inner } = tree();
+    expect(getByTag(root, "span")).toBe(outer);
+    expect(getByClass(root, "a")).toBe(outer);
+    expect(getById(root, "inner")).toBe(inner);
+    expect(getByText(root, "text")).toBe(root);
+  });
+
+  test("a miss throws, naming what was sought", () => {
+    const { root } = tree();
+    expect(() => getByTag(root, "ul")).toThrow("Unable to find a <ul> element");
+    expect(() => getByClass(root, "nope")).toThrow('an element with class "nope"');
+    expect(() => getById(root, "nope")).toThrow('an element with id "nope"');
+    expect(() => getByText(root, "nope")).toThrow('an element with text "nope"');
+    expect(() => getByText(root, /nope/)).toThrow(
+      "an element with text matching /nope/",
+    );
+  });
+
+  test("the error carries the serialized tree", () => {
+    const { root } = tree();
+    expect(() => getByTag(root, "ul")).toThrow(
+      'in:\n<div>text<span class="a b" id="outer">',
+    );
+  });
+});
+
+describe("within", () => {
+  test("binds every query to the root", () => {
+    const { root, outer, inner, p } = tree();
+    const q = within(root);
+    expect(q.getByTag("p")).toBe(p);
+    expect(q.getByClass("a")).toBe(outer);
+    expect(q.getById("inner")).toBe(inner);
+    expect(q.getByText("text")).toBe(root);
+    expect(q.queryByTag("ul")).toBeUndefined();
+    expect(q.queryAllByTag("span")).toEqual([outer, inner]);
+    expect(q.queryByClass("b")).toBe(outer);
+    expect(q.queryAllByClass("b")).toEqual([outer, inner]);
+    expect(q.queryById("missing")).toBeUndefined();
+    expect(q.queryByText(/tex/)).toBe(root);
   });
 });
 

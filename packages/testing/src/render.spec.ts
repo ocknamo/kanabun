@@ -54,6 +54,16 @@ describe("renderTest", () => {
     });
   });
 
+  test("returns container-bound queries", () => {
+    withoutDocument(() => {
+      const result = renderTest(() => jsx("button", { children: "go" }));
+      expect(result.getByText("go")).toBe(result.getByTag("button"));
+      expect(result.queryByTag("ul")).toBeUndefined();
+      expect(() => result.getByTag("ul")).toThrow("Unable to find a <ul> element");
+      result.dispose();
+    });
+  });
+
   test("dispose is idempotent and tears the tree down", () => {
     withoutDocument(() => {
       const g = globalThis as { document?: unknown };

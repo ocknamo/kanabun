@@ -31,7 +31,14 @@ export {
   hasClass,
   queryByClass,
   queryAllByClass,
+  queryByText,
+  getByTag,
+  getByClass,
+  getById,
+  getByText,
+  within,
 } from "./queries";
+export type { BoundQueries } from "./queries";
 export { fireEvent, leftClick, setValue, typeAndEnter } from "./events";
 export { tick, deferred } from "./async";
 export type { Deferred } from "./async";

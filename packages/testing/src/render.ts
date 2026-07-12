@@ -6,13 +6,15 @@
  */
 import { render } from "@kanabun/core";
 import { createContainer, installDOM, serialize, type MockNode } from "./dom-mock";
+import { within, type BoundQueries } from "./queries";
 
 export interface RenderTestOptions {
   /** Render into this container instead of a fresh detached `<div>`. */
   container?: MockNode;
 }
 
-export interface RenderTestResult {
+/** What `renderTest` hands back: the container-bound queries plus… */
+export interface RenderTestResult extends BoundQueries {
   container: MockNode;
   /** The container serialized to HTML (comment markers omitted). */
   html(): string;
@@ -42,5 +44,6 @@ export function renderTest(
       disposeRoot();
       teardown?.();
     },
+    ...within(container),
   };
 }
