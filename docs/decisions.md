@@ -168,7 +168,8 @@ resource on rebuild) that is an infinite load/render loop.
 
 The renderer needs a DOM, but Bun ships none and jsdom/happy-dom would violate
 the zero-dependency stance. So the renderer resolves `globalThis.document`
-lazily and tests install a tiny in-repo DOM mock (`packages/core/src/dom-mock.ts`). The
+lazily and tests install a tiny in-repo DOM mock (`packages/testing/src/dom-mock.ts`,
+shipped to app authors as `@kanabun/testing` — see the Phase 8 memo). The
 `document` is never required at import time, keeping the core loadable anywhere.
 The example is additionally built in CI via `bun build` to exercise the real
 JSX transform end-to-end.
@@ -933,6 +934,50 @@ content lands in the serialized `head`. Two decisions:
 
 Held to the same bar: zero dependencies, `packages/core` runtime-independent,
 100% line/function coverage, `tsc` clean, docs bilingual.
+
+## `@kanabun/testing` (Phase 8)
+
+App authors need to unit-test components, and the zero-dependency stance rules
+out jsdom/happy-dom for them just as it does for us. But the answer already
+existed in-repo: the tiny DOM mock the core suite runs against. Phase 8's
+`@kanabun/testing` packages that mock — plus the helpers every spec was
+hand-rolling around it — for consumers. Decisions:
+
+- **The mock moved packages** (`packages/core/src/dom-mock.ts` →
+  `packages/testing/src/dom-mock.ts`). Publishing is per-package
+  (`files: ["src"]`), so `@kanabun/testing` could not ship a relative import
+  into core's source tree; the file had to live inside the package that
+  exports it. Dependency direction stays acyclic: testing declares core as a
+  peer dependency (for `renderTest`'s `render`), and core's *specs* import
+  testing — specs aren't part of the shipped dependency graph. (Those specs do
+  ship inside core's `files: ["src"]` tarball referencing a package consumers
+  may not have installed; harmless, since nothing imports a spec at runtime.)
+- **The mock is product code now.** It was a coverage-ignored fixture; as a
+  shipped package it is covered like any other source (100% lines/functions,
+  with its own spec pinning the edge branches). Only the router's `WindowLike`
+  fakes (`router-test-utils.ts`) remain coverage-ignored fixtures.
+- **Runtime-independent, hooks stay in user land.** The package must run under
+  any test runner, so it never imports `bun:test` — which also means it cannot
+  register `beforeEach`/`afterEach` itself. `installDOM()` returns a teardown
+  for callers who wire hooks; `renderTest` covers the common case instead: if
+  no `document` exists it installs the mock (before rendering — the renderer
+  resolves `globalThis.document` lazily) and restores it on `dispose()`; a
+  caller-installed document is reused and left alone.
+- **The existing suites are the first consumers.** Every DOM-using core and
+  router spec imports these helpers instead of hand-rolling them (the
+  copy-pasted `tick`s, the five identical `byTag`s, TodoMVC's recursive query
+  toolkit, the router's `findTag`/`leftClick`) — so the published API is
+  exercised by the framework's own tests, not just its own spec files. Direct
+  vs subtree lookups are split by name (`childByTag` vs `queryByTag`) because
+  both shapes existed in the suites and silently swapping semantics during the
+  migration was the real risk.
+- **`fireEvent` wraps, `dispatch` stays.** The mock's synchronous
+  `MockNode.dispatch` is the primitive every migrated spec already calls;
+  `fireEvent` just adds the common payloads (a real `leftClick`, `keydown` with
+  a `key`) on top.
+
+Held to the same bar: zero dependencies, runtime-independent, 100%
+line/function coverage, `tsc` clean, docs bilingual.
 
 ## Roadmap (abridged)
 

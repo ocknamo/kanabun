@@ -21,7 +21,8 @@ flow (`<Show>` / `<For>` keyed), DX primitives (`onMount`, `mergeProps`,
 (`renderToString` / `hydrate`) + SSG (`kanabun generate`), async data
 (`resource` / `<Suspense>`), ecosystem primitives (`lazy`, `<Portal>`,
 `<Dynamic>`, `<Head>` / `<Title>`), islands (`<Island>` / `registerIsland` /
-`hydrateIslands`), a router (`@kanabun/router`), and a CLI
+`hydrateIslands`), a router (`@kanabun/router`), test helpers
+(`@kanabun/testing` — unit-test components with no jsdom), and a CLI
 (`create` / `dev` / `build` / `generate`) are implemented and tested.
 **TodoMVC runs; `kanabun dev` and `kanabun build` work.**
 
@@ -485,6 +486,33 @@ function UsersLayout() {
 
 ---
 
+## Testing (`@kanabun/testing`)
+
+Unit-test components in any JS runtime with **no jsdom/happy-dom**: the package
+ships the same tiny in-memory DOM mock the kanabun suite itself runs against,
+plus render/query/event/flush helpers. Install it as a *dev* dependency.
+
+```tsx
+import { test, expect } from "bun:test";
+import { renderTest, queryByTag, fireEvent, tick } from "@kanabun/testing";
+import { Counter } from "./counter";
+
+test("counting up", async () => {
+  const { html, container, dispose } = renderTest(() => <Counter />);
+  fireEvent.click(queryByTag(container, "button")!);
+  await tick(); // flush onMount / resource microtasks when needed
+  expect(html()).toContain("count is 1");
+  dispose();
+});
+```
+
+`renderTest` installs the mock `document` automatically when none exists (and
+restores it on `dispose()`); call `installDOM()` yourself in a `beforeEach` if
+you prefer explicit setup — the package never imports `bun:test`, so it works
+under any runner and leaves hook wiring to you.
+
+---
+
 ## API reference
 
 **`@kanabun/core`**
@@ -531,6 +559,17 @@ function UsersLayout() {
 | Matching | `matchPath`, `matchRoute`, `parsePath` |
 | Types | `RouterProps`, `RoutesProps`, `RouteProps`, `RouteHandle`, `RouteThunk`, `LinkProps`, `Navigate`, `NavigateOptions`, `RouterSource`, `MemorySource`, `WindowLike`, `RouterLocation`, `RouteParams`, `RouteMatch` |
 
+**`@kanabun/testing`** (dev-only test helpers; no jsdom)
+
+| Group | Exports |
+| --- | --- |
+| Rendering | `renderTest` (→ `{ container, html(), dispose() }`; auto-installs the mock document) |
+| DOM mock | `installDOM`, `createContainer`, `serialize`, `MockNode`, `MockDocument`, `MockEvent`, `asEl` / `asNode` / `asMock` (type-cast bridges) |
+| Queries | `childByTag` (direct children), `queryByTag` / `queryAllByTag`, `queryByClass` / `queryAllByClass`, `hasClass`, `walk`, `elements` (subtree, document order) |
+| Events | `fireEvent` (+ `.click`, `.keyDown`), `leftClick` (the click payload), `setValue`, `typeAndEnter` |
+| Async | `tick` (one macrotask; flushes `onMount` / resource microtasks) |
+| Types | `RenderTestOptions`, `RenderTestResult` |
+
 ---
 
 ## Roadmap
@@ -567,7 +606,7 @@ To publish all workspace packages to npm (maintainers only):
 ```sh
 bun run pub:dry   # pre-publish checks only; nothing is published
 bun run pub       # run checks, confirm, then publish in dependency order
-                  # (core → router → cli)
+                  # (core → router → cli → testing)
 ```
 
 `bun run pub` runs `bun test`, `tsc --noEmit`, and a build of every example
@@ -623,6 +662,8 @@ packages/
     bin/        kanabun.ts
   router/      @kanabun/router — history-based router (runtime-independent)
     src/        location.ts (parse/match), source.ts (history sources), router.ts (components + hooks)
+  testing/     @kanabun/testing — test helpers over the in-memory DOM mock (no jsdom)
+    src/        dom-mock.ts, render.ts (renderTest), queries.ts, events.ts, async.ts
 examples/
   counter/     a runnable reactive counter
   todomvc/     a runnable TodoMVC
@@ -637,8 +678,9 @@ The `core` package uses only standard JS / Web APIs (the DOM is a Web API); it
 never touches Bun- or Node-specific APIs. Runtime-specific code will live in a
 thin CLI/dev layer added in a later phase.
 
-Tests are named `*.spec.ts`. The renderer is tested against a small in-repo DOM
-mock, so no jsdom/happy-dom dependency is needed.
+Tests are named `*.spec.ts`. The renderer is tested against the small DOM mock
+that ships as `@kanabun/testing`, so no jsdom/happy-dom dependency is needed —
+the framework's own suite is that package's first consumer.
 
 ---
 

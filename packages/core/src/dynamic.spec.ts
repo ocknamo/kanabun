@@ -5,8 +5,8 @@ import {
   createContainer,
   serialize,
   asEl,
-  type MockNode,
-} from "./dom-mock";
+  childByTag as byTag,
+} from "@kanabun/testing";
 
 let teardown: () => void;
 beforeEach(() => {
@@ -15,12 +15,6 @@ beforeEach(() => {
 afterEach(() => {
   teardown();
 });
-
-function byTag(parent: MockNode, tag: string): MockNode | undefined {
-  return parent.childNodes.find(
-    (n) => n.nodeType === 1 && n.tagName.toLowerCase() === tag,
-  );
-}
 
 describe("<Dynamic>", () => {
   test("renders a static tag name with forwarded props and children", () => {

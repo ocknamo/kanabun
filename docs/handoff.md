@@ -3,7 +3,7 @@
 > このファイルは作業の引き継ぎ用メモです(プロダクト文書ではないので日本語のみ)。
 > 規約は [`../CLAUDE.md`](../CLAUDE.md)、残作業は [`roadmap.md`](./roadmap.md) が一次情報。
 > ここは「いまの状態」と「今セッションで得た知見・落とし穴」に絞ります。
-> 最終更新: 2026-07-02 / 最終コミット: SSR serve 層(`kanabun serve` / `kanabun preview` + `serve`/`createSSRHandler`/`preview` API)で SSR/SSG サンプルのボイラープレート削減(ブランチ `claude/ssr-ssg-boilerplate-u40lxa`)。直前は Phase 7 アイランドのコア + `examples/islands` デモ(ブランチ `claude/phase-7-lrtmhg`)
+> 最終更新: 2026-07-11 / 最終コミット: **Phase 8 `@kanabun/testing`**(DOM モックのパッケージ化 + `renderTest`/クエリ/`fireEvent`/`tick`、core/router 全 spec を移行)(ブランチ `claude/project-tasks-1vg4ua`)。直前は SSR serve 層(`kanabun serve` / `preview`、PR #36)
 
 ## 1. いまどこにいるか
 
@@ -47,7 +47,7 @@
 Phase 6 のルーター・**ネストルーティング**・**相対 `<Link>` href**・エラーバウンダリ・開発時警告・`on*` イベント + **要素ごとの属性**型付け・**`splitProps` タプル型**・SSR + ハイドレーション・**非同期(`resource`/`<Suspense>`)**・**SSG(`kanabun generate`)**・**CSS HMR** は **完了**。残るは(いずれも任意):
   - **状態保持 HMR** ── コンパイラ無しでは到達不可(非CSS編集は全リロードのまま)。
   - **Phase 7** ── **エコシステムプリミティブ(`lazy`・`<Portal>`・`<Dynamic>`・`<Head>`/`<Title>`)+ アイランドのコア(`<Island>`・`registerIsland`・`hydrateIslands`)は完了**(上記 §1、設計は `decisions.md`「Ecosystem primitives (Phase 7)」「Islands / partial hydration」)。**残り**: アイランド単位のバンドル分割(CLI ── ページに含まれるアイランドのチャンクだけを読む code-split + クライアントブートストラップ)/ 作成支援ツール ── **自前 linter(`kanabun lint`)** / **dev オーバーレイ**(`setWarnHandler` の消費側)。設計メモは `decisions.md`(アイランド)/ `dx.md`(linter、下記)。これらはコード未着手。
-  - **Phase 8** ── 重量級エコシステム(Phase 7 から先送り)。**SSR ストリーミング(`renderToStream`)**(eager 同期とは別の非同期描画経路 + チャンク縫合クライアントが要る)/ **リアクティブ store(`createStore`)**(プロキシベースのネスト store・パス単位細粒度更新)/ **`@kanabun/testing`**(リポジトリ内 DOM モック上の単体テスト補助、別パッケージ)。いずれも大物。
+  - **Phase 8** ── 重量級エコシステム(Phase 7 から先送り)。**`@kanabun/testing` は完了**(下記 §「@kanabun/testing」)。残り: **SSR ストリーミング(`renderToStream`)**(eager 同期とは別の非同期描画経路 + チャンク縫合クライアントが要る)/ **リアクティブ store(`createStore`)**(プロキシベースのネスト store・パス単位細粒度更新)。いずれも大物。
   - **npm 公開**(`@kanabun/core`・`@kanabun/cli`)+ **バージョニング/リリース戦略** ── 未公開のため `create` は `^0.0.0` プレースホルダ。
   - **SSG 動的パラメータ**(`getStaticPaths` + ビルド時データ焼き込み)── Phase 6(SSG)の follow-up(`roadmap.md:76` / `decisions.md`)。
   - 軽微: dev サーバの `realpath` 二重 stat / `parseArgs` の `--a --b` 挙動 / router の VRT ベースライン commit(note のみ)。
@@ -65,7 +65,7 @@ Phase 6 のルーター・**ネストルーティング**・**相対 `<Link>` hr
 - **`onMount`** は `queueMicrotask`(標準グローバル、ランタイム非依存OK)で「同期描画の後」に1回。owner を捕捉して `onCleanup` を効かせ、破棄済みならスキップ。
 - **`context` の遅延 thunk 罠**: Provider の関数子が **DOM を直接返す**場合は `insert`→`effect` が provider owner 配下で同期生成され context が効くが、子が **`<For>`/`<Show>` のような thunk を返す**と、その thunk は外側の `insert` の effect(= provider スコープ外)で後から走るため、何もしないと値が見えずデフォルトに落ちる。対策として Provider は「返り値が関数なら、呼ばれるたびに provider owner へ再突入(所有のみ・トラッキングは触らない)」するようラップしている。あわせて `createRoot` が親 owner を記録(`owner.owner = prevOwner`)するので `<For>` 行から上の Provider を辿れる。回帰テスト: `context.spec.ts` の「<For> rows resolve a Provider above the list」。
 - **テストの配置**: `*.spec.ts` は対象ソースと同じ階層に置く(例: `dom.spec.ts` は `packages/core/src/dom.ts` の隣)。専用の `test/` ディレクトリは廃止。
-- **カバレッジ**: `*.spec.ts` 自体は `coverageSkipTestFiles` で除外。`bunfig.toml` の `coveragePathIgnorePatterns` で `**/dom-mock.ts`(共有 DOM モック)と `**/examples/**` を除外。`build.ts` で `.map(String)` を使うのは、空配列時にユーザー関数が未実行=未カバレッジになるのを避けるため。
+- **カバレッジ**: `*.spec.ts` 自体は `coverageSkipTestFiles` で除外。`bunfig.toml` の `coveragePathIgnorePatterns` で `**/router-test-utils.ts`(router の WindowLike フェイク)と `**/examples/**` を除外。**DOM モックは除外しない** ── `@kanabun/testing` の製品コードとしてカバー対象(下記 §「@kanabun/testing」)。`build.ts` で `.map(String)` を使うのは、空配列時にユーザー関数が未実行=未カバレッジになるのを避けるため。
 - **`create` で生成したアプリは未公開のため `bun install` が通らない**(`@kanabun/core` `^0.0.0` プレースホルダ)。クイックスタートはリポジトリから実行する前提。npm 公開は TODO。
 - レビューサブエージェントは**セッション制限で中断することがある**。その場合は手動レビューで代替し、制限解除後に再実行した(透明性のため報告に明記する運用)。
 - **ルーターの `useParams`/`useLocation` は「関数の子」配下が前提**。`<Route>` の `component`/関数の子には params accessor を直接渡すので問題ないが、`useParams()` を読む子孫コンポーネントは **関数の子**(遅延)経由で構築しないと、即時の子は context のデフォルト(空オブジェクト)しか見えない ── core の context と同じ eager-children 制約。テストで固定済み(`router.spec.ts`「descendants read the matched params」は `() => jsx(Profile,{})`)。
@@ -119,7 +119,7 @@ Phase 6 のルーター・**ネストルーティング**・**相対 `<Link>` hr
   - **レジストリ駆動を両側に採用**(子で受け取らない)。設計メモの素朴版は `<Island>...children...>` で子をそのまま描くが、それだと name と子コンポーネントと props を 3 重に書いて同期させる羽目になる。`registerIsland(name, Component)` に一元化し、サーバは name で引いて描画・クライアントは同じ name でハイドレート・props は属性へ一度だけ。**登録モジュール(`examples/islands/islands.tsx`)を server と client の両エントリから副作用 import** しないと name が解決できない(共有チャネルはモジュールスコープのみ。所有権ツリーは境界で切れる)。
   - **`data-props` は属性なので `serialize` が `"` を `&quot;` にエスケープ**。ブラウザは HTML パース時に復号するので `getAttribute("data-props")` は元の JSON 文字列に戻り `JSON.parse` で通る。モック(`render` 経由)はエスケープせず生 JSON を格納するので、どちらの経路でも `JSON.parse` 一発で読める。
   - **`hydrateIslands` は `hydrate` をコンテナ(=`[data-island]` div)毎に呼ぶ**。`hydrate` は中身をクリアして再描画するので、サーバ HTML と同一バイトを再生成=フラッシュ無し。div 自体は残り中身だけ差し替わる。アイランドは**フラット**前提(登録コンポーネントが自身で `<Island>` を出さない)── ネストすると外側の再描画で内側のサーバ markup を壊す。
-  - **`dom-mock.ts` に最小 `querySelectorAll` を追加**(属性プレゼンスセレクタ `[name]` のみ対応。それ以外は throw)。テスト専用・カバレッジ除外(`coveragePathIgnorePatterns` の `**/dom-mock.ts`)。`hydrateIslands` の既定 root(`doc()`)分岐をカバーするため `MockDocument` にも(head+body を走査する)版を足した。
+  - **`dom-mock.ts` に最小 `querySelectorAll` を追加**(属性プレゼンスセレクタ `[name]` のみ対応。それ以外は throw)。テスト専用・カバレッジ除外(`coveragePathIgnorePatterns` の `**/dom-mock.ts`。**現在はモックごと `@kanabun/testing` へ移設・カバー対象**)。`hydrateIslands` の既定 root(`doc()`)分岐をカバーするため `MockDocument` にも(head+body を走査する)版を足した。
   - **`examples/islands` は SSR サーバ型**(`examples/ssr` と同型)で HTML エントリではない。見た目とハイドレーションは server を起動して playwright で実機確認(クリック→増加 0→1・100→102 を確認、検証のみ)。VRT は未追加。
 
 - **アイランド単位バンドル分割の落とし穴(今セッション)**:
@@ -138,6 +138,13 @@ Phase 6 のルーター・**ネストルーティング**・**相対 `<Link>` hr
   - **Bun は `.bun-version`(`1.3.11`)で固定**。⚠️ `oven-sh/setup-bun@v2` は **`.bun-version` を自動では読まない** ── `bun-version-file: ".bun-version"` の明示指定が必須(これを忘れると `latest` に浮動する。前回ここを踏んだ)。CI 3 ジョブとも明示済み。
   - **⚠️ `typecheck-next` ジョブは required status check に登録しないこと**。TS7 ネイティブ版(tsgo, `@typescript/native-preview`)の非ブロッキング canary(`continue-on-error: true`)。`continue-on-error` はワークフロー結論をブロックしないが、ブランチ保護の required checks に個別ジョブ名を入れるとセマンティクスが崩れる。本線は `verify`(固定 6.0.2)が真実。tsgo は `npx -y -p` で ad-hoc 実行=`package.json`/`bun.lock` を汚さない・preview は意図的に未ピン(upstream 追跡)。
 
+- **`@kanabun/testing`(今セッション・Phase 8)**:
+  - **DOM モックは `packages/testing/src/dom-mock.ts` へ移設**(公開境界 `files:["src"]` のためパッケージ横断の相対 import は出荷不可)。core/router の全 DOM 系 spec は `@kanabun/testing` から import する(tsconfig `paths` に追加済み)。手書きヘルパーは吸収済み: `tick`(4 spec のコピペ)/ 直下 `byTag` → `childByTag`(5 spec)/ todomvc のクエリツールキット → `queryAllByTag`/`hasClass`/`queryByClass`/`typeAndEnter` / router の `findTag` → `queryByTag`・`leftClick`。`router-test-utils.ts` には WindowLike フェイクだけが残る(カバレッジ除外継続)。
+  - **モックはカバレッジ対象に昇格**(bunfig の `**/dom-mock.ts` 除外を撤去)。その際 **`Style` クラスに明示コンストラクタが必要**だった ── フィールド初期化子だけだと暗黙コンストラクタが「未実行関数」になり Funcs < 100%(server-dom.ts の `Style` と同じ罠・同じ修正)。
+  - **パッケージは `bun:test` を import しない**(任意ランナーで動くランタイム非依存層)。よって beforeEach/afterEach は登録できず、フック配線は利用者側。`renderTest` は `document` 不在なら install→`dispose()` で復元、既設なら再利用・不干渉。**install は render より先**(レンダラは `globalThis.document` を遅延解決)。
+  - testing 自身の spec は「document なし」ケースを global の save/delete/restore で明示ガード(単一プロセス実行のため他 spec の document が残っている可能性がある)。`css` import・モジュールレベル副作用は禁止(pending スタイルレジストリ汚染、§4 SSR serve 層の項参照)。
+  - core の tarball(`files:["src"]`)には spec も同梱され、移行後は `@kanabun/testing` を参照するが、出荷コードから spec を import するものは無いので無害(decisions.md に明記)。
+
 ## 5. 主要ファイル早見
 
 - `packages/core/src/reactive.ts` — signals・owner ツリー(親リンク)・`signal`/`computed`/`effect`/`batch`/`untrack`・`catchError`(push-pull 3色塗り、glitch-free)。`lifecycle.ts` = `onCleanup`/`createRoot`/`onMount`、`context.ts` = `createContext`/`useContext`(どちらもエンジンの owner-scope ヘルパー上の薄い層)
@@ -151,4 +158,5 @@ Phase 6 のルーター・**ネストルーティング**・**相対 `<Link>` hr
 - `packages/cli/src/{build,dev,create,generate,serve,preview,document,islands,paths,index,errors}.ts` — CLI(Bun 依存はここだけ)。`generate.ts` = SSG(config → ルートごとに `renderToString` → `.html` 書き出し + 任意 client バンドル)、`serve.ts` = SSR サーバ(`serve`/`createSSRHandler`/`serveFile`/`defaultPort`。config は SSG と対称 + `islands`)、`preview.ts` = `generate` + 静的配信、`document.ts` = 共有 HTML シェル(`DocumentContext`/`defaultDocument`)、`islands.ts` = `buildIslands`(島を複数エントリ + splitting でバンドル + 非バンドルブートストラップ)、`paths.ts` = `normalizeBase`・`resolveWithin`(generate/serve/preview/dev と共有)。デモハーネスは `examples/{ssr,islands}/server.tsx`・`examples/islands/serve-split.ts`・`examples/ssg/serve.ts`(いずれも新 API の薄い config)
 - `examples/ssg/{app,ssg,main}.tsx` — SSG 例(`ssg.tsx` が config、`main.tsx` が hydrate エントリ)
 - `packages/router/src/{location,source,router,index}.ts` — ルーター(`parsePath`/`matchPath`・history ソース・`<Router>`/`<Route>`/`<Link>`+フック)。ランタイム非依存(`window` は遅延解決)
+- `packages/testing/src/{dom-mock,render,queries,events,async,index}.ts` — `@kanabun/testing`(Phase 8)。DOM モック(core から移設)+ `renderTest`・クエリ(`childByTag`/`queryByTag` ほか)・`fireEvent`/`typeAndEnter`・`tick`。ランタイム非依存・カバレッジ 100%・core/router の全 DOM 系 spec が利用
 - `docs/{decisions,roadmap}.md`(+ `.ja.md`)— 設計判断 / 残作業

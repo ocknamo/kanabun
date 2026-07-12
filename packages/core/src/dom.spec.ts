@@ -6,8 +6,9 @@ import {
   createContainer,
   serialize,
   asEl,
-  type MockNode,
-} from "./dom-mock";
+  asNode,
+  asMock as el,
+} from "@kanabun/testing";
 import { setDev, setWarnHandler, __resetDev } from "./dev";
 
 // The runtime resolves `globalThis.document` lazily, so install the mock first.
@@ -18,10 +19,6 @@ beforeEach(() => {
 afterEach(() => {
   teardown();
 });
-
-// Helpers to bridge the mock types to the DOM types the API expects.
-const asNode = (n: MockNode) => n as unknown as Node;
-const el = (v: unknown) => v as unknown as MockNode;
 
 describe("static rendering", () => {
   test("element with text", () => {

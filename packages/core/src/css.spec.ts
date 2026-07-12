@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { css } from "./index";
-import { installDOM } from "./dom-mock";
+import { installDOM } from "@kanabun/testing";
 
 let teardown: () => void;
 beforeEach(() => {

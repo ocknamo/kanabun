@@ -149,7 +149,8 @@
 
 レンダラは DOM を必要としますが、Bun は DOM を持たず、jsdom / happy-dom は依存ゼロの
 方針に反します。そこでレンダラは `globalThis.document` を遅延解決し、テストはリポジトリ内の
-小さな DOM モック(`packages/core/src/dom-mock.ts`)を差し込みます。import 時に `document` を要求しない
+小さな DOM モック(`packages/testing/src/dom-mock.ts`。`@kanabun/testing` として
+アプリ作者にも出荷 ── Phase 8 のメモ参照)を差し込みます。import 時に `document` を要求しない
 ので、コアはどこでも読み込めます。さらに例は CI で `bun build` によりビルドし、実際の
 JSX トランスフォームをエンドツーエンドで検証します。
 
@@ -801,6 +802,44 @@ document の `<head>` に注入し `renderToString` がそれを返すので、`
 
 これも同じ基準 ── 依存ゼロ・`packages/core` はランタイム非依存・全ソース カバレッジ 100%・
 `tsc` クリーン・ドキュメントはバイリンガル。
+
+## `@kanabun/testing`(Phase 8)
+
+アプリ作者もコンポーネントの単体テストが必要で、依存ゼロの立場は私たちと同様に
+jsdom/happy-dom を許さない。だが答えはすでにリポジトリ内にあった ── コアのスイートが
+走らせている小さな DOM モックだ。Phase 8 の `@kanabun/testing` は、そのモックと、
+各 spec がその周りで手書きしていたヘルパー群を利用者向けにパッケージ化する。判断:
+
+- **モックはパッケージを移った**(`packages/core/src/dom-mock.ts` →
+  `packages/testing/src/dom-mock.ts`)。公開はパッケージ単位(`files: ["src"]`)なので、
+  `@kanabun/testing` が core のソースツリーへの相対 import を出荷することはできず、
+  ファイルは export するパッケージの中に住む必要があった。依存方向は非循環のまま:
+  testing は core を peerDependency に持ち(`renderTest` の `render` のため)、core の
+  *spec* が testing を import する ── spec は出荷される依存グラフの一部ではない。
+  (spec 自体は core の `files: ["src"]` tarball に同梱され、利用者が入れていない
+  パッケージを参照するが、実行時に spec を import するものは無いので無害。)
+- **モックはもう製品コード。** カバレッジ除外のフィクスチャだったが、出荷される
+  パッケージとして他のソースと同様にカバーする(100% 行/関数、エッジ分岐は専用 spec で
+  ピン留め)。カバレッジ除外のフィクスチャとして残るのは router の `WindowLike` フェイク
+  (`router-test-utils.ts`)のみ。
+- **ランタイム非依存、フックは利用者の領分。** どのテストランナーでも動く必要があるので
+  `bun:test` を import しない ── つまり自分では `beforeEach`/`afterEach` を登録できない。
+  `installDOM()` はフックを配線する呼び出し側のために teardown を返す。代わりに
+  `renderTest` が典型ケースを覆う: `document` が無ければモックを設置し(描画より先に ──
+  レンダラは `globalThis.document` を遅延解決する)、`dispose()` で復元。呼び出し側が
+  設置済みの document は再利用し、触らない。
+- **既存スイートが最初の利用者。** DOM を使う core / router の全 spec が手書きの代わりに
+  これらのヘルパーを import する(コピペされていた `tick`、5 つの同一 `byTag`、TodoMVC の
+  再帰クエリツールキット、router の `findTag`/`leftClick`)── 公開 API がフレームワーク
+  自身のテストで叩かれる。直下検索とサブツリー検索は名前で分けた(`childByTag` と
+  `queryByTag`)。両方の形がスイートに存在し、移行中に意味論が静かに入れ替わることこそが
+  本当のリスクだったからだ。
+- **`fireEvent` はラップ、`dispatch` は残す。** モックの同期 `MockNode.dispatch` は移行した
+  全 spec がすでに呼んでいるプリミティブ。`fireEvent` はよく使うペイロード(本物の
+  `leftClick`、`key` 付き `keydown`)をその上に足すだけ。
+
+これも同じ基準 ── 依存ゼロ・ランタイム非依存・カバレッジ 100%・`tsc` クリーン・
+ドキュメントはバイリンガル。
 
 ## ロードマップ(要約)
 

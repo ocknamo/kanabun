@@ -1,7 +1,9 @@
 /**
- * A tiny, test-only DOM mock — just enough of the Web API surface that the
- * kanabun DOM runtime touches. This keeps the dev environment dependency-free
- * (no jsdom/happy-dom). Install it with `installDOM()` in a test's setup.
+ * A tiny, in-memory DOM mock — just enough of the Web API surface that the
+ * kanabun DOM runtime touches. It lets components be unit-tested in any JS
+ * runtime with no jsdom/happy-dom (kanabun ships zero dependencies, and so
+ * does this package). Install it with `installDOM()` in a test's setup, or
+ * let `renderTest` install it on demand.
  *
  * It is deliberately not spec-complete; extend it as the runtime grows.
  */
@@ -21,7 +23,12 @@ export class MockEvent {
 }
 
 class Style {
-  private props = new Map<string, string>();
+  // Explicit constructor so bun's coverage can attribute a function hit
+  // (an implicit constructor never registers one — see server-dom.ts).
+  private props: Map<string, string>;
+  constructor() {
+    this.props = new Map();
+  }
   setProperty(name: string, value: string): void {
     if (value === "") this.props.delete(name);
     else this.props.set(name, value);
@@ -166,7 +173,7 @@ export class MockNode {
   }
 }
 
-class MockDocument {
+export class MockDocument {
   // `<head>`, used by the scoped-CSS helper to inject `<style>` elements.
   readonly head: MockNode;
   // `<body>`, the default `<Portal>` target.
@@ -238,5 +245,11 @@ export function createContainer(tag = "div"): MockNode {
   return el;
 }
 
-/** Cast a MockNode to Element for use in tests. */
+/** Cast a MockNode to Element for use with DOM-typed APIs (`render`, `hydrate`). */
 export const asEl = (n: MockNode): Element => n as unknown as Element;
+
+/** Cast a MockNode to Node for use with Node-typed APIs. */
+export const asNode = (n: MockNode): Node => n as unknown as Node;
+
+/** Cast a value the runtime handed back (Node, Element, unknown) to a MockNode. */
+export const asMock = (value: unknown): MockNode => value as MockNode;

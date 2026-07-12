@@ -17,7 +17,7 @@ see [`decisions.md`](./decisions.md).
 | 5 | Bun integration: `create` / `dev` / `build` CLI | ✅ done |
 | 6 | Hardening & ecosystem (router, SSR, etc.) | 🟡 in progress — **router + error boundaries + dev-time warnings + SSR/hydration + async (`resource`/`<Suspense>`) + SSG (`kanabun generate`) + SSR serve layer (`kanabun serve` / `preview`) + CSS HMR done**; rest optional |
 | 7 | Islands / partial hydration + ecosystem primitives (`lazy`, `<Portal>`, `<Dynamic>`, head API) + authoring tooling (`kanabun lint`, dev overlay) | 🟡 in progress — **ecosystem primitives (`lazy`, `<Portal>`, `<Dynamic>`, `<Head>`/`<Title>`) + islands core (`<Island>` / `registerIsland` / `hydrateIslands`) + per-island bundle split (CLI `buildIslands` + `hydrateIslandsLazy`) + dev overlay + in-house linter (`kanabun lint`) done**. Design memos: [`decisions.md`](./decisions.md#islands--partial-hydration-phase-7--design-memo) (islands), [`decisions.md`](./decisions.md#dev-overlay-phase-7) (overlay), [`dx.md`](./dx.md#4-an-in-house-linter-kanabun-lint) (linter) |
-| 8 | Heavyweight ecosystem: SSR streaming (`renderToStream`), reactive store (`createStore`), `@kanabun/testing` | 🔜 planned — deferred from Phase 7 (larger subsystems) |
+| 8 | Heavyweight ecosystem: SSR streaming (`renderToStream`), reactive store (`createStore`), `@kanabun/testing` | 🟡 in progress — **`@kanabun/testing` done**; `renderToStream` / `createStore` remain |
 
 Quality bar held throughout: **zero runtime dependencies**, `packages/core`
 runtime-independent, 100% line/function coverage on all source files, `tsc`
@@ -248,11 +248,38 @@ primitive. None is required for the founding goal; all must hold the same bar
   object/array state with path-level fine-grained updates (and a `produce`-style
   setter), beyond today's flat signals. Heavy because it adds a proxy layer and a
   new update API surface; must stay zero-dep and runtime-independent (core).
-- [ ] **`@kanabun/testing` utilities.** A first-party test-helper package
-  (render-into-mock, `fireEvent`, flush microtasks/effects, query helpers) over
-  the in-repo DOM mock, so app authors can unit-test components without jsdom —
-  the same mock the core suite uses, packaged for consumers. Separate package,
-  dev-only.
+- [x] **`@kanabun/testing` utilities.** Done — a first-party test-helper package
+  (`packages/testing/`) so app authors can unit-test components without jsdom:
+  the in-repo DOM mock (moved from core — `files: ["src"]` is the publish
+  boundary, so a cross-package relative import couldn't ship), `renderTest`
+  (render into a mock container; auto-installs the mock `document` when absent
+  and restores it on `dispose`), query helpers (`childByTag` direct children /
+  `queryByTag`+`queryAllByTag`/`queryByClass`+`queryAllByClass`+`hasClass`
+  subtree, document order), `fireEvent` (+ `.click` over a `leftClick` payload,
+  `.keyDown`; `typeAndEnter`/`setValue` for inputs), and `tick` (one macrotask —
+  flushes `onMount`/resource microtasks too). Zero dependencies,
+  runtime-independent (no `bun:test` import — hooks stay in user land), 100%
+  covered: the mock was promoted from a coverage-ignored fixture to covered
+  product code. The core + router suites are the first consumers — every
+  DOM-using spec imports these helpers instead of hand-rolling them. Dev-only
+  for consumers (a devDependency), published like the other packages. See
+  [`decisions.md`](./decisions.md#kanabuntesting-phase-8).
+  **Follow-ups (agreed, two stages):**
+  - [ ] **Stage 1 — absorb the remaining spec helpers.** `deferred<T>()`
+    (copy-pasted in `async.spec.ts` / `lazy.spec.ts`), `docBody()` / `docHead()`
+    typed accessors (hand-rolled in `portal` / `islands` / `head` specs),
+    `childById` / `queryById` (`control-flow.spec.ts`'s `byId`); consider
+    `styles()` / `ruleFor()` (`css.spec.ts`) and `captureWarnings()`
+    (`dev.spec.ts`). Also dedupe `source.spec.ts`'s `fakeWindow` copy into
+    `router-test-utils.ts` (router-local, not this package).
+  - [ ] **Stage 2 — testing-library-style ergonomics (partial adoption).**
+    A `getBy*` (throws with the container's serialized HTML) / `queryBy*`
+    (returns `undefined`) two-tier API, `getByText`, and container-bound
+    queries returned by `renderTest`. Deliberately *not* adopted: `getByRole`
+    (needs an implicit-ARIA table — conflicts with the deliberately minimal
+    mock), `findBy*`/`waitFor` (reactivity is synchronous; `await tick()`
+    suffices), and user-event (the mock has no bubbling/default actions —
+    `fireEvent`'s honesty is the point).
 - (Also tracked elsewhere, not Phase 8: SSG dynamic params / `getStaticPaths` +
   build-time data baking remain a **Phase 6 (SSG)** follow-up; the router VRT
   baseline is a CI chore under *Known minor items*.)
