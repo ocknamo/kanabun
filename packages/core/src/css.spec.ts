@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { css } from "./index";
-import { installDOM } from "@kanabun/testing";
+import { installDOM, styles, ruleFor } from "@kanabun/testing";
 
 let teardown: () => void;
 beforeEach(() => {
@@ -9,21 +9,6 @@ beforeEach(() => {
 afterEach(() => {
   teardown();
 });
-
-/** The `<style>` elements injected into `<head>`, as `[data-k, cssText]`. */
-function styles(): Array<[string, string]> {
-  const head = (globalThis as unknown as { document: { head: { childNodes: any[] } } })
-    .document.head;
-  return head.childNodes.map((n) => [n.getAttribute("data-k"), n.textContent]);
-}
-
-/** The single injected rule text for a given class (asserts exactly one). */
-function ruleFor(cls: string): string {
-  const id = cls.slice(2); // strip "k-"
-  const matches = styles().filter(([k]) => k === id);
-  expect(matches.length).toBe(1);
-  return matches[0]![1];
-}
 
 describe("css", () => {
   test("returns a stable k-<hash> class and injects one <style>", () => {

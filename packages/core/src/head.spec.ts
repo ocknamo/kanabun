@@ -5,7 +5,7 @@ import {
   createContainer,
   serialize,
   asEl,
-  type MockNode,
+  docHead as head,
   childByTag as byTag,
 } from "@kanabun/testing";
 
@@ -16,9 +16,6 @@ beforeEach(() => {
 afterEach(() => {
   teardown();
 });
-
-const head = (): MockNode =>
-  (globalThis as unknown as { document: { head: MockNode } }).document.head;
 
 describe("<Head>", () => {
   test("appends children to <head> and nothing in place", () => {

@@ -6,6 +6,8 @@ import {
   asMock,
   asNode,
   createContainer,
+  docBody,
+  docHead,
   installDOM,
   serialize,
 } from "./dom-mock";
@@ -212,6 +214,28 @@ describe("installDOM", () => {
     inner();
     teardown();
     expect(g.document).toBe(before);
+  });
+});
+
+describe("docHead / docBody", () => {
+  test("return the installed document's head and body", () => {
+    const teardown = installDOM();
+    const doc = (globalThis as unknown as { document: MockDocument }).document;
+    expect(docHead()).toBe(doc.head);
+    expect(docBody()).toBe(doc.body);
+    teardown();
+  });
+
+  test("throw a pointer at installDOM when no document is installed", () => {
+    const g = globalThis as { document?: unknown };
+    const prev = g.document;
+    delete g.document;
+    try {
+      expect(() => docHead()).toThrow("no `document` installed");
+      expect(() => docBody()).toThrow("no `document` installed");
+    } finally {
+      if (prev !== undefined) g.document = prev;
+    }
   });
 });
 

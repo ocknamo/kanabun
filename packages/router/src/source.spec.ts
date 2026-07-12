@@ -4,8 +4,8 @@ import {
   createBrowserSource,
   createHashSource,
   parsePath,
-  type WindowLike,
 } from "./index";
+import { fakeWindow, fakeHashWindow } from "./router-test-utils";
 
 describe("memory source", () => {
   test("push/replace update the location silently", () => {
@@ -35,42 +35,6 @@ describe("memory source", () => {
     expect(src.location()).toBe("/c");
   });
 });
-
-// A structural stand-in for `window`, backed by an in-memory URL.
-function fakeWindow(initial = "/"): WindowLike & { popstate(): void } {
-  let url = new URL(initial, "http://x");
-  const listeners = new Set<() => void>();
-  return {
-    history: {
-      pushState: (_state, _unused, to) => {
-        url = new URL(to, "http://x");
-      },
-      replaceState: (_state, _unused, to) => {
-        url = new URL(to, "http://x");
-      },
-    },
-    location: {
-      get pathname() {
-        return url.pathname;
-      },
-      get search() {
-        return url.search;
-      },
-      get hash() {
-        return url.hash;
-      },
-    },
-    addEventListener: (_type, callback) => {
-      listeners.add(callback);
-    },
-    removeEventListener: (_type, callback) => {
-      listeners.delete(callback);
-    },
-    popstate() {
-      for (const cb of [...listeners]) cb();
-    },
-  };
-}
 
 describe("browser source", () => {
   afterEach(() => {
@@ -112,46 +76,6 @@ describe("browser source", () => {
     expect(() => createBrowserSource()).toThrow(/no `window`/);
   });
 });
-
-// A window stand-in whose location lives entirely in the hash. Setting
-// `location.hash` updates it; `hashchange()` fires the registered listeners.
-function fakeHashWindow(initialHash = ""): WindowLike & { hashchange(): void } {
-  let url = new URL("http://x/" + initialHash);
-  const listeners = new Set<() => void>();
-  return {
-    history: {
-      pushState: (_state, _unused, to) => {
-        url = new URL(to, url);
-      },
-      replaceState: (_state, _unused, to) => {
-        url = new URL(to, url);
-      },
-    },
-    location: {
-      get pathname() {
-        return url.pathname;
-      },
-      get search() {
-        return url.search;
-      },
-      get hash() {
-        return url.hash;
-      },
-      set hash(value: string) {
-        url.hash = value;
-      },
-    },
-    addEventListener: (_type, callback) => {
-      listeners.add(callback);
-    },
-    removeEventListener: (_type, callback) => {
-      listeners.delete(callback);
-    },
-    hashchange() {
-      for (const cb of [...listeners]) cb();
-    },
-  };
-}
 
 describe("hash source", () => {
   afterEach(() => {

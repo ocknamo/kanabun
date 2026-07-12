@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { jsx, onMount } from "@kanabun/core";
 import { renderTest } from "./render";
-import { tick } from "./async";
+import { deferred, tick } from "./async";
 
 describe("tick", () => {
   test("flushes queued microtasks", async () => {
@@ -20,6 +20,29 @@ describe("tick", () => {
     }, 0);
     await tick();
     expect(ran).toBe(true);
+  });
+
+  test("deferred resolves its promise from the outside", async () => {
+    const d = deferred<number>();
+    let settled: number | undefined;
+    void d.promise.then((v) => {
+      settled = v;
+    });
+    expect(settled).toBeUndefined(); // still pending until the test says so
+    d.resolve(42);
+    await tick();
+    expect(settled).toBe(42);
+  });
+
+  test("deferred rejects its promise from the outside", async () => {
+    const d = deferred<never>();
+    let reason: unknown;
+    d.promise.catch((r) => {
+      reason = r;
+    });
+    d.reject(new Error("boom"));
+    await tick();
+    expect((reason as Error).message).toBe("boom");
   });
 
   test("makes onMount observable after render", async () => {

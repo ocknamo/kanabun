@@ -229,6 +229,27 @@ export function serialize(node: MockNode): string {
   return `<${tag}${attrs}>${inner}</${tag}>`;
 }
 
+/** The installed document, or throw a pointer at `installDOM`/`renderTest`. */
+function installedDocument(): MockDocument {
+  const doc = (globalThis as { document?: unknown }).document;
+  if (doc === undefined) {
+    throw new Error(
+      "no `document` installed — call installDOM() (or render via renderTest) first",
+    );
+  }
+  return doc as MockDocument;
+}
+
+/** The installed document's `<head>` (where `css` injects its `<style>`s). */
+export function docHead(): MockNode {
+  return installedDocument().head;
+}
+
+/** The installed document's `<body>` (the default `<Portal>` target). */
+export function docBody(): MockNode {
+  return installedDocument().body;
+}
+
 /** Install the mock as `globalThis.document`; returns a teardown function. */
 export function installDOM(): () => void {
   const prev = (globalThis as { document?: unknown }).document;

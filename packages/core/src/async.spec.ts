@@ -2,20 +2,14 @@ import { describe, expect, test, beforeEach, afterEach } from "bun:test";
 import { createRoot, effect, signal, render, jsx } from "./index";
 import { resource, Suspense } from "./async";
 import type { Resource, ResourceActions, ResourceFetcherInfo } from "./async";
-import { installDOM, createContainer, serialize, asEl, tick } from "@kanabun/testing";
-
-// A promise whose settlement we control from the test.
-function deferred<T>() {
-  let resolve!: (value: T) => void;
-  let reject!: (reason: unknown) => void;
-  const promise = new Promise<T>((res, rej) => {
-    resolve = res;
-    reject = rej;
-  });
-  return { promise, resolve, reject };
-}
-
-// Drain all microtasks (a macrotask runs after every queued microtask).
+import {
+  installDOM,
+  createContainer,
+  serialize,
+  asEl,
+  tick,
+  deferred,
+} from "@kanabun/testing";
 
 // ── resource: the reactive primitive (no DOM needed) ────────────────
 describe("resource", () => {

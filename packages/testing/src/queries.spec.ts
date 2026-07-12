@@ -1,12 +1,14 @@
 import { describe, expect, test } from "bun:test";
 import { MockDocument, type MockNode } from "./dom-mock";
 import {
+  childById,
   childByTag,
   elements,
   hasClass,
   queryAllByClass,
   queryAllByTag,
   queryByClass,
+  queryById,
   queryByTag,
   walk,
 } from "./queries";
@@ -16,8 +18,8 @@ import {
  *
  *   <div>            (root)
  *     "text"
- *     <span class="a b">
- *       <span class="b">   ← nested same tag: childByTag must NOT see it
+ *     <span class="a b" id="outer">
+ *       <span class="b" id="inner">   ← nested same tag: childByTag must NOT see it
  *     <p>
  */
 function tree(): {
@@ -31,8 +33,10 @@ function tree(): {
   root.appendChild(doc.createTextNode("text"));
   const outer = doc.createElement("span");
   outer.setAttribute("class", "a b");
+  outer.setAttribute("id", "outer");
   const inner = doc.createElement("span");
   inner.setAttribute("class", "b");
+  inner.setAttribute("id", "inner");
   outer.appendChild(inner);
   root.appendChild(outer);
   const p = doc.createElement("p");
@@ -66,6 +70,20 @@ describe("childByTag vs queryByTag", () => {
     const { root, outer, inner } = tree();
     expect(queryAllByTag(root, "span")).toEqual([outer, inner]);
     expect(queryAllByTag(root, "ul")).toEqual([]);
+  });
+});
+
+describe("childById vs queryById", () => {
+  test("childById looks at direct children only", () => {
+    const { root, outer } = tree();
+    expect(childById(root, "outer")).toBe(outer);
+    expect(childById(root, "inner")).toBeUndefined(); // nested ids invisible
+  });
+
+  test("queryById descends the subtree", () => {
+    const { root, inner } = tree();
+    expect(queryById(root, "inner")).toBe(inner);
+    expect(queryById(root, "missing")).toBeUndefined();
   });
 });
 

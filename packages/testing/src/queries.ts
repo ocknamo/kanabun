@@ -33,6 +33,18 @@ export function queryAllByTag(root: MockNode, tag: string): MockNode[] {
   return elements(root).filter((n) => n.tagName.toLowerCase() === tag);
 }
 
+/** The first *direct child* element with the given id (no descent). */
+export function childById(parent: MockNode, id: string): MockNode | undefined {
+  return parent.childNodes.find(
+    (n) => n.nodeType === 1 && n.getAttribute("id") === id,
+  );
+}
+
+/** The first element in the subtree with the given id. */
+export function queryById(root: MockNode, id: string): MockNode | undefined {
+  return elements(root).find((n) => n.getAttribute("id") === id);
+}
+
 /** Whether the element's `class` attribute contains the given class. */
 export function hasClass(node: MockNode, cls: string): boolean {
   return (node.getAttribute("class") ?? "").split(" ").filter(Boolean).includes(cls);
