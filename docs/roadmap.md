@@ -264,6 +264,22 @@ primitive. None is required for the founding goal; all must hold the same bar
   DOM-using spec imports these helpers instead of hand-rolling them. Dev-only
   for consumers (a devDependency), published like the other packages. See
   [`decisions.md`](./decisions.md#kanabuntesting-phase-8).
+  **Follow-ups (agreed, two stages):**
+  - [ ] **Stage 1 — absorb the remaining spec helpers.** `deferred<T>()`
+    (copy-pasted in `async.spec.ts` / `lazy.spec.ts`), `docBody()` / `docHead()`
+    typed accessors (hand-rolled in `portal` / `islands` / `head` specs),
+    `childById` / `queryById` (`control-flow.spec.ts`'s `byId`); consider
+    `styles()` / `ruleFor()` (`css.spec.ts`) and `captureWarnings()`
+    (`dev.spec.ts`). Also dedupe `source.spec.ts`'s `fakeWindow` copy into
+    `router-test-utils.ts` (router-local, not this package).
+  - [ ] **Stage 2 — testing-library-style ergonomics (partial adoption).**
+    A `getBy*` (throws with the container's serialized HTML) / `queryBy*`
+    (returns `undefined`) two-tier API, `getByText`, and container-bound
+    queries returned by `renderTest`. Deliberately *not* adopted: `getByRole`
+    (needs an implicit-ARIA table — conflicts with the deliberately minimal
+    mock), `findBy*`/`waitFor` (reactivity is synchronous; `await tick()`
+    suffices), and user-event (the mock has no bubbling/default actions —
+    `fireEvent`'s honesty is the point).
 - (Also tracked elsewhere, not Phase 8: SSG dynamic params / `getStaticPaths` +
   build-time data baking remain a **Phase 6 (SSG)** follow-up; the router VRT
   baseline is a CI chore under *Known minor items*.)
