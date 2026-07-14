@@ -48,7 +48,7 @@ Phase 6 のルーター・**ネストルーティング**・**相対 `<Link>` hr
   - **状態保持 HMR** ── コンパイラ無しでは到達不可(非CSS編集は全リロードのまま)。
   - **Phase 7** ── **エコシステムプリミティブ(`lazy`・`<Portal>`・`<Dynamic>`・`<Head>`/`<Title>`)+ アイランドのコア(`<Island>`・`registerIsland`・`hydrateIslands`)は完了**(上記 §1、設計は `decisions.md`「Ecosystem primitives (Phase 7)」「Islands / partial hydration」)。**残り**: アイランド単位のバンドル分割(CLI ── ページに含まれるアイランドのチャンクだけを読む code-split + クライアントブートストラップ)/ 作成支援ツール ── **自前 linter(`kanabun lint`)** / **dev オーバーレイ**(`setWarnHandler` の消費側)。設計メモは `decisions.md`(アイランド)/ `dx.md`(linter、下記)。これらはコード未着手。
   - **Phase 8** ── 重量級エコシステム(Phase 7 から先送り)。**`@kanabun/testing` は完了**(下記 §「@kanabun/testing」)。残り: **SSR ストリーミング(`renderToStream`)**(eager 同期とは別の非同期描画経路 + チャンク縫合クライアントが要る)/ **リアクティブ store(`createStore`)**(プロキシベースのネスト store・パス単位細粒度更新)。いずれも大物。
-  - **npm 公開**(`@kanabun/core`・`@kanabun/cli`)+ **バージョニング/リリース戦略** ── 未公開のため `create` は `^0.0.0` プレースホルダ。
+  - **npm 公開の残り**(`@kanabun/testing`)+ **バージョニング/リリース戦略** ── `@kanabun/core`・`@kanabun/cli`・`@kanabun/router` は 0.0.0 で公開済み。`@kanabun/testing` のみ未公開(レジストリ 404)で、配布スキル `spa-quickstart`(`plugins/kanabun/`)のテスト雛形手順 `bun add -d @kanabun/testing` は公開されるまで他リポジトリで失敗する。
   - **SSG 動的パラメータ**(`getStaticPaths` + ビルド時データ焼き込み)── Phase 6(SSG)の follow-up(`roadmap.md:76` / `decisions.md`)。
   - 軽微: dev サーバの `realpath` 二重 stat / `parseArgs` の `--a --b` 挙動 / router の VRT ベースライン commit(note のみ)。
 
@@ -66,7 +66,7 @@ Phase 6 のルーター・**ネストルーティング**・**相対 `<Link>` hr
 - **`context` の遅延 thunk 罠**: Provider の関数子が **DOM を直接返す**場合は `insert`→`effect` が provider owner 配下で同期生成され context が効くが、子が **`<For>`/`<Show>` のような thunk を返す**と、その thunk は外側の `insert` の effect(= provider スコープ外)で後から走るため、何もしないと値が見えずデフォルトに落ちる。対策として Provider は「返り値が関数なら、呼ばれるたびに provider owner へ再突入(所有のみ・トラッキングは触らない)」するようラップしている。あわせて `createRoot` が親 owner を記録(`owner.owner = prevOwner`)するので `<For>` 行から上の Provider を辿れる。回帰テスト: `context.spec.ts` の「<For> rows resolve a Provider above the list」。
 - **テストの配置**: `*.spec.ts` は対象ソースと同じ階層に置く(例: `dom.spec.ts` は `packages/core/src/dom.ts` の隣)。専用の `test/` ディレクトリは廃止。
 - **カバレッジ**: `*.spec.ts` 自体は `coverageSkipTestFiles` で除外。`bunfig.toml` の `coveragePathIgnorePatterns` で `**/router-test-utils.ts`(router の WindowLike フェイク)と `**/examples/**` を除外。**DOM モックは除外しない** ── `@kanabun/testing` の製品コードとしてカバー対象(下記 §「@kanabun/testing」)。`build.ts` で `.map(String)` を使うのは、空配列時にユーザー関数が未実行=未カバレッジになるのを避けるため。
-- **`create` で生成したアプリは未公開のため `bun install` が通らない**(`@kanabun/core` `^0.0.0` プレースホルダ)。クイックスタートはリポジトリから実行する前提。npm 公開は TODO。
+- **`create` で生成したアプリは `bun install` が通る**(`@kanabun/core`・`@kanabun/cli` は 0.0.0 で npm 公開済み。実測確認)。残る未公開は `@kanabun/testing` のみ ── 公開後に `spa-quickstart` スキルのテスト雛形手順が他リポジトリで有効になる。
 - レビューサブエージェントは**セッション制限で中断することがある**。その場合は手動レビューで代替し、制限解除後に再実行した(透明性のため報告に明記する運用)。
 - **ルーターの `useParams`/`useLocation` は「関数の子」配下が前提**。`<Route>` の `component`/関数の子には params accessor を直接渡すので問題ないが、`useParams()` を読む子孫コンポーネントは **関数の子**(遅延)経由で構築しないと、即時の子は context のデフォルト(空オブジェクト)しか見えない ── core の context と同じ eager-children 制約。テストで固定済み(`router.spec.ts`「descendants read the matched params」は `() => jsx(Profile,{})`)。
 - **ルーターのテストは `window` 不要**。`createMemorySource` を `<Router source={…}>` に注入し、`src.go(path)` で popstate(back/forward)をシミュレートする。ブラウザソースは `WindowLike` を構造的に受けるので、`pushState` で内部 URL を更新する fake window を渡せば検証できる。デフォルト(`window` 解決)経路のカバーは `globalThis.window` に fake を置いてから source なしで `<Router>` を描画。
