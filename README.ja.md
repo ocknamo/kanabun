@@ -493,6 +493,22 @@ test("counting up", async () => {
 
 ---
 
+## Claude Code プラグイン
+
+このリポジトリは [Claude Code のプラグインマーケットプレイス](https://code.claude.com/docs/en/plugin-marketplaces)
+を兼ねています。`kanabun` プラグインには、空のディレクトリから新規 SPA を立ち上げる
+`spa-quickstart` スキル(Bun インストール → 雛形生成 → テスト雛形 → dev/build)が含まれます:
+
+```shell
+/plugin marketplace add ocknamo/kanabun
+/plugin install kanabun@kanabun
+```
+
+インストール後は任意のセッションで `/kanabun:spa-quickstart` を実行できます。
+プラグイン本体は [`plugins/kanabun/`](plugins/kanabun/) にあります。
+
+---
+
 ## API リファレンス
 
 **`@kanabun/core`**
