@@ -162,6 +162,11 @@
   セマンティック(`TypeChecker` で誤検知ほぼゼロ)は記録済みの follow-up。オプトインかつ
   開発時のみの作成支援ツールで、ランタイムコンパイラではない。詳細は
   [`dx.ja.md`](./dx.ja.md#4-自前-linterkanabun-lint)。
+  - ⚠️ **TypeScript 7 で一時停止。** TS 7(ネイティブ)がルールの使う in-process の
+    `import("typescript")` パーサを廃止したため、ネイティブサーバー API
+    (`typescript/unstable/sync`)へ移植するまで `kanabun lint` は利用不可を報告する
+    (誤った clean 判定はしない)。公開面は温存し移植は drop-in。移植方針は
+    [`dx.ja.md`](./dx.ja.md#4-自前-linterkanabun-lint)(「TS 7 の見通し」)。
 - [x] **dev オーバーレイ。** 完了 ── `kanabun dev` が問題をコンソールだけでなく画面上でも
   表示する:ビューポート下部に固定したパネルが、開発時警告・未捕捉エラー・unhandled
   rejection を件数バッジ + 閉じるボタン付きで集約する。警告 seam の*消費側*:モジュール

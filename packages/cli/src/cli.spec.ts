@@ -135,27 +135,19 @@ describe("run", () => {
     }
   });
 
-  test("lint prints findings and exits non-zero, then passes a clean tree", async () => {
+  test("lint is paused on TypeScript 7 — exits non-zero with a clear reason", async () => {
+    // TS 7 removed the in-process parser the `reactive-call-in-jsx` rule used, so
+    // `kanabun lint` reports itself unavailable (never a false clean pass) until
+    // the rule is ported to the native server API. See `lint.ts` / docs/dx.md §4.
     const dir = await mkdtemp(join(tmpdir(), "kanabun-run-lint-"));
     const prev = process.cwd();
-    const logs: string[] = [];
-    const original = console.log;
-    console.log = (...args: unknown[]) => logs.push(args.map(String).join(" "));
     try {
-      // A bad file in cwd → default `**/*.tsx` glob → findings printed + throw.
-      await writeFile(join(dir, "bad.tsx"), "const A = () => <div>{count()}</div>;");
+      await writeFile(join(dir, "app.tsx"), "const A = () => <div>{count()}</div>;");
       process.chdir(dir);
-      await expect(run(["lint"])).rejects.toThrow(/lint reported problems/);
-      expect(logs.join("\n")).toContain("reactive-call-in-jsx");
-
-      // Clean tree → "No lint problems found." and no throw.
-      logs.length = 0;
-      await rm(join(dir, "bad.tsx"));
-      await writeFile(join(dir, "ok.tsx"), "const B = () => <div>{count}</div>;");
-      await run(["lint"]);
-      expect(logs.join("\n")).toContain("No lint problems found.");
+      await expect(run(["lint"])).rejects.toThrow(
+        /lint could not run[\s\S]*temporarily disabled on TypeScript 7/,
+      );
     } finally {
-      console.log = original;
       process.chdir(prev);
       await rm(dir, { recursive: true, force: true });
     }

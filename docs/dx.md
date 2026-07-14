@@ -104,6 +104,13 @@ Backstops:
 
 ## 4. An in-house linter (`kanabun lint`)
 
+> ⚠️ **Paused on TypeScript 7.** TS 7 (the native port) removed the in-process
+> `import("typescript")` parser this rule relied on, so `kanabun lint` currently
+> reports itself unavailable (a non-zero exit, never a false clean pass) instead
+> of running. The public surface is preserved so the native-API port is a
+> drop-in — see the "Parser" bullet and "TS 7 outlook" below. The rest of this
+> section describes the intended behaviour, which returns with that port.
+
 The `{count()}` slip is exactly the kind of thing **static analysis** can catch
 that runtime checks can't — it needs to see the *source* (`count` is a signal,
 and it's being called in a reactive position) before the call collapses to a
@@ -123,8 +130,12 @@ kanabun lint "src/**/*.tsx"  # explicit globs
 
 It flags the reactive-position call (`{count()}` → suggests `{count}` /
 `{() => …}`), reporting `file:line:col  rule  message` and exiting non-zero on
-findings (a CI gate). Like `build`/`generate` it never throws — an internal
-failure comes back as a logged error, not a crash.
+findings (a CI gate). The `lint()` / `lintSource()` API mirrors `build`/`generate`:
+`lint()` never throws — an internal failure (including the TS 7 pause) comes back
+as `success: false` with a logged reason, not a crash — while the `kanabun lint`
+CLI command turns any non-success into a non-zero exit. (While paused, that
+non-success is the "unavailable on TS 7" notice, so the command always exits
+non-zero until the rule is ported.)
 
 ### Implementation
 
@@ -133,11 +144,20 @@ failure comes back as a logged error, not a crash.
   `node_modules`) and `lintSource(source, file)` analyzes one TSX string — the
   latter is exported so the rules unit-test from fixture strings with no
   filesystem. Diagnostics style mirrors `packages/cli/src/errors.ts`.
-- **Parser.** The TypeScript compiler API via a plain `import("typescript")`
-  that resolves to the project's pinned `typescript` dev dependency — no
-  auto-install gamble, and consistent with "TS is a pinned dev dep" (it still
-  adds nothing to the runtime). Each file is parsed with
-  `ts.createSourceFile(…, ScriptKind.TSX)`.
+- **Parser (⚠️ paused on TypeScript 7).** The rule originally parsed each file
+  **in-process** with the TypeScript compiler API via a plain
+  `import("typescript")` that resolves to the project's pinned `typescript` dev
+  dependency (`ts.createSourceFile(…, ScriptKind.TSX)`) — no auto-install
+  gamble, consistent with "TS is a pinned dev dep", and adding nothing to the
+  runtime. **TypeScript 7 (the native port) removed that in-process API:** the
+  parser now lives in the native binary, reachable only through a spawned server
+  API (`typescript/unstable/sync`), with AST types/guards split under
+  `typescript/unstable/ast` — there is no in-process `createSourceFile` any more.
+  So as of the TS 7 toolchain bump the linter is **paused**: `lint()` reports an
+  internal failure (never a false clean pass) and `lintSource()` throws the
+  explanation, while the public surface (`lint` / `lintSource` /
+  `formatFindings` and the result types) is preserved so the port stays a
+  drop-in. See "TS 7 outlook" below for the migration.
 - **Flagship rule — `reactive-call-in-jsx`.** Walk each JSX child / non-`on*`
   attribute and scan that reactive-position expression for a zero-arg call
   (`count()`, `store.sig()`) whose callee is an accessor-like identifier or
@@ -157,17 +177,24 @@ failure comes back as a logged error, not a crash.
 - **Later rules.** `static-thunk` (a `() => …` child/attribute that reads no
   signal — needlessly lazy) and `on-handler-not-a-function` (largely subsumed by
   the typed `on*` props in §1, kept for plain-JS users).
-- **Tests.** Fixture sources as strings → parse → assert findings, held to the
-  repo's 100% line/function coverage bar; no new runtime dependency.
-- **TS 7 (native `tsgo`) outlook.** Semantic mode is the part that stands to
-  gain: it drives `ts.createProgram` + a `TypeChecker`, which is exactly the
-  checker workload the Go-native compiler accelerates (~10×), and the win scales
-  with the *consumer's* codebase, not this repo. Syntactic mode (AST-only) sees
-  little: parsing was never the bottleneck and the node count is tiny. Caveat:
-  capturing that speedup depends on the native port exposing a usable in-process
-  compiler API — the preview leans toward an API-server / LSP model rather than
-  `import("typescript")`. So when the **semantic** refinement lands, build it on
-  the native API once that has stabilised rather than forcing today's pinned TS 6
-  into it (today's syntactic rule uses only the parser). A
-  non-blocking `typecheck-next` CI job (`@typescript/native-preview`) already
-  tracks tsgo to surface divergence early.
+- **Tests.** While paused, the specs pin the "unavailable on TS 7" contract
+  (`lint()` fails with the explanation, `lintSource()` throws) and cover the
+  parser-independent `formatFindings` from hand-built findings, holding the
+  repo's coverage bar. The rule's fixture tests (source string → parse → assert
+  findings) return with the native-API port; no new runtime dependency.
+- **TS 7 (native) outlook — the migration.** TS 7 turned the earlier caveat into
+  reality: the native port exposes **no in-process compiler API**. Parsing is
+  only available through the server API (`typescript/unstable/sync`) — spawn an
+  `API`, feed sources via a virtual filesystem (`typescript/unstable/fs`), then
+  walk the returned `SourceFile` with the guards from `typescript/unstable/ast/is`
+  and the node methods (`forEachChild`, `getStart`, `getLineAndCharacterOfPosition`
+  are still methods). So the port is: (1) obtain the `SourceFile` from the server
+  API instead of `ts.createSourceFile`, and (2) swap the `ts.isX(...)` guard calls
+  for the free functions from `typescript/unstable/ast/is`. The walk itself is
+  unchanged. The cost is that `lint` gains a **subprocess** (the native server) —
+  a departure from pure in-process JS parsing — so it should land once the native
+  API has stabilised and been verified under Bun. **Semantic mode** (resolve the
+  callee's type via a `Checker` from the same server API, flag only
+  `Accessor`/`Signal` calls → near-zero false positives) is the natural follow-on
+  and is exactly the checker workload the Go-native compiler accelerates (~10×),
+  scaling with the *consumer's* codebase, not this repo.

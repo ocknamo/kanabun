@@ -9,7 +9,7 @@ import { build } from "./build";
 import { create } from "./create";
 import { dev, type DevServer } from "./dev";
 import { generate } from "./generate";
-import { formatFindings, lint } from "./lint";
+import { lint } from "./lint";
 import { preview } from "./preview";
 import { serve, type SSRConfig, type SSRServer } from "./serve";
 
@@ -42,7 +42,7 @@ Usage:
   kanabun generate [entry]  prerender to static HTML (default: ssg.tsx)
   kanabun serve [entry]     start an SSR server (default: ssr.tsx)
   kanabun preview [entry]   build the SSG output and serve it (default: ssg.tsx)
-  kanabun lint [globs...]   check reactive-convention slips (default: **/*.tsx)
+  kanabun lint [globs...]   reactive-convention slips (paused on TypeScript 7)
 
 Options:
   --outdir <dir>            build output directory (default: dist)
@@ -177,20 +177,14 @@ export async function run(argv: string[]): Promise<DevServer | SSRServer | undef
       return undefined;
     }
     case "lint": {
+      // Paused on TypeScript 7: `lint()` reports why it cannot run — TS 7 removed
+      // the in-process parser the rule used; the native-API port is pending (see
+      // lint.ts / docs/dx.md §4). It never returns findings while paused, so this
+      // case only surfaces that reason and exits non-zero. The findings/clean
+      // branches return with the rule in the native-API port.
       const globs = positionals.length > 0 ? positionals : undefined;
       const result = await lint({ globs });
-      if (result.findings.length > 0) console.log(formatFindings(result.findings));
-      if (!result.success) {
-        // An internal failure (logs) vs. lint problems — same non-zero exit,
-        // different detail.
-        const reason =
-          result.logs.length > 0
-            ? `\n${result.logs.join("\n")}`
-            : ` ${result.findings.length} problem(s) found.`;
-        throw new Error(`kanabun: lint reported problems.${reason}`);
-      }
-      console.log("No lint problems found.");
-      return undefined;
+      throw new Error(`kanabun: lint could not run.\n${result.logs.join("\n")}`);
     }
     case "serve": {
       const port = portFlag(flags); // validate before importing the config
