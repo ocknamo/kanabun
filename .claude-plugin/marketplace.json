@@ -1,0 +1,17 @@
+{
+  "name": "kanabun",
+  "owner": {
+    "name": "ocknamo"
+  },
+  "description": "Claude Code plugins for the kanabun frontend framework.",
+  "plugins": [
+    {
+      "name": "kanabun",
+      "source": "./plugins/kanabun",
+      "description": "kanabun skills — bootstrap a new SPA from an empty directory (Bun install → scaffold → test → build).",
+      "author": {
+        "name": "ocknamo"
+      }
+    }
+  ]
+}

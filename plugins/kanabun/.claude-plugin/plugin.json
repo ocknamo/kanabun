@@ -1,0 +1,11 @@
+{
+  "name": "kanabun",
+  "description": "Skills for building apps with kanabun. Includes spa-quickstart: set up a new SPA with a test scaffold from an empty directory.",
+  "version": "0.1.0",
+  "author": {
+    "name": "ocknamo"
+  },
+  "homepage": "https://github.com/ocknamo/kanabun",
+  "repository": "https://github.com/ocknamo/kanabun",
+  "license": "MIT"
+}

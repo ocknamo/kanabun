@@ -513,6 +513,22 @@ under any runner and leaves hook wiring to you.
 
 ---
 
+## Claude Code plugin
+
+This repository doubles as a [Claude Code plugin marketplace](https://code.claude.com/docs/en/plugin-marketplaces).
+The `kanabun` plugin ships a `spa-quickstart` skill that bootstraps a new SPA —
+Bun install → scaffold → test scaffold → dev/build — from an empty directory:
+
+```shell
+/plugin marketplace add ocknamo/kanabun
+/plugin install kanabun@kanabun
+```
+
+Then run `/kanabun:spa-quickstart` in any session. The plugin lives in
+[`plugins/kanabun/`](plugins/kanabun/).
+
+---
+
 ## API reference
 
 **`@kanabun/core`**

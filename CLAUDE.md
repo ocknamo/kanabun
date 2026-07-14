@@ -71,6 +71,10 @@ Run all of these (and the example builds) before considering work done.
   mounts; larger examples split the component into `app.tsx`.
 - `docs/` — design decisions, roadmap, and handoff (EN + JA). Check `roadmap.md`
   for what's left and `docs/handoff.md` before starting.
+- `plugins/kanabun/` — the Claude Code plugin distributed from this repo
+  (marketplace manifest: `.claude-plugin/marketplace.json`). User-facing skills
+  like `spa-quickstart` live here, not in `.claude/skills/` (which is for
+  skills used *within* this repo). Validate with `claude plugin validate`.
 
 ## Git
 
