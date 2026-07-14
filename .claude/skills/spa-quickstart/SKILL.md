@@ -14,7 +14,7 @@ description: >
 
 ```sh
 curl -fsSL https://bun.sh/install | bash
-source ~/.bashrc   # PATH を反映（または新しいシェルを開く）
+# インストーラが表示する手順で PATH を反映（または新しいシェルを開く）
 ```
 
 ## 2. プロジェクト生成
@@ -64,8 +64,8 @@ test("App renders the initial count", () => {
 });
 ```
 
-`renderToString` は DOM 不要なのでそのまま `bun test` で走る。
-クリック等のインタラクションテストは `@kanabun/testing` が npm 公開され次第
+`renderToString` は DOM 不要なのでそのまま `bun test` で走る（初期描画の
+smoke テスト。クリック等の動作までは検証しない）。インタラクションテストは `@kanabun/testing` が npm 公開され次第
 `bun add -d @kanabun/testing` で（`renderTest` / `fireEvent`、jsdom 不要）。
 
 ## 4. 実行
