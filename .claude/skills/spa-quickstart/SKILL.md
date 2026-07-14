@@ -28,6 +28,10 @@ cd my-app && bun install
 
 ## 3. テスト雛形
 
+```sh
+bun add -d @kanabun/testing   # DOM モック + render/query/event ヘルパー（jsdom 不要）
+```
+
 テストできるよう App を `src/app.tsx` に分離し、`src/main.tsx` はマウントだけにする:
 
 ```tsx
@@ -55,18 +59,20 @@ render(() => <App />, document.getElementById("app")!);
 ```tsx
 // src/app.spec.tsx
 import { test, expect } from "bun:test";
-import { renderToString } from "@kanabun/core";
+import { renderTest, queryByTag, fireEvent } from "@kanabun/testing";
 import { App } from "./app";
 
-test("App renders the initial count", () => {
-  const { html } = renderToString(() => <App />);
-  expect(html).toContain("count is 0");
+test("clicking counts up", () => {
+  const { html, container, dispose } = renderTest(() => <App />);
+  expect(html()).toContain("count is 0");
+  fireEvent.click(queryByTag(container, "button")!);
+  expect(html()).toContain("count is 1");
+  dispose();
 });
 ```
 
-`renderToString` は DOM 不要なのでそのまま `bun test` で走る（初期描画の
-smoke テスト。クリック等の動作までは検証しない）。インタラクションテストは `@kanabun/testing` が npm 公開され次第
-`bun add -d @kanabun/testing` で（`renderTest` / `fireEvent`、jsdom 不要）。
+`renderTest` がモック `document` を自動で用意するので、そのまま `bun test` で走る。
+`onMount` / `resource` を挟むテストは `await tick()`（同パッケージ）でフラッシュ。
 
 ## 4. 実行
 
