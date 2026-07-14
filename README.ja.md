@@ -491,10 +491,11 @@ test("counting up", async () => {
 このパッケージは `bun:test` を import しないため任意のランナーで動き、フックの配線は
 利用者側に委ねます。
 
-クエリは testing-library 風の二層構成です: `getBy*` は見つからなければ
-シリアライズ済みツリーを添えて `Unable to find …` で throw し、`queryBy*` は
-`undefined` を返します(不在の assert 用)。`renderTest` はコンテナに束縛済みの
-クエリを返し(上の例)、`within(el)` で任意のサブツリーに束縛し直せます。
+クエリは testing-library 風の二層構成です: `getBy*` は**ちょうど 1 件**を保証し ──
+miss なら `Unable to find …`、重複なら `Found N matches …` で(いずれもシリアライズ
+済みツリーを添えて)throw します。`queryBy*` は先頭マッチ(または不在の assert 用に
+`undefined`)を返し、`queryAllBy*` は全件を返します。`renderTest` はコンテナに
+束縛済みのクエリを返し(上の例)、`within(el)` で任意のサブツリーに束縛し直せます。
 どのクエリも非束縛版があります(`queryByTag(container, "button")`)。
 `getByText` / `queryByText` は要素の*自前*テキスト(文字列か RegExp)にマッチする
 ので、最内要素が当たります ── `<button>go</button>` は `getByText("go")` で
@@ -570,7 +571,7 @@ test("counting up", async () => {
 | --- | --- |
 | 描画 | `renderTest`(→ `{ container, html(), dispose() }` + コンテナ束縛クエリ。モック document を自動設置) |
 | DOM モック | `installDOM`, `createContainer`, `docHead` / `docBody`, `serialize`, `MockNode`, `MockDocument`, `MockEvent`, `asEl` / `asNode` / `asMock`(型キャストの橋渡し) |
-| クエリ | `getByTag` / `getByClass` / `getById` / `getByText`(miss で throw)、`queryByTag` / `queryAllByTag`、`queryByClass` / `queryAllByClass`、`queryById`、`queryByText`(`undefined` を返す)、`childByTag` / `childById`(直下のみ)、`hasClass`、`within`(root へ束縛)、`walk`、`elements`(サブツリー・文書順) |
+| クエリ | `getByTag` / `getByClass` / `getById` / `getByText`(1 件でなければ throw)、`queryByTag` / `queryByClass` / `queryById` / `queryByText`(先頭 or `undefined`)、`queryAllByTag` / `queryAllByClass` / `queryAllById` / `queryAllByText`(全件)、`childByTag` / `childById`(直下のみ)、`hasClass`、`within`(root へ束縛)、`walk`、`elements`(サブツリー・文書順) |
 | イベント | `fireEvent`(+ `.click`、`.keyDown`)、`leftClick`(クリックのペイロード)、`setValue`、`typeAndEnter` |
 | 非同期 | `tick`(macrotask 1 回。`onMount` / resource の microtask も排出)、`deferred`(テスト側から settle する promise) |
 | スタイリング | `styles`(注入済み `<style>` を `[data-k, cssText]` で)、`ruleFor`(スコープドクラスの単一ルール) |

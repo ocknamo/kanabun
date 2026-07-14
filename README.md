@@ -511,14 +511,16 @@ restores it on `dispose()`); call `installDOM()` yourself in a `beforeEach` if
 you prefer explicit setup — the package never imports `bun:test`, so it works
 under any runner and leaves hook wiring to you.
 
-Queries come in two tiers, testing-library style: `getBy*` throws
-`Unable to find …` with the serialized tree on a miss, `queryBy*` returns
-`undefined` (assert absence). `renderTest` returns them pre-bound to the
-container (as above); `within(el)` re-binds them to any subtree, and every
-query also exists unbound (`queryByTag(container, "button")`). `getByText` /
-`queryByText` match an element's *own* text (string or RegExp) — the innermost
-element wins, so `<button>go</button>` is found by `getByText("go")` without
-its wrappers also matching.
+Queries come in two tiers, testing-library style: `getBy*` asserts exactly one
+match — it throws (with the serialized tree) `Unable to find …` on a miss and
+`Found N matches …` on a duplicate; `queryBy*` returns the first match or
+`undefined` (assert absence), and `queryAllBy*` returns all. `renderTest`
+returns them pre-bound to the container (as above); `within(el)` re-binds them
+to any subtree, and every query also exists unbound
+(`queryByTag(container, "button")`). `getByText` / `queryByText` match an
+element's *own* text (string or RegExp) — the innermost element wins, so
+`<button>go</button>` is found by `getByText("go")` without its wrappers also
+matching.
 
 ---
 
@@ -590,7 +592,7 @@ Then run `/kanabun:spa-quickstart` in any session. The plugin lives in
 | --- | --- |
 | Rendering | `renderTest` (→ `{ container, html(), dispose() }` + the container-bound queries; auto-installs the mock document) |
 | DOM mock | `installDOM`, `createContainer`, `docHead` / `docBody`, `serialize`, `MockNode`, `MockDocument`, `MockEvent`, `asEl` / `asNode` / `asMock` (type-cast bridges) |
-| Queries | `getByTag` / `getByClass` / `getById` / `getByText` (throw on a miss), `queryByTag` / `queryAllByTag`, `queryByClass` / `queryAllByClass`, `queryById`, `queryByText` (return `undefined`), `childByTag` / `childById` (direct children), `hasClass`, `within` (bind to a root), `walk`, `elements` (subtree, document order) |
+| Queries | `getByTag` / `getByClass` / `getById` / `getByText` (throw unless exactly one match), `queryByTag` / `queryByClass` / `queryById` / `queryByText` (first match or `undefined`), `queryAllByTag` / `queryAllByClass` / `queryAllById` / `queryAllByText` (all matches), `childByTag` / `childById` (direct children), `hasClass`, `within` (bind to a root), `walk`, `elements` (subtree, document order) |
 | Events | `fireEvent` (+ `.click`, `.keyDown`), `leftClick` (the click payload), `setValue`, `typeAndEnter` |
 | Async | `tick` (one macrotask; flushes `onMount` / resource microtasks), `deferred` (a promise settled by the test) |
 | Styling | `styles` (injected `<style>`s as `[data-k, cssText]`), `ruleFor` (the single rule for a scoped class) |

@@ -10,7 +10,9 @@ import {
   getByText,
   hasClass,
   queryAllByClass,
+  queryAllById,
   queryAllByTag,
+  queryAllByText,
   queryByClass,
   queryById,
   queryByTag,
@@ -91,6 +93,12 @@ describe("childById vs queryById", () => {
     expect(queryById(root, "inner")).toBe(inner);
     expect(queryById(root, "missing")).toBeUndefined();
   });
+
+  test("queryAllById returns every match (the mock allows duplicate ids)", () => {
+    const { root, outer } = tree();
+    expect(queryAllById(root, "outer")).toEqual([outer]);
+    expect(queryAllById(root, "missing")).toEqual([]);
+  });
 });
 
 describe("text queries", () => {
@@ -118,12 +126,20 @@ describe("text queries", () => {
     expect(queryByText(p, /^wor/)).toBe(b);
     expect(queryByText(p, /^nope/)).toBeUndefined();
   });
+
+  test("queryAllByText returns every own-text match in document order", () => {
+    const { p, b } = textTree();
+    // Both "Hello " and "world" contain an 'o'; p comes first (document order).
+    expect(queryAllByText(p, /o/)).toEqual([p, b]);
+    expect(queryAllByText(p, "world")).toEqual([b]);
+    expect(queryAllByText(p, "nope")).toEqual([]);
+  });
 });
 
-describe("getBy* (the throwing tier)", () => {
-  test("return the same node as their queryBy* counterpart", () => {
-    const { root, outer, inner } = tree();
-    expect(getByTag(root, "span")).toBe(outer);
+describe("getBy* (the single-match throwing tier)", () => {
+  test("return the sole match", () => {
+    const { root, outer, inner, p } = tree();
+    expect(getByTag(root, "p")).toBe(p);
     expect(getByClass(root, "a")).toBe(outer);
     expect(getById(root, "inner")).toBe(inner);
     expect(getByText(root, "text")).toBe(root);
@@ -138,6 +154,15 @@ describe("getBy* (the throwing tier)", () => {
     expect(() => getByText(root, /nope/)).toThrow(
       "an element with text matching /nope/",
     );
+  });
+
+  test("multiple matches throw, naming the count (unlike a first-match query)", () => {
+    const { root } = tree();
+    // Two <span>s and two elements carrying class "b" (outer + inner).
+    expect(() => getByTag(root, "span")).toThrow(
+      "Found 2 matches for a <span> element (expected exactly one)",
+    );
+    expect(() => getByClass(root, "b")).toThrow("Found 2 matches");
   });
 
   test("the error carries the serialized tree", () => {
@@ -161,7 +186,9 @@ describe("within", () => {
     expect(q.queryByClass("b")).toBe(outer);
     expect(q.queryAllByClass("b")).toEqual([outer, inner]);
     expect(q.queryById("missing")).toBeUndefined();
+    expect(q.queryAllById("inner")).toEqual([inner]);
     expect(q.queryByText(/tex/)).toBe(root);
+    expect(q.queryAllByText("text")).toEqual([root]);
   });
 });
 

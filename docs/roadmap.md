@@ -279,16 +279,19 @@ primitive. None is required for the founding goal; all must hold the same bar
     `fakeWindow` / `fakeHashWindow` copies were deduped into
     `router-test-utils.ts` (router-local, not this package).
   - [x] **Stage 2 — testing-library-style ergonomics (partial adoption).**
-    Done — a `getBy*` (throws `Unable to find …` with the serialized tree) /
-    `queryBy*` (returns `undefined`) two-tier API over the same lookups
-    (`getByTag` / `getByClass` / `getById` / `getByText`; both tiers return
-    the *first* match in document order — no multiple-match throw, unlike
-    testing-library), `getByText` / `queryByText` matching an element's *own*
-    text (direct text-node children joined, child elements excluded — the
-    innermost element wins, ancestors don't also match; string equality or a
-    RegExp, no whitespace normalization), `within(root)` binding every
-    subtree query, and `renderTest` returning the container-bound queries
-    (`RenderTestResult extends BoundQueries`). Deliberately *not* adopted:
+    Done — a `getBy*` / `queryBy*` two-tier API over the same lookups
+    (`getByTag` / `getByClass` / `getById` / `getByText`). `getBy*` asserts a
+    single match — it throws `Unable to find …` on a miss and `Found N
+    elements … (expected exactly one)` on a duplicate, each with the serialized
+    tree — matching testing-library's contract; `queryBy*` returns the *first*
+    match (or `undefined`), and `queryAllBy*` returns all (`queryAllByText` /
+    `queryAllById` were added so the text/id `getBy*` could count too).
+    `getByText` / `queryByText` match an element's *own* text (direct text-node
+    children joined, child elements excluded — the innermost element wins,
+    ancestors don't also match; string equality or a RegExp, no whitespace
+    normalization), `within(root)` binds every subtree query, and `renderTest`
+    returns the container-bound queries (`RenderTestResult extends
+    BoundQueries`). Deliberately *not* adopted:
     `getByRole` (needs an implicit-ARIA table — conflicts with the
     deliberately minimal mock), `findBy*`/`waitFor` (reactivity is
     synchronous; `await tick()` suffices), and user-event (the mock has no

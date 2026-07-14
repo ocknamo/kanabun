@@ -991,23 +991,25 @@ Two follow-up stages (agreed at ship time) landed later:
   process-wide warning dedupe, which stays out of reach by design (`__resetDev`
   is core-internal); its docstring says so.
 - **Stage 2 added testing-library-style ergonomics — partially, on purpose.**
-  A two-tier API over the same lookups: `queryBy*` returns `undefined` (assert
-  absence), `getBy*` throws `Unable to find …` carrying the serialized tree
-  (a failed lookup reads as a real failure, not `.toBeDefined()` on
-  `undefined`). Both tiers return the *first* match in document order — unlike
-  testing-library, a multiple match does not throw (the roadmap asked for a
-  miss to throw; multiple-match detection buys little against a mock this
-  small and is documented as the deviation it is). `getByText`/`queryByText`
-  match an element's **own text** — its direct text-node children joined,
-  child elements excluded (testing-library's `getNodeText`) — so the innermost
-  element wins and wrapping ancestors don't also match; string equality or a
-  RegExp, no whitespace normalization (the mock stays literal). `within(root)`
-  binds every subtree query, and `renderTest` spreads those bound to its
-  container (`RenderTestResult extends BoundQueries`). Still deliberately
-  unadopted: `getByRole` (needs an implicit-ARIA table — conflicts with the
-  minimal mock), `findBy*`/`waitFor` (reactivity is synchronous; `await
-  tick()` suffices), and user-event (the mock has no bubbling/default
-  actions — `fireEvent`'s honesty is the point).
+  A two-tier API over the same lookups: `queryBy*` returns the *first* match in
+  document order (or `undefined`, to assert absence), `getBy*` asserts exactly
+  one match — it throws `Unable to find …` on a miss and `Found N matches …
+  (expected exactly one)` on a duplicate, each carrying the serialized tree, so
+  a failed lookup reads as a real failure rather than a `.toBeDefined()` on
+  `undefined` or a silently-wrong first pick. This matches testing-library's
+  single-match `getBy*` contract; when several matches are wanted, use
+  `queryAllBy*` (`queryAllByText`/`queryAllById` were added so `getByText`/
+  `getById` could count too). `getByText`/`queryByText` match an element's
+  **own text** — its direct text-node children joined, child elements excluded
+  (testing-library's `getNodeText`) — so the innermost element wins and
+  wrapping ancestors don't also match; string equality or a RegExp, no
+  whitespace normalization (the mock stays literal). `within(root)` binds every
+  subtree query, and `renderTest` spreads those bound to its container
+  (`RenderTestResult extends BoundQueries`). Still deliberately unadopted:
+  `getByRole` (needs an implicit-ARIA table — conflicts with the minimal mock),
+  `findBy*`/`waitFor` (reactivity is synchronous; `await tick()` suffices), and
+  user-event (the mock has no bubbling/default actions — `fireEvent`'s honesty
+  is the point).
 
 Held to the same bar: zero dependencies, runtime-independent, 100%
 line/function coverage, `tsc` clean, docs bilingual.

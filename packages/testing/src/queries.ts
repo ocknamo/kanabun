@@ -3,10 +3,11 @@
  * order (the same semantics the core and router suites relied on).
  *
  * Two tiers, testing-library style: `queryBy*` returns `undefined` on a miss
- * (assert absence, or branch), `getBy*` throws with the serialized tree (a
- * failed lookup reads as a real failure message, not a `.toBeDefined()` on
- * `undefined`). Both return the *first* match in document order — unlike
- * testing-library's `getBy*`, a multiple match does not throw.
+ * (assert absence, or branch), `getBy*` throws with the serialized tree — on
+ * a miss *and* on multiple matches, so `getBy*` asserts a single match while a
+ * failed lookup reads as a real failure message (not a `.toBeDefined()` on
+ * `undefined`). `queryBy*` returns the *first* match in document order; reach
+ * for `queryAllBy*` when several are expected.
  */
 import { serialize, type MockNode } from "./dom-mock";
 
@@ -51,6 +52,14 @@ export function queryById(root: MockNode, id: string): MockNode | undefined {
   return elements(root).find((n) => n.getAttribute("id") === id);
 }
 
+/**
+ * Every element in the subtree with the given id. Ids are meant to be unique,
+ * but the mock doesn't enforce it — this lets `getById` detect a duplicate.
+ */
+export function queryAllById(root: MockNode, id: string): MockNode[] {
+  return elements(root).filter((n) => n.getAttribute("id") === id);
+}
+
 /** Whether the element's `class` attribute contains the given class. */
 export function hasClass(node: MockNode, cls: string): boolean {
   return (node.getAttribute("class") ?? "").split(" ").filter(Boolean).includes(cls);
@@ -78,6 +87,11 @@ function ownText(node: MockNode): string {
     .join("");
 }
 
+/** Whether the element's own text equals `text` (or matches it, for a RegExp). */
+function matchesText(node: MockNode, text: string | RegExp): boolean {
+  return typeof text === "string" ? ownText(node) === text : text.test(ownText(node));
+}
+
 /**
  * The first element in the subtree whose own text equals `text` (or matches
  * it, for a RegExp). No whitespace normalization — the mock stays literal.
@@ -88,41 +102,60 @@ export function queryByText(
   root: MockNode,
   text: string | RegExp,
 ): MockNode | undefined {
-  return elements(root).find((n) =>
-    typeof text === "string" ? ownText(n) === text : text.test(ownText(n)),
-  );
+  return elements(root).find((n) => matchesText(n, text));
 }
 
-/** Return `hit`, or throw a lookup failure carrying the serialized tree. */
-function get(root: MockNode, hit: MockNode | undefined, what: string): MockNode {
-  if (hit === undefined) {
+/** Every element in the subtree whose own text matches (string or RegExp). */
+export function queryAllByText(root: MockNode, text: string | RegExp): MockNode[] {
+  return elements(root).filter((n) => matchesText(n, text));
+}
+
+/**
+ * Return the single match, or throw carrying the serialized tree — on a miss
+ * *and* on multiple matches, so `getBy*` asserts exactly one. `matches` is the
+ * `queryAllBy*` result for the same lookup.
+ */
+function get(root: MockNode, matches: MockNode[], what: string): MockNode {
+  if (matches.length === 0) {
     throw new Error(`Unable to find ${what} in:\n${serialize(root)}`);
   }
-  return hit;
+  if (matches.length > 1) {
+    // "matches for", not "elements matching", so a text query's own "matching"
+    // (`… text matching /o/`) doesn't read as "matching … matching".
+    throw new Error(
+      `Found ${matches.length} matches for ${what} (expected exactly one) in:\n${serialize(root)}`,
+    );
+  }
+  return matches[0]!;
 }
 
-/** Like {@link queryByTag}, but a miss throws with the serialized tree. */
+/** Like {@link queryByTag}, but throws unless exactly one element matches. */
 export function getByTag(root: MockNode, tag: string): MockNode {
-  return get(root, queryByTag(root, tag), `a <${tag}> element`);
+  return get(root, queryAllByTag(root, tag), `a <${tag}> element`);
 }
 
-/** Like {@link queryByClass}, but a miss throws with the serialized tree. */
+/** Like {@link queryByClass}, but throws unless exactly one element matches. */
 export function getByClass(root: MockNode, cls: string): MockNode {
-  return get(root, queryByClass(root, cls), `an element with class "${cls}"`);
+  return get(root, queryAllByClass(root, cls), `an element with class "${cls}"`);
 }
 
-/** Like {@link queryById}, but a miss throws with the serialized tree. */
+/** Like {@link queryById}, but throws unless exactly one element matches. */
 export function getById(root: MockNode, id: string): MockNode {
-  return get(root, queryById(root, id), `an element with id "${id}"`);
+  return get(root, queryAllById(root, id), `an element with id "${id}"`);
 }
 
-/** Like {@link queryByText}, but a miss throws with the serialized tree. */
+/**
+ * Like {@link queryByText}, but throws unless exactly one element matches. An
+ * empty string or an all-matching RegExp (`/(?:)/`) can match several elements
+ * (those with no own text) — with a single-match contract those throw as
+ * duplicates rather than returning the first, so query for real content.
+ */
 export function getByText(root: MockNode, text: string | RegExp): MockNode {
   const what =
     typeof text === "string"
       ? `an element with text "${text}"`
       : `an element with text matching ${text}`;
-  return get(root, queryByText(root, text), what);
+  return get(root, queryAllByText(root, text), what);
 }
 
 /** The subtree queries, bound to a root — see {@link within}. */
@@ -136,7 +169,9 @@ export interface BoundQueries {
   queryByClass(cls: string): MockNode | undefined;
   queryAllByClass(cls: string): MockNode[];
   queryById(id: string): MockNode | undefined;
+  queryAllById(id: string): MockNode[];
   queryByText(text: string | RegExp): MockNode | undefined;
+  queryAllByText(text: string | RegExp): MockNode[];
 }
 
 /**
@@ -155,6 +190,8 @@ export function within(root: MockNode): BoundQueries {
     queryByClass: (cls) => queryByClass(root, cls),
     queryAllByClass: (cls) => queryAllByClass(root, cls),
     queryById: (id) => queryById(root, id),
+    queryAllById: (id) => queryAllById(root, id),
     queryByText: (text) => queryByText(root, text),
+    queryAllByText: (text) => queryAllByText(root, text),
   };
 }
