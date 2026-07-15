@@ -12,6 +12,8 @@ export {
   serialize,
   installDOM,
   createContainer,
+  docHead,
+  docBody,
   asEl,
   asNode,
   asMock,
@@ -22,11 +24,25 @@ export {
   walk,
   elements,
   childByTag,
+  childById,
   queryByTag,
   queryAllByTag,
+  queryById,
+  queryAllById,
   hasClass,
   queryByClass,
   queryAllByClass,
+  queryByText,
+  queryAllByText,
+  getByTag,
+  getByClass,
+  getById,
+  getByText,
+  within,
 } from "./queries";
+export type { BoundQueries } from "./queries";
 export { fireEvent, leftClick, setValue, typeAndEnter } from "./events";
-export { tick } from "./async";
+export { tick, deferred } from "./async";
+export type { Deferred } from "./async";
+export { styles, ruleFor } from "./css";
+export { captureWarnings } from "./warnings";

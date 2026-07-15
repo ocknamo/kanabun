@@ -14,6 +14,7 @@ import {
   installDOM,
   createContainer,
   asEl,
+  docBody,
   type MockNode,
   tick,
 } from "@kanabun/testing";
@@ -27,9 +28,6 @@ afterEach(() => {
   teardown();
   __resetDev();
 });
-
-const docBody = (): MockNode =>
-  (globalThis as unknown as { document: { body: MockNode } }).document.body;
 
 // A small interactive island: renders `count: N` and increments on click.
 function Counter(props: { start?: number }): unknown {

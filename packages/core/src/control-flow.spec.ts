@@ -5,8 +5,8 @@ import {
   createContainer,
   serialize,
   asEl,
-  type MockNode,
   childByTag as byTag,
+  childById as byId,
 } from "@kanabun/testing";
 
 let teardown: () => void;
@@ -16,13 +16,6 @@ beforeEach(() => {
 afterEach(() => {
   teardown();
 });
-
-/** Find a child element of `parent` by id (skips comment markers). */
-function byId(parent: MockNode, id: string): MockNode | undefined {
-  return parent.childNodes.find(
-    (n) => n.nodeType === 1 && n.getAttribute("id") === id,
-  );
-}
 
 describe("<Show>", () => {
   test("shows children when truthy, fallback otherwise", () => {

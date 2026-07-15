@@ -14,6 +14,11 @@ jobs:
   verify:
     name: Typecheck, test & coverage
     runs-on: ubuntu-latest
+    # Guards against a hung runner burning CI minutes: this job finishes in
+    # ~1 min normally, so 10 fails fast (e.g. the test step once sat in
+    # `in_progress` for 35+ min on a runner flake — see the ci-${{ github.ref }}
+    # concurrency group above, which also supersedes stuck runs on re-push).
+    timeout-minutes: 10
     # Needed to publish the self-hosted coverage badge to the `badges` branch
     # (only exercised on push to main; see "Publish coverage badge" below).
     permissions:
@@ -98,6 +103,9 @@ jobs:
   visual:
     name: Visual regression
     runs-on: ubuntu-latest
+    # Container pull + Playwright runs finish in ~1 min; 15 leaves headroom for
+    # a slow image pull while still failing fast on a hang.
+    timeout-minutes: 15
     container:
       image: mcr.microsoft.com/playwright:v1.56.1-jammy
     steps:
@@ -151,6 +159,8 @@ jobs:
     name: Typecheck (TS7 native preview, non-blocking)
     runs-on: ubuntu-latest
     continue-on-error: true
+    # Non-blocking canary, but still cap it so a hang can't idle for hours.
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
 

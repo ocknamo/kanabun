@@ -10,13 +10,9 @@ import {
   setWarnHandler,
 } from "./index";
 import { warn, isDev, __resetDev } from "./dev";
-
-/** Collect warnings through a custom sink so the console stays clean. */
-function captureWarnings(): string[] {
-  const messages: string[] = [];
-  setWarnHandler((m) => messages.push(m));
-  return messages;
-}
+// Collects warnings through a custom sink so the console stays clean;
+// `__resetDev()` in `afterEach` restores the default sink.
+import { captureWarnings } from "@kanabun/testing";
 
 afterEach(() => {
   __resetDev();

@@ -5,7 +5,7 @@ import {
   createContainer,
   serialize,
   asEl,
-  type MockNode,
+  docBody as body,
   tick,
   childByTag as byTag,
 } from "@kanabun/testing";
@@ -17,9 +17,6 @@ beforeEach(() => {
 afterEach(() => {
   teardown();
 });
-
-const body = (): MockNode =>
-  (globalThis as unknown as { document: { body: MockNode } }).document.body;
 
 describe("<Portal>", () => {
   test("teleports children into document.body and renders nothing in place", () => {

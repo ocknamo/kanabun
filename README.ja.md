@@ -474,12 +474,12 @@ kanabun 自身のスイートが走らせているのと同じ小さなインメ
 
 ```tsx
 import { test, expect } from "bun:test";
-import { renderTest, queryByTag, fireEvent, tick } from "@kanabun/testing";
+import { renderTest, fireEvent, tick } from "@kanabun/testing";
 import { Counter } from "./counter";
 
 test("counting up", async () => {
-  const { html, container, dispose } = renderTest(() => <Counter />);
-  fireEvent.click(queryByTag(container, "button")!);
+  const { getByTag, html, dispose } = renderTest(() => <Counter />);
+  fireEvent.click(getByTag("button")); // 見つからなければ描画 HTML 付きで throw
   await tick(); // onMount / resource の microtask を排出したいとき
   expect(html()).toContain("count is 1");
   dispose();
@@ -490,6 +490,16 @@ test("counting up", async () => {
 明示的にセットアップしたい場合は `beforeEach` で `installDOM()` を呼んでください ──
 このパッケージは `bun:test` を import しないため任意のランナーで動き、フックの配線は
 利用者側に委ねます。
+
+クエリは testing-library 風の二層構成です: `getBy*` は**ちょうど 1 件**を保証し ──
+miss なら `Unable to find …`、重複なら `Found N matches …` で(いずれもシリアライズ
+済みツリーを添えて)throw します。`queryBy*` は先頭マッチ(または不在の assert 用に
+`undefined`)を返し、`queryAllBy*` は全件を返します。`renderTest` はコンテナに
+束縛済みのクエリを返し(上の例)、`within(el)` で任意のサブツリーに束縛し直せます。
+どのクエリも非束縛版があります(`queryByTag(container, "button")`)。
+`getByText` / `queryByText` は要素の*自前*テキスト(文字列か RegExp)にマッチする
+ので、最内要素が当たります ── `<button>go</button>` は `getByText("go")` で
+見つかり、外側のラッパーまで一緒にマッチしません。
 
 ---
 
@@ -559,12 +569,14 @@ test("counting up", async () => {
 
 | グループ | エクスポート |
 | --- | --- |
-| 描画 | `renderTest`(→ `{ container, html(), dispose() }`。モック document を自動設置) |
-| DOM モック | `installDOM`, `createContainer`, `serialize`, `MockNode`, `MockDocument`, `MockEvent`, `asEl` / `asNode` / `asMock`(型キャストの橋渡し) |
-| クエリ | `childByTag`(直下のみ)、`queryByTag` / `queryAllByTag`、`queryByClass` / `queryAllByClass`、`hasClass`、`walk`、`elements`(サブツリー・文書順) |
+| 描画 | `renderTest`(→ `{ container, html(), dispose() }` + コンテナ束縛クエリ。モック document を自動設置) |
+| DOM モック | `installDOM`, `createContainer`, `docHead` / `docBody`, `serialize`, `MockNode`, `MockDocument`, `MockEvent`, `asEl` / `asNode` / `asMock`(型キャストの橋渡し) |
+| クエリ | `getByTag` / `getByClass` / `getById` / `getByText`(1 件でなければ throw)、`queryByTag` / `queryByClass` / `queryById` / `queryByText`(先頭 or `undefined`)、`queryAllByTag` / `queryAllByClass` / `queryAllById` / `queryAllByText`(全件)、`childByTag` / `childById`(直下のみ)、`hasClass`、`within`(root へ束縛)、`walk`、`elements`(サブツリー・文書順) |
 | イベント | `fireEvent`(+ `.click`、`.keyDown`)、`leftClick`(クリックのペイロード)、`setValue`、`typeAndEnter` |
-| 非同期 | `tick`(macrotask 1 回。`onMount` / resource の microtask も排出) |
-| 型 | `RenderTestOptions`, `RenderTestResult` |
+| 非同期 | `tick`(macrotask 1 回。`onMount` / resource の microtask も排出)、`deferred`(テスト側から settle する promise) |
+| スタイリング | `styles`(注入済み `<style>` を `[data-k, cssText]` で)、`ruleFor`(スコープドクラスの単一ルール) |
+| 開発時警告 | `captureWarnings`(警告を収集。復帰は `setWarnHandler(null)`) |
+| 型 | `RenderTestOptions`, `RenderTestResult`, `BoundQueries`, `Deferred` |
 
 ---
 
@@ -655,7 +667,7 @@ packages/
   router/      @kanabun/router — history ベースのルーター(ランタイム非依存)
     src/        location.ts(解析/マッチ), source.ts(history ソース), router.ts(コンポーネント + フック)
   testing/     @kanabun/testing — インメモリ DOM モック上のテストヘルパー(jsdom 不要)
-    src/        dom-mock.ts, render.ts(renderTest), queries.ts, events.ts, async.ts
+    src/        dom-mock.ts, render.ts(renderTest), queries.ts, events.ts, async.ts, css.ts, warnings.ts
 examples/
   counter/     動かせるリアクティブなカウンター
   todomvc/     動かせる TodoMVC

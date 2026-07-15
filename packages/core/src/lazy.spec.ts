@@ -6,6 +6,7 @@ import {
   serialize,
   asEl,
   tick,
+  deferred,
   childByTag as byTag,
 } from "@kanabun/testing";
 
@@ -16,16 +17,6 @@ beforeEach(() => {
 afterEach(() => {
   teardown();
 });
-
-function deferred<T>() {
-  let resolve!: (value: T) => void;
-  let reject!: (reason: unknown) => void;
-  const promise = new Promise<T>((res, rej) => {
-    resolve = res;
-    reject = rej;
-  });
-  return { promise, resolve, reject };
-}
 
 describe("lazy", () => {
   test("loads the module then renders it with forwarded props", async () => {
