@@ -1,9 +1,18 @@
 {
   "name": "@kanabun/router",
-  "version": "0.0.0",
+  "version": "0.0.1",
   "description": "History-based, signal-driven router for kanabun. Zero runtime dependencies.",
   "type": "module",
   "license": "MIT",
+  "homepage": "https://github.com/ocknamo/kanabun/tree/main/packages/router#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ocknamo/kanabun.git",
+    "directory": "packages/router"
+  },
+  "bugs": {
+    "url": "https://github.com/ocknamo/kanabun/issues"
+  },
   "module": "src/index.ts",
   "types": "src/index.ts",
   "exports": {

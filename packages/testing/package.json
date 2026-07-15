@@ -1,9 +1,18 @@
 {
   "name": "@kanabun/testing",
-  "version": "0.0.0",
+  "version": "0.0.1",
   "description": "First-party test helpers for kanabun: an in-memory DOM mock plus render/query/event/flush utilities. No jsdom. Zero runtime dependencies.",
   "type": "module",
   "license": "MIT",
+  "homepage": "https://github.com/ocknamo/kanabun/tree/main/packages/testing#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ocknamo/kanabun.git",
+    "directory": "packages/testing"
+  },
+  "bugs": {
+    "url": "https://github.com/ocknamo/kanabun/issues"
+  },
   "module": "src/index.ts",
   "types": "src/index.ts",
   "exports": {
