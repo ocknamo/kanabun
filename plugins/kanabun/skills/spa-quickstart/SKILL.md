@@ -87,3 +87,5 @@ bun run build   # dist/ に本番バンドル
 - ルーティングが要るなら `bun add @kanabun/router`。
 - 規約: signal は `count()` で読み、`count.set(v)` / `count.update(fn)` で書く。
   関数の子・属性はリアクティブ（`{count}`）、`{count()}` は一度きりの読み取り。
+- スタイリングは css`` でコンポーネントに書く。
+- 詳しくは https://raw.githubusercontent.com/ocknamo/kanabun/refs/heads/main/README.ja.md を参照。
