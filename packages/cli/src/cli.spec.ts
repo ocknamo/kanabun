@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { parseArgs, run } from "./index";
-import { mkdtemp, rm, readFile, writeFile } from "node:fs/promises";
+import { mkdtemp, readdir, rm, readFile, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -9,11 +9,19 @@ const root = resolve(import.meta.dir, "../../..");
 
 describe("parseArgs", () => {
   test("parses a command, positionals, and flags", () => {
-    const r = parseArgs(["build", "src/main.tsx", "--outdir", "out", "--no-minify"]);
+    const r = parseArgs([
+      "build",
+      "src/main.tsx",
+      "--outdir",
+      "out",
+      "--no-minify",
+      "--no-sourcemap",
+    ]);
     expect(r.command).toBe("build");
     expect(r.positionals).toEqual(["src/main.tsx"]);
     expect(r.flags.outdir).toBe("out");
     expect(r.flags["no-minify"]).toBe(true);
+    expect(r.flags["no-sourcemap"]).toBe(true);
   });
 
   test("a leading flag means no command", () => {
@@ -104,6 +112,24 @@ describe("run", () => {
       await expect(
         run(["build", resolve(root, "examples/counter/nope.tsx"), "--outdir", join(dir, "dist")]),
       ).rejects.toThrow(/build failed/);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("build emits a sourcemap by default and skips it with --no-sourcemap", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "kanabun-run-nomap-"));
+    const entry = resolve(root, "examples/counter/main.tsx");
+    try {
+      await capture(() => run(["build", entry, "--outdir", join(dir, "with")]));
+      expect((await readdir(join(dir, "with"))).some((f) => f.endsWith(".js.map"))).toBe(true);
+
+      await capture(() =>
+        run(["build", entry, "--outdir", join(dir, "without"), "--no-sourcemap"]),
+      );
+      expect((await readdir(join(dir, "without"))).some((f) => f.endsWith(".js.map"))).toBe(
+        false,
+      );
     } finally {
       await rm(dir, { recursive: true, force: true });
     }

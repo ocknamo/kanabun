@@ -25,6 +25,39 @@ describe("build", () => {
     expect(existsSync(result.outputs[0]!)).toBe(true);
   });
 
+  test("emits a linked sourcemap by default", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "kanabun-build-map-"));
+    try {
+      const result = await build({
+        entry: resolve(root, "examples/counter/main.tsx"),
+        outdir: dir,
+        minify: false,
+      });
+      expect(result.success).toBe(true);
+      expect(result.outputs.some((p) => p.endsWith(".js.map"))).toBe(true);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  test('sourcemap: "none" emits no sourcemap', async () => {
+    const dir = await mkdtemp(join(tmpdir(), "kanabun-build-nomap-"));
+    try {
+      const result = await build({
+        entry: resolve(root, "examples/counter/main.tsx"),
+        outdir: dir,
+        minify: false,
+        sourcemap: "none",
+      });
+      expect(result.success).toBe(true);
+      expect(result.outputs.some((p) => p.endsWith(".js.map"))).toBe(false);
+      const bundle = result.outputs.find((p) => p.endsWith(".js"))!;
+      expect(await Bun.file(bundle).text()).not.toContain("sourceMappingURL");
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
   test("reports failure (and logs) for an unresolvable entry", async () => {
     const result = await build({
       entry: resolve(root, "examples/counter/does-not-exist.tsx"),
