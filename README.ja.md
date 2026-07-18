@@ -372,7 +372,8 @@ kanabun preview ssg.tsx   # SSG 出力をビルドして静的配信
 
 `dev` は HTML エントリを配信し、TS/TSX をオンザフライでバンドルし、WebSocket で
 ライブリロードします(状態保持 HMR は先送り、今は全リロード)。`build` は
-`bun build --target browser` のラッパーです。
+`bun build --target browser` のラッパーです。デフォルトで linked ソースマップを
+出力し、本番リリース向けには `--no-sourcemap` で無効化できます。
 
 `generate` は SSG です。SSG config(`{ routes?, render(path), client?, title?,
 base?, document? }`)を import し、ルートごとに `renderToString` を走らせて

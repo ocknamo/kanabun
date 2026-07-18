@@ -24,7 +24,7 @@ kanabun generate                      # static site generation (SSG)
 
 - **create** — scaffold a new kanabun app.
 - **dev** — dev server with full reload on change.
-- **build** — bundle for the browser.
+- **build** — bundle for the browser (`--no-sourcemap` skips the sourcemap).
 - **generate** — static site generation.
 - **preview** / **serve** — preview a built app, incl. SSR.
 - **lint** — kanabun-aware linting.

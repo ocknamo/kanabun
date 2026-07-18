@@ -388,7 +388,8 @@ kanabun preview ssg.tsx   # build the SSG output and serve it statically
 
 `dev` serves the HTML entry, bundles TS/TSX on the fly, and live-reloads over a
 WebSocket (stateful HMR is deferred — full reload for now). `build` wraps
-`bun build --target browser`.
+`bun build --target browser`; it emits a linked sourcemap by default, and
+`--no-sourcemap` skips it for production releases.
 
 `generate` is SSG: it imports an SSG config (`{ routes?, render(path), client?,
 title?, base?, document? }`), runs `renderToString` per route, and writes

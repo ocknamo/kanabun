@@ -48,6 +48,7 @@ Options:
   --outdir <dir>            build output directory (default: dist)
   --base <path>             public base path for generate/serve (default: /)
   --no-minify               disable minification for build
+  --no-sourcemap            disable sourcemap generation for build
   --port <n>                server port (default: $PORT or 3000)
   -h, --help                show this help
   -v, --version             print the version
@@ -154,6 +155,7 @@ export async function run(argv: string[]): Promise<DevServer | SSRServer | undef
         entry,
         outdir,
         minify: flags["no-minify"] !== true,
+        sourcemap: flags["no-sourcemap"] === true ? "none" : "linked",
       });
       if (!result.success) {
         throw new Error(`kanabun: build failed:\n${result.logs.join("\n")}`);
