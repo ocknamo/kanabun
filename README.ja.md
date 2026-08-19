@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="./assets/kanabun.webp" alt="kanabun" width="180">
+</p>
+
 # kanabun
 
 [![CI](https://github.com/ocknamo/kanabun/actions/workflows/ci.yml/badge.svg)](https://github.com/ocknamo/kanabun/actions/workflows/ci.yml)
