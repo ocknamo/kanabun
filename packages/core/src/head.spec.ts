@@ -32,6 +32,24 @@ describe("<Head>", () => {
     expect(meta?.getAttribute("content")).toBe("hi");
   });
 
+  // `<Head>` builds its children eagerly (they are normalized once), so a
+  // function child is *read once* rather than becoming a reactive slot — the
+  // documented "put reactivity in attributes, not in a top-level function
+  // child" rule.
+  test("reads a function child once", () => {
+    const desc = signal("a");
+    render(
+      () =>
+        jsx(Head, {
+          children: () => jsx("meta", { name: "d", content: desc() }),
+        }),
+      asEl(createContainer()),
+    );
+    expect(byTag(head(), "meta")?.getAttribute("content")).toBe("a");
+    desc.set("b"); // read once: the element is not rebuilt
+    expect(byTag(head(), "meta")?.getAttribute("content")).toBe("a");
+  });
+
   test("keeps head content reactive", () => {
     const desc = signal("a");
     render(

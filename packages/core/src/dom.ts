@@ -18,7 +18,7 @@
  */
 import { effect } from "./reactive";
 import type { Disposer } from "./reactive";
-import { createRoot } from "./lifecycle";
+import { createRoot, onCleanup } from "./lifecycle";
 import { warn } from "./dev";
 
 /** Props passed to an intrinsic element (or component). */
@@ -186,6 +186,9 @@ type SlotState = { current: Rendered };
  * currently the leaf reconciles against the nodes actually on screen, and a
  * re-run higher up (which disposes the nested effects via the owner tree) still
  * has the live node list to reconcile away.
+ *
+ * A **fragment** (an array) reaching this slot with function members needs the
+ * same isolation one level deeper — see {@link bindFragment}.
  */
 function bindSlot(
   parent: Node,
@@ -197,10 +200,92 @@ function bindSlot(
     const value = getValue();
     if (typeof value === "function") {
       bindSlot(parent, value as () => unknown, marker, state);
+    } else if (isDynamicFragment(value)) {
+      bindFragment(parent, value, marker, state);
+      state.current = null; // the members' nodes are the region cleanup's, not ours
     } else {
       state.current = reconcile(parent, value, state.current, marker);
     }
   });
+}
+
+/**
+ * Whether `value` is a fragment (an array — `<>…</>` is just `props.children`)
+ * carrying at least one **function** member: a reactive expression such as the
+ * thunk a `<Show>` / `<For>` / `<Route>` returns.
+ *
+ * These need the same isolation `bindSlot` gives a directly-returned function.
+ * `normalize` would call the member *inline*, inside this slot's effect, so the
+ * member's dependencies would be collected here — and every change to them
+ * would re-run the slot and rebuild whatever produced the fragment. Under
+ * `<Routes>`, whose slot rebuilds the matched route's content, a page component
+ * returning `<>…</>` with a `<Show>` inside is therefore re-created whenever
+ * that `<Show>` toggles; if re-creating it re-triggers the condition (a
+ * `resource()` refetching, say) the rebuild never settles.
+ *
+ * Arrays of plain nodes — `<For>`'s output — carry no functions, so they keep
+ * the keyed `reconcile` path and its stable node identities.
+ */
+function isDynamicFragment(value: unknown): value is unknown[] {
+  if (!Array.isArray(value)) return false;
+  for (const item of value) {
+    if (typeof item === "function" || isDynamicFragment(item)) return true;
+  }
+  return false;
+}
+
+/**
+ * Render a fragment whose members are reactive: each member gets its **own**
+ * slot, exactly as `insert` gives a statically-placed child, so a member's
+ * dependencies stay with the member instead of leaking into this slot.
+ *
+ * The members render into the region between a fresh `start` marker and the
+ * slot's `marker`. Their nodes are theirs to update, so they are not tracked in
+ * `state` (which stays `null`); instead a cleanup clears the whole region when
+ * this slot re-runs or is disposed. Member effects are created during this run,
+ * so the owner tree disposes them at the same moment — children first, then
+ * this cleanup sweeps whatever they left behind.
+ *
+ * The trade-off: the region is rebuilt wholesale when *this* slot re-runs, so a
+ * node that happens to be identical across two runs is detached and re-inserted
+ * rather than kept in place (the keyed `reconcile` path would have kept it).
+ * That costs nothing in practice — a slot re-run means its thunk ran again and
+ * produced fresh nodes anyway — and node identity where it matters is still
+ * kept *inside* a member: a `<For>` in the fragment has its own slot, with its
+ * own keyed reconcile.
+ */
+function bindFragment(
+  parent: Node,
+  value: unknown[],
+  marker: Node,
+  state: SlotState,
+): void {
+  // Whatever the slot rendered before this run is still the slot's to remove.
+  reconcile(parent, null, state.current, marker);
+  const start = parent.insertBefore(doc().createComment(""), marker);
+  onCleanup(() => clearRegion(parent, start, marker));
+  insert(parent, value, marker);
+}
+
+/**
+ * Remove `start` and every node after it, up to (but excluding) `end`.
+ *
+ * The walk relies on the region's invariant: `bindFragment` inserts `start`
+ * directly before `end` (the slot's marker, which nothing else removes — it is
+ * never part of a `reconcile`'s node list), and every member renders *between*
+ * the two. So `end` is always reachable from `start` among `parent`'s children,
+ * or `start` is no longer a child of `parent` at all (an ancestor detached the
+ * whole region) and the walk stops on the first `nextSibling`.
+ */
+function clearRegion(parent: Node, start: Node, end: Node): void {
+  let node: Node | null = start;
+  while (node !== null && node !== end) {
+    const next: Node | null = node.nextSibling;
+    // A member may already have removed its own nodes, and an ancestor may have
+    // detached the region wholesale — only unlink what is still ours.
+    if (node.parentNode === parent) parent.removeChild(node);
+    node = next;
+  }
 }
 
 function reconcile(
@@ -273,6 +358,10 @@ function appendNormalized(out: Node[], value: unknown): void {
     return;
   }
   if (typeof value === "function") {
+    // Reactive slots never land here — `bindSlot` gives a function (directly
+    // returned or a fragment member) its own slot. What remains is the caller
+    // that normalizes children *eagerly*, outside any slot: `<Head>`, whose
+    // function child is documented as read-once.
     appendNormalized(out, (value as () => unknown)());
     return;
   }

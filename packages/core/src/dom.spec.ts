@@ -1,5 +1,5 @@
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
-import { signal, render, hydrate, jsx, Fragment, insert } from "./index";
+import { signal, render, hydrate, jsx, Fragment, insert, Show, For } from "./index";
 import { jsxDEV } from "./jsx-dev-runtime";
 import {
   installDOM,
@@ -218,6 +218,133 @@ describe("conditional content (reactive child swap)", () => {
     expect(serialize(container)).toBe("<div><div></div></div>");
     show.set(true);
     expect(serialize(container)).toBe("<div><div><p>yes</p></div></div>");
+  });
+});
+
+// A fragment (an array) produced by a *reactive* slot used to have its function
+// members read inline by `normalize`, inside the slot's own effect — so the
+// members' dependencies were collected by the slot and every change rebuilt the
+// whole fragment (and whatever produced it). Each member now gets its own slot.
+describe("fragment with reactive members", () => {
+  test("a member's dependency does not re-run the slot that produced it", () => {
+    const outer = signal("a");
+    const inner = signal(false);
+    const container = createContainer();
+    let builds = 0;
+    render(
+      () =>
+        jsx("div", {
+          children: () => {
+            outer();
+            builds++;
+            return jsx(Fragment, {
+              children: [
+                jsx("h1", { children: "page" }),
+                jsx(Show, { when: inner, children: jsx("p", { children: "detail" }) }),
+              ],
+            });
+          },
+        }),
+      asEl(container),
+    );
+    expect(builds).toBe(1);
+    expect(serialize(container)).toBe("<div><div><h1>page</h1></div></div>");
+
+    inner.set(true); // only the <Show> member re-runs
+    expect(builds).toBe(1);
+    expect(serialize(container)).toBe("<div><div><h1>page</h1><p>detail</p></div></div>");
+
+    outer.set("b"); // the slot's own dependency still rebuilds it
+    expect(builds).toBe(2);
+    expect(serialize(container)).toBe("<div><div><h1>page</h1><p>detail</p></div></div>");
+  });
+
+  test("members keep their order and update in place", () => {
+    const n = signal(1);
+    const container = createContainer();
+    render(
+      () => jsx("div", { children: () => ["a", () => n(), "c"] }),
+      asEl(container),
+    );
+    expect(serialize(container)).toBe("<div><div>a1c</div></div>");
+    n.set(2);
+    expect(serialize(container)).toBe("<div><div>a2c</div></div>");
+  });
+
+  test("a member nested in an inner array is isolated too", () => {
+    const n = signal(1);
+    const container = createContainer();
+    let builds = 0;
+    render(
+      () =>
+        jsx("div", {
+          children: () => {
+            builds++;
+            return [[() => n()], "!"];
+          },
+        }),
+      asEl(container),
+    );
+    expect(serialize(container)).toBe("<div><div>1!</div></div>");
+    n.set(2);
+    expect(builds).toBe(1);
+    expect(serialize(container)).toBe("<div><div>2!</div></div>");
+  });
+
+  test("leaving the fragment removes every node (and marker) it rendered", () => {
+    const mode = signal("fragment");
+    const inner = signal("x");
+    const container = createContainer();
+    render(
+      () =>
+        jsx("div", {
+          children: () =>
+            mode() === "fragment"
+              ? ["a", () => inner(), jsx("p", { children: "b" })]
+              : jsx("span", { children: "plain" }),
+        }),
+      asEl(container),
+    );
+    const host = container.childNodes[0]!;
+    // "a", the member's marker + text, <p>, the fragment's start marker, and
+    // the slot's own marker.
+    expect(host.childNodes.length).toBe(6);
+
+    mode.set("plain");
+    expect(serialize(container)).toBe("<div><div><span>plain</span></div></div>");
+    // Only the replacement and the slot marker survive: nothing leaked.
+    expect(host.childNodes.length).toBe(2);
+    // The abandoned member is disposed — writing its signal changes nothing.
+    inner.set("y");
+    expect(serialize(container)).toBe("<div><div><span>plain</span></div></div>");
+    expect(host.childNodes.length).toBe(2);
+  });
+
+  test("a <For> inside a fragment keeps its keyed node identity", () => {
+    const a = { id: "a" };
+    const b = { id: "b" };
+    const list = signal([a, b]);
+    const container = createContainer();
+    render(
+      () =>
+        jsx("div", {
+          children: () => [
+            jsx("h1", { children: "list" }),
+            jsx(For, {
+              each: list,
+              children: (item: { id: string }) => jsx("li", { children: item.id }),
+            }),
+          ],
+        }),
+      asEl(container),
+    );
+    expect(serialize(container)).toBe("<div><div><h1>list</h1><li>a</li><li>b</li></div></div>");
+    const host = container.childNodes[0]!;
+    const first = host.childNodes.filter((n) => n.nodeType === 1)[1]!;
+    list.set([b, a]);
+    expect(serialize(container)).toBe("<div><div><h1>list</h1><li>b</li><li>a</li></div></div>");
+    // The node built for `a` was reused (moved), not rebuilt.
+    expect(host.childNodes.filter((n) => n.nodeType === 1)[2]).toBe(first);
   });
 });
 
