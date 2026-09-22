@@ -173,8 +173,16 @@ not the slot's to track. Without it, a page component returning
 `<><h1/><Show …/></>` under `<Routes>` would have its `<Show>` tracked by the
 slot that *builds the matched route's content*, so toggling the `<Show>` would
 re-create the whole page — and re-creating it moves the condition (a `resource()`
-refetching) straight back into the same loop. Arrays of plain nodes (`<For>`'s
-output) carry no functions and keep the keyed reconcile path.
+refetching) straight back into the same loop. An array of plain nodes (`<For>`'s
+output reaching a slot directly) carries no functions and keeps the keyed
+reconcile path.
+
+What such a fragment gives up is node identity *across the slot's own re-runs*:
+the region is rebuilt wholesale, so a node that happens to be identical between
+two runs is detached and re-inserted rather than left in place. That costs
+nothing in practice — a slot re-run means its thunk ran again and produced fresh
+nodes anyway — and identity is still kept where it matters, *inside* a member: a
+`<For>` placed in the fragment gets its own slot, with its own keyed reconcile.
 
 ### Testing the DOM without a DOM dependency
 
