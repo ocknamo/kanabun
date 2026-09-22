@@ -164,6 +164,18 @@ reactive reads would leak into the outer slot's tracking and rebuild the whole
 subtree on every change — and for a suspending child (which re-creates its
 resource on rebuild) that is an infinite load/render loop.
 
+The same isolation applies one level deeper, to a **fragment** (`<>…</>`, which
+is just an array) that a reactive slot resolves to: each *function* member of
+that array gets its own slot, exactly as a statically-placed child would. The
+members render into a region delimited by a marker of their own, which the slot
+clears when it re-runs or is disposed — their nodes are the members' to update,
+not the slot's to track. Without it, a page component returning
+`<><h1/><Show …/></>` under `<Routes>` would have its `<Show>` tracked by the
+slot that *builds the matched route's content*, so toggling the `<Show>` would
+re-create the whole page — and re-creating it moves the condition (a `resource()`
+refetching) straight back into the same loop. Arrays of plain nodes (`<For>`'s
+output) carry no functions and keep the keyed reconcile path.
+
 ### Testing the DOM without a DOM dependency
 
 The renderer needs a DOM, but Bun ships none and jsdom/happy-dom would violate

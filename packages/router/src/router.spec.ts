@@ -1,11 +1,12 @@
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
-import { render, jsx, onCleanup } from "@kanabun/core";
+import { render, jsx, onCleanup, signal, resource, Show, Fragment } from "@kanabun/core";
 import { Router, Route, Routes, useParams, createMemorySource } from "./index";
 import {
   installDOM,
   createContainer,
   serialize,
   asEl,
+  tick,
   queryByTag as findTag,
 } from "@kanabun/testing";
 
@@ -307,5 +308,84 @@ describe("<Routes> (exclusive)", () => {
     src.go("/b"); // switch away from /a → its scope is torn down
     expect(cleaned).toEqual(["a"]);
     expect(serialize(container)).toBe("<div><p>B</p></div>");
+  });
+});
+
+// A page component that returns a fragment used to have its `<Show>` (and any
+// other reactive member) tracked by the `<Routes>` slot, which rebuilds the
+// matched route's content — so toggling the `<Show>` re-created the page, and a
+// page whose creation moved the condition (a `resource()` fetch) never settled.
+describe("<Routes> with a fragment-returning page", () => {
+  test("an inner <Show> toggling does not re-create the page", () => {
+    const src = createMemorySource("/");
+    const container = createContainer();
+    const open = signal(false);
+    let builds = 0;
+
+    function Page() {
+      builds++;
+      return jsx(Fragment, {
+        children: [
+          jsx("h1", { children: "page" }),
+          jsx(Show, { when: open, children: jsx("p", { children: "detail" }) }),
+        ],
+      });
+    }
+
+    render(
+      () =>
+        jsx(Router, {
+          source: src,
+          children: () =>
+            jsx(Routes, { children: jsx(Route, { path: "/", component: Page }) }),
+        }),
+      asEl(container),
+    );
+    expect(builds).toBe(1);
+    expect(serialize(container)).toBe("<div><h1>page</h1></div>");
+
+    open.set(true);
+    expect(builds).toBe(1);
+    expect(serialize(container)).toBe("<div><h1>page</h1><p>detail</p></div>");
+
+    src.go("/gone"); // the page is still torn down when the route leaves
+    expect(serialize(container)).toBe("<div></div>");
+  });
+
+  test("a resource feeding a <Show> inside the fragment settles (no rebuild loop)", async () => {
+    const src = createMemorySource("/");
+    const container = createContainer();
+    let builds = 0;
+    let fetches = 0;
+
+    function Page() {
+      builds++;
+      if (builds > 10) throw new Error(`rebuild loop: the page was built ${builds} times`);
+      const [data] = resource(async () => {
+        fetches++;
+        return "ok";
+      });
+      return jsx(Fragment, {
+        children: [
+          jsx("h1", { children: "page" }),
+          jsx(Show, { when: data, children: jsx("p", { children: data }) }),
+        ],
+      });
+    }
+
+    render(
+      () =>
+        jsx(Router, {
+          source: src,
+          children: () =>
+            jsx(Routes, { children: jsx(Route, { path: "/", component: Page }) }),
+        }),
+      asEl(container),
+    );
+    await tick();
+
+    expect(builds).toBe(1);
+    expect(fetches).toBe(1);
+    expect(serialize(container)).toBe("<div><h1>page</h1><p>ok</p></div>");
   });
 });
