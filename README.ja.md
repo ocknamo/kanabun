@@ -2,7 +2,7 @@
   <img src="./assets/kanabun.webp" alt="kanabun" width="180">
 </p>
 
-# kanabun
+# 🪲kanabun
 
 [![CI](https://github.com/ocknamo/kanabun/actions/workflows/ci.yml/badge.svg)](https://github.com/ocknamo/kanabun/actions/workflows/ci.yml)
 [![coverage](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/ocknamo/kanabun/badges/coverage.json)](https://github.com/ocknamo/kanabun/actions/workflows/ci.yml)
