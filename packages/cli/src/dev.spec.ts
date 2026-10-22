@@ -120,6 +120,20 @@ describe("createDevHandler", () => {
     }
   });
 
+  test("appends the snippets when the entry has no </body>", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "kanabun-dev-nobody-"));
+    const entry = join(dir, "index.html");
+    await writeFile(entry, `<div id="app"></div><script type="module" src="./main.tsx"></script>`);
+    try {
+      const h = createDevHandler({ htmlPath: entry, root: dir });
+      const body = await h(new Request("http://localhost/")).then((r) => r.text());
+      expect(body.startsWith(`<div id="app"></div>`)).toBe(true);
+      expect(body.indexOf("__kanabun_livereload")).toBeGreaterThan(body.indexOf("./main.tsx"));
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
   test("rejects path traversal across encodings without leaking files", async () => {
     const h = handler();
     const vectors = [

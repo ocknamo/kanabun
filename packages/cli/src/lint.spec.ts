@@ -3,6 +3,7 @@ import {
   lint,
   lintSource,
   formatFindings,
+  lintFailureMessage,
   isMissingTypeScript,
   loadTypeScript,
 } from "./lint";
@@ -147,7 +148,7 @@ describe("lintSource — reactive-call-in-jsx", () => {
 });
 
 describe("loadTypeScript / isMissingTypeScript", () => {
-  // Bun's real `import()` failure: a `ResolveMessage` that does NOT extend Error
+  // Bun 1.3's real `import()` failure: a `ResolveMessage` that does NOT extend Error
   // but carries `code` + `message`. (Verified against Bun 1.3.11.)
   const bunResolveMessage = {
     name: "ResolveMessage",
@@ -160,7 +161,7 @@ describe("loadTypeScript / isMissingTypeScript", () => {
     { code: "ERR_MODULE_NOT_FOUND" },
   );
 
-  test("matches Bun's non-Error ResolveMessage and Node's Error alike", () => {
+  test("matches Bun 1.3's non-Error ResolveMessage and Node's Error alike", () => {
     expect(isMissingTypeScript(bunResolveMessage)).toBe(true);
     expect(isMissingTypeScript(nodeError)).toBe(true);
   });
@@ -186,7 +187,7 @@ describe("loadTypeScript / isMissingTypeScript", () => {
     expect(typeof ts.createSourceFile).toBe("function");
   });
 
-  test("gives an install hint when typescript is absent (real Bun error shape)", async () => {
+  test("gives an install hint when typescript is absent (Bun 1.3 error shape)", async () => {
     await expect(
       loadTypeScript(() => Promise.reject(bunResolveMessage)),
     ).rejects.toThrow(/needs the `typescript` dev dependency/);
@@ -206,6 +207,18 @@ describe("formatFindings", () => {
     expect(out).toContain("a.tsx:1:");
     expect(out).toContain("reactive-call-in-jsx");
     expect(out).toContain("`count()`");
+  });
+});
+
+describe("lintFailureMessage", () => {
+  test("shows an internal failure's logs, else the problem count", async () => {
+    expect(lintFailureMessage({ success: false, findings: [], logs: ["a", "b"] })).toBe(
+      "kanabun: lint reported problems.\na\nb",
+    );
+    const findings = await lintSource("const A = () => <div>{count()}</div>;", "a.tsx");
+    expect(lintFailureMessage({ success: false, findings, logs: [] })).toBe(
+      "kanabun: lint reported problems. 1 problem(s) found.",
+    );
   });
 });
 

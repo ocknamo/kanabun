@@ -9,7 +9,7 @@ import { build } from "./build";
 import { create } from "./create";
 import { dev, type DevServer } from "./dev";
 import { generate } from "./generate";
-import { formatFindings, lint } from "./lint";
+import { formatFindings, lint, lintFailureMessage } from "./lint";
 import { preview } from "./preview";
 import { serve, type SSRConfig, type SSRServer } from "./serve";
 
@@ -182,15 +182,7 @@ export async function run(argv: string[]): Promise<DevServer | SSRServer | undef
       const globs = positionals.length > 0 ? positionals : undefined;
       const result = await lint({ globs });
       if (result.findings.length > 0) console.log(formatFindings(result.findings));
-      if (!result.success) {
-        // An internal failure (logs) vs. lint problems — same non-zero exit,
-        // different detail.
-        const reason =
-          result.logs.length > 0
-            ? `\n${result.logs.join("\n")}`
-            : ` ${result.findings.length} problem(s) found.`;
-        throw new Error(`kanabun: lint reported problems.${reason}`);
-      }
+      if (!result.success) throw new Error(lintFailureMessage(result));
       console.log("No lint problems found.");
       return undefined;
     }

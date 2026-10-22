@@ -28,6 +28,14 @@ jobs:
         with:
           bun-version-file: ".bun-version"
 
+      # Patched Node for npm/npx: the image's bundled Node lags security releases,
+      # and this install has no lockfile to verify.
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          check-latest: true
+
       - name: Install Playwright test runner (CI-only, not a project dep)
         run: npm install --no-save @playwright/test@1.56.1
 

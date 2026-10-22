@@ -1,5 +1,5 @@
 import { describe, expect, test, mock } from "bun:test";
-import { signal, computed, effect, batch, untrack } from "./index";
+import { signal, computed, effect, batch, untrack, createRoot } from "./index";
 
 describe("signal", () => {
   test("reads and writes", () => {
@@ -324,5 +324,15 @@ describe("safety", () => {
     expect(mirror()).toBe(0);
     src.set(5);
     expect(mirror()).toBe(5);
+  });
+
+  test("effects that keep re-triggering each other throw instead of hanging", () => {
+    createRoot((dispose) => {
+      const a = signal(0);
+      const b = signal(0);
+      effect(() => b.set(a() + 1));
+      expect(() => effect(() => a.set(b() + 1))).toThrow(/did not stabilize/);
+      dispose();
+    });
   });
 });
