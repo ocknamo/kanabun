@@ -135,7 +135,7 @@ Phase 6 のルーター・**ネストルーティング**・**相対 `<Link>` hr
   - シェルの後始末に `pkill -f <パターン>` を使わない ── パターンが自分のコマンドラインにも一致して**自分ごと殺される**(exit 144)。PID を控えて `kill $PID`、または `lsof -ti tcp:<port>`。
 - **ツールチェーン固定(今セッション)**:
   - **dev 依存は2つになった** ── `@types/bun`(`1.3.14`)に加え `typescript`(`6.0.2`)を固定版で `package.json` に追加。従来の `bunx tsc` オンデマンド取得(最新へ浮動)をやめ、再現性を確保。`bunx tsc` はローカル固定版を解決する。`bun.lock` も更新済み。ランタイムは依然ゼロ依存(これは dev 時のみの選択)。§1 や旧記述の「dev は `@types/bun` のみ」は古い。
-  - **Bun は `.bun-version`(`1.3.11`)で固定**。⚠️ `oven-sh/setup-bun@v2` は **`.bun-version` を自動では読まない** ── `bun-version-file: ".bun-version"` の明示指定が必須(これを忘れると `latest` に浮動する。前回ここを踏んだ)。CI 3 ジョブとも明示済み。
+  - **Bun は `.bun-version`(`1.4.4`)で固定**。⚠️ `oven-sh/setup-bun@v2` は **`.bun-version` を自動では読まない** ── `bun-version-file: ".bun-version"` の明示指定が必須(これを忘れると `latest` に浮動する。前回ここを踏んだ)。CI 3 ジョブとも明示済み。
   - **⚠️ `typecheck-next` ジョブは required status check に登録しないこと**。TS7 ネイティブ版(tsgo, `@typescript/native-preview`)の非ブロッキング canary(`continue-on-error: true`)。`continue-on-error` はワークフロー結論をブロックしないが、ブランチ保護の required checks に個別ジョブ名を入れるとセマンティクスが崩れる。本線は `verify`(固定 6.0.2)が真実。tsgo は `npx -y -p` で ad-hoc 実行=`package.json`/`bun.lock` を汚さない・preview は意図的に未ピン(upstream 追跡)。
 
 - **`@kanabun/testing`(今セッション・Phase 8)**:

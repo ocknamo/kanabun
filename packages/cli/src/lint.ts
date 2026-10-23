@@ -88,9 +88,9 @@ function isAccessorLikeCallee(ts: typeof TS, callee: TS.Expression): boolean {
  * this — worth a tailored hint instead of a raw resolver error.
  *
  * Keyed off the `code` (`*MODULE_NOT_FOUND`) plus a `typescript`-specific message
- * — deliberately **not** `instanceof Error`: Bun's `ResolveMessage` does not
- * extend `Error`, so an `instanceof` check would miss the very runtime kanabun
- * targets. Both Bun and Node set the same `code` on a failed dynamic import.
+ * — deliberately **not** `instanceof Error`: Bun 1.3's `ResolveMessage` does not
+ * extend `Error` (1.4's does), so an `instanceof` check would miss consumers
+ * still on 1.3. Both Bun and Node set the same `code` on a failed dynamic import.
  */
 export function isMissingTypeScript(error: unknown): boolean {
   if (typeof error !== "object" || error === null) return false;
@@ -260,4 +260,16 @@ export function formatFindings(findings: LintFinding[]): string {
   return findings
     .map((f) => `${f.file}:${f.line}:${f.column}  ${f.rule}  ${f.message}`)
     .join("\n");
+}
+
+/**
+ * The CLI's error for a failed run. An internal failure (logs) and lint problems
+ * share the same non-zero exit but need different detail.
+ */
+export function lintFailureMessage(result: LintResult): string {
+  const reason =
+    result.logs.length > 0
+      ? `\n${result.logs.join("\n")}`
+      : ` ${result.findings.length} problem(s) found.`;
+  return `kanabun: lint reported problems.${reason}`;
 }
