@@ -16,7 +16,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # The Playwright image ships without unzip, which setup-bun needs.
       - name: Install unzip (required by setup-bun)
@@ -31,7 +31,7 @@ jobs:
       # Patched Node for npm/npx: the image's bundled Node lags security releases,
       # and this install has no lockfile to verify.
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: 22
           check-latest: true
