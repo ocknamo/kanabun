@@ -1,6 +1,6 @@
 {
   "name": "@kanabun/testing",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "First-party test helpers for kanabun: an in-memory DOM mock plus render/query/event/flush utilities. No jsdom. Zero runtime dependencies.",
   "type": "module",
   "license": "MIT",
