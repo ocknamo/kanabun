@@ -1,6 +1,6 @@
 {
   "name": "@kanabun/router",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "History-based, signal-driven router for kanabun. Zero runtime dependencies.",
   "type": "module",
   "license": "MIT",

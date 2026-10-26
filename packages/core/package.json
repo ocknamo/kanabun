@@ -1,6 +1,6 @@
 {
   "name": "@kanabun/core",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Runtime-independent reactive core (signals) + DOM/JSX runtime for kanabun.",
   "type": "module",
   "license": "MIT",
