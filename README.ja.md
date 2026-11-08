@@ -628,6 +628,11 @@ bun run pub       # チェック → 確認 → 依存順に publish
 （`--allow-zero-version` で上書き可）。
 その他のオプション: `--access public|restricted`、`--tag <dist-tag>`、`--yes`。
 
+CI からは Actions タブで **Publish to npm** ワークフロー（`.github/workflows/publish.yml`）を
+実行します。npm の trusted publishing（OIDC）で `scripts/publish.ts --yes` を走らせるため、
+npm トークンは不要で provenance も付きます。公開済みのバージョンはスキップされないので、
+先に全パッケージのバージョンを上げてください。
+
 CI は push / PR ごとに型チェック・テスト・カバレッジを実行します
 ([`.github/workflows/ci.yml`](.github/workflows/ci.yml))。`main` への push 時には
 lcov レポートからカバレッジ率を算出し(`scripts/coverage-badge.ts`)、shields.io

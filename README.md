@@ -650,6 +650,11 @@ locally afterwards. Publishing is blocked when any package is still at
 `0.0.0` — pass `--allow-zero-version` to override.
 Additional options: `--access public|restricted`, `--tag <dist-tag>`, `--yes`.
 
+In CI, run the **Publish to npm** workflow (`.github/workflows/publish.yml`) from
+the Actions tab instead. It runs `scripts/publish.ts --yes` with npm trusted
+publishing (OIDC), so no npm token is needed and provenance is attached. Bump
+every package's version first: already-published versions are not skipped.
+
 CI runs typecheck, tests, and coverage on every push and PR
 (see [`.github/workflows/ci.yml`](.github/workflows/ci.yml)). On push to `main`
 it also derives the coverage percentage from the lcov report
