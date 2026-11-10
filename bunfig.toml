@@ -23,3 +23,8 @@ coveragePathIgnorePatterns = [
 # Fail the run if coverage drops below this fraction (checked whenever
 # coverage is collected). The core is meant to stay fully covered.
 coverageThreshold = 0.9
+
+[install]
+# Skip versions published less than 3 days ago (259200 s), so a hijacked
+# release is likely caught and unpublished before it reaches this repo.
+minimumReleaseAge = 259200
