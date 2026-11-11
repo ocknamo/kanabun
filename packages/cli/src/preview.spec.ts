@@ -13,6 +13,18 @@ afterAll(async () => {
 });
 
 describe("preview", () => {
+  test("listens on localhost unless a host is given", async () => {
+    const local = await preview({ entry, port: 0, minify: false });
+    const named = await preview({ entry, port: 0, minify: false, host: "127.0.0.1" });
+    try {
+      expect(local.url).toStartWith("http://localhost:");
+      expect(named.url).toStartWith("http://127.0.0.1:");
+    } finally {
+      local.stop();
+      named.stop();
+    }
+  });
+
   test("builds the SSG entry and serves it statically", async () => {
     const server = await preview({ entry, port: 0, minify: false });
     try {

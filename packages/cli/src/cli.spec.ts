@@ -268,4 +268,24 @@ describe("run", () => {
     expect(server!.port).toBeGreaterThan(0);
     server!.stop();
   });
+
+  test("dev passes --host to the server", async () => {
+    const original = console.log;
+    console.log = () => {};
+    let server;
+    try {
+      server = await run([
+        "dev",
+        resolve(root, "examples/counter/index.html"),
+        "--port",
+        "0",
+        "--host",
+        "127.0.0.1",
+      ]);
+    } finally {
+      console.log = original;
+    }
+    expect(server!.url).toStartWith("http://127.0.0.1:");
+    server!.stop();
+  });
 });

@@ -240,6 +240,19 @@ export interface DevHandlerOptions {
 }
 
 /**
+ * Whether a request path names a dotfile or goes through a dot-directory.
+ * `.well-known` is the one such directory meant to be served. Exported for testing.
+ */
+export function isHiddenPath(pathname: string): boolean {
+  return pathname
+    .split(/[\\/]/)
+    .some((segment) => segment.startsWith(".") && segment !== ".well-known");
+}
+
+/** Loopback only: a dev server hands out the project's source to whoever can reach it. */
+export const DEFAULT_DEV_HOST = "localhost";
+
+/**
  * The HTTP request handler, separated from the server so it can be tested
  * directly: HTML gets the live-reload snippet injected, module requests are
  * bundled for the browser, other paths are served as static files (or 404).
@@ -286,6 +299,9 @@ export function createDevHandler(
     }
 
     if (pathname === "/" || pathname === "/index.html") return serveHtml();
+
+    // The served root is the project directory, where `.env` and `.git/` live.
+    if (isHiddenPath(pathname)) return notFound();
 
     // Two containment checks must both pass:
     //  1. lexical (resolveWithin) — blocks `..` (incl. `%2e%2e%2f`, which
@@ -349,6 +365,11 @@ export interface DevOptions {
   entry?: string;
   /** Port to listen on. Defaults to 3000; use 0 for an ephemeral port. */
   port?: number;
+  /**
+   * Interface to listen on. Defaults to `localhost`; pass `0.0.0.0` to reach the
+   * server from other devices, on a network you trust.
+   */
+  host?: string;
 }
 
 export interface DevServer {
@@ -367,6 +388,7 @@ export function dev(options: DevOptions = {}): DevServer {
 
   const server = Bun.serve({
     port: options.port ?? 3000,
+    hostname: options.host ?? DEFAULT_DEV_HOST,
     async fetch(req, srv): Promise<Response | undefined> {
       if (new URL(req.url).pathname === LIVE_RELOAD_PATH) {
         return srv.upgrade(req)

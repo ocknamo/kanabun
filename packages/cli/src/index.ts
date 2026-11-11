@@ -50,6 +50,8 @@ Options:
   --no-minify               disable minification for build
   --no-sourcemap            disable sourcemap generation for build
   --port <n>                server port (default: $PORT or 3000)
+  --host <name>             interface to listen on (default: localhost for
+                            dev/preview, every interface for serve)
   -h, --help                show this help
   -v, --version             print the version
 `;
@@ -194,6 +196,7 @@ export async function run(argv: string[]): Promise<DevServer | SSRServer | undef
       const server = await serve(config, {
         dir: dirname(entry),
         port,
+        host: stringFlag(flags, "host"),
         minify: flags["no-minify"] !== true,
         base: stringFlag(flags, "base"),
       });
@@ -205,6 +208,7 @@ export async function run(argv: string[]): Promise<DevServer | SSRServer | undef
         entry: positionals[0] ?? "ssg.tsx",
         outdir: stringFlag(flags, "outdir"),
         port: portFlag(flags),
+        host: stringFlag(flags, "host"),
         minify: flags["no-minify"] !== true,
         base: stringFlag(flags, "base"),
       });
@@ -213,7 +217,7 @@ export async function run(argv: string[]): Promise<DevServer | SSRServer | undef
     }
     case "dev": {
       const entry = positionals[0] ?? "index.html";
-      const server = dev({ entry, port: portFlag(flags) });
+      const server = dev({ entry, port: portFlag(flags), host: stringFlag(flags, "host") });
       console.log(`kanabun dev running at ${server.url}`);
       return server;
     }

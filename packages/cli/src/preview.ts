@@ -8,6 +8,7 @@
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import { DEFAULT_DEV_HOST } from "./dev";
 import { generate } from "./generate";
 import { defaultPort, serveFile, type SSRServer } from "./serve";
 
@@ -25,6 +26,8 @@ export interface PreviewOptions {
   minify?: boolean;
   /** Public base path (the `--base` flag). See `SSGConfig.base`. */
   base?: string;
+  /** Interface to listen on. Defaults to `localhost`, as `dev` does. */
+  host?: string;
 }
 
 export interface PreviewServer extends SSRServer {
@@ -53,6 +56,7 @@ export async function preview(options: PreviewOptions): Promise<PreviewServer> {
 
   const server = Bun.serve({
     port: options.port ?? defaultPort(process.env.PORT),
+    hostname: options.host ?? DEFAULT_DEV_HOST,
     async fetch(req): Promise<Response> {
       let pathname: string;
       try {

@@ -235,7 +235,14 @@ entry point.
 
 ### A9 — Dev-server / build tooling: path traversal & crashes ✅ solid
 
-The dev server is dev-only and localhost-facing, but it is still hardened:
+The dev server is dev-only and listens on `localhost` unless `--host` says
+otherwise (it used to listen on every interface — Bun's default — which this
+review originally missed; fixed in #52). It is hardened beyond that:
+
+- **Dotfiles** — a path with a segment starting with `.` (`.env`, `.git/…`) is
+  answered with a 404; only `.well-known` is served. The served root is the
+  project directory, so this is what keeps secrets out of reach even when the
+  server is deliberately exposed with `--host 0.0.0.0`.
 
 - **Path traversal** — `createDevHandler` (`dev.ts:246`) resolves the served root
   with `realpathSync`, then applies *two* containment checks: a lexical one on the

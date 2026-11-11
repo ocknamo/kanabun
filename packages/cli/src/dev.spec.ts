@@ -4,11 +4,12 @@ import {
   createDevHandler,
   dev,
   devOverlay,
+  isHiddenPath,
   swapCss,
   type DevServer,
 } from "./dev";
 import { mkdtemp, mkdir, rm, writeFile, symlink } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { networkInterfaces, tmpdir } from "node:os";
 import { join, sep } from "node:path";
 
 let fixture: string;
@@ -27,6 +28,14 @@ beforeAll(async () => {
   await writeFile(join(site, "main.tsx"), `export const greeting = "hello";`);
   await writeFile(join(site, "styles.css"), `body { color: red; }`);
   await writeFile(join(site, "notes.txt"), `just text`);
+  // Dotfiles INSIDE the served root: a project directory holds `.env` and `.git/`.
+  await writeFile(join(site, ".env"), `SECRET=1`);
+  await mkdir(join(site, ".git"), { recursive: true });
+  await writeFile(join(site, ".git", "config"), `[core]`);
+  await mkdir(join(site, "sub"), { recursive: true });
+  await writeFile(join(site, "sub", ".hidden.txt"), `hidden`);
+  await mkdir(join(site, ".well-known"), { recursive: true });
+  await writeFile(join(site, ".well-known", "security.txt"), `Contact: x`);
   // A secret OUTSIDE the served root, to test path-traversal containment.
   await writeFile(join(fixture, "secret.txt"), `TOPSECRET`);
   await writeFile(join(fixture, "outside.tsx"), `export const x = "OUTSIDE";`);
@@ -416,9 +425,61 @@ describe("changeMessage", () => {
   });
 });
 
+describe("hidden paths", () => {
+  const handler = () => createDevHandler({ htmlPath, root: site });
+
+  test.each(["/.env", "/.git/config", "/sub/.hidden.txt", "/%2eenv", "/.env.tsx"])(
+    "does not serve %s",
+    async (path) => {
+      const res = await handler()(new Request(`http://localhost${path}`));
+      expect(res.status).toBe(404);
+      expect(await res.text()).not.toContain("SECRET");
+    },
+  );
+
+  test("still serves .well-known", async () => {
+    const res = await handler()(new Request("http://localhost/.well-known/security.txt"));
+    expect(res.status).toBe(200);
+    expect(await res.text()).toBe("Contact: x");
+  });
+
+  test("isHiddenPath looks at every segment, on either separator", () => {
+    expect(isHiddenPath("/.env")).toBe(true);
+    expect(isHiddenPath("/a/.b/c")).toBe(true);
+    expect(isHiddenPath("/a\\.b")).toBe(true);
+    expect(isHiddenPath("/a/b.c")).toBe(false);
+    expect(isHiddenPath("/.well-known/x")).toBe(false);
+    expect(isHiddenPath("/.well-known/.x")).toBe(true);
+  });
+});
+
+/** An address of this machine that other machines could reach, if it has one. */
+function externalAddress(): string | undefined {
+  for (const list of Object.values(networkInterfaces())) {
+    for (const net of list ?? []) {
+      if (net.family === "IPv4" && !net.internal) return net.address;
+    }
+  }
+  return undefined;
+}
+
 describe("dev server", () => {
   let server: DevServer | undefined;
   afterEach(() => server?.stop());
+
+  test("listens on loopback only unless a host is given", async () => {
+    const address = externalAddress();
+    if (address === undefined) return; // nothing but loopback to listen on
+
+    server = dev({ entry: htmlPath, port: 0 });
+    expect(server.url).toStartWith("http://localhost:");
+    expect((await fetch(server.url)).status).toBe(200);
+    await expect(fetch(`http://${address}:${server.port}/`)).rejects.toThrow();
+    server.stop();
+
+    server = dev({ entry: htmlPath, port: 0, host: "0.0.0.0" });
+    expect((await fetch(`http://${address}:${server.port}/`)).status).toBe(200);
+  });
 
   test("starts on an ephemeral port and serves HTML + bundled JS", async () => {
     server = dev({ entry: htmlPath, port: 0 });
