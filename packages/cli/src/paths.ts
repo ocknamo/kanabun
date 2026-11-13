@@ -3,6 +3,12 @@
  */
 import { isAbsolute, join, relative } from "node:path";
 
+/**
+ * Where `dev` and `preview` listen unless told otherwise. Loopback only: they
+ * hand out the project's files to whoever can reach them.
+ */
+export const DEFAULT_DEV_HOST = "localhost";
+
 /** Normalize a base path to a single leading and trailing slash (`/` ⇒ `/`). */
 export function normalizeBase(base: string): string {
   const trimmed = base.replace(/^\/+|\/+$/g, "");

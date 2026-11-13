@@ -36,6 +36,10 @@ beforeAll(async () => {
   await writeFile(join(site, "sub", ".hidden.txt"), `hidden`);
   await mkdir(join(site, ".well-known"), { recursive: true });
   await writeFile(join(site, ".well-known", "security.txt"), `Contact: x`);
+  // Ordinary names that are symlinks to dotfiles inside the root.
+  await symlink(join(site, ".env"), join(site, "envlink"));
+  await symlink(join(site, ".git"), join(site, "gitdir"));
+  await symlink(join(site, ".env"), join(site, ".well-known", "leak"));
   // A secret OUTSIDE the served root, to test path-traversal containment.
   await writeFile(join(fixture, "secret.txt"), `TOPSECRET`);
   await writeFile(join(fixture, "outside.tsx"), `export const x = "OUTSIDE";`);
@@ -428,7 +432,16 @@ describe("changeMessage", () => {
 describe("hidden paths", () => {
   const handler = () => createDevHandler({ htmlPath, root: site });
 
-  test.each(["/.env", "/.git/config", "/sub/.hidden.txt", "/%2eenv", "/.env.tsx"])(
+  test.each([
+    "/.env",
+    "/.git/config",
+    "/sub/.hidden.txt",
+    "/%2eenv",
+    "/.env.tsx",
+    "/envlink",
+    "/gitdir/config",
+    "/.well-known/leak",
+  ])(
     "does not serve %s",
     async (path) => {
       const res = await handler()(new Request(`http://localhost${path}`));
@@ -467,9 +480,9 @@ describe("dev server", () => {
   let server: DevServer | undefined;
   afterEach(() => server?.stop());
 
-  test("listens on loopback only unless a host is given", async () => {
-    const address = externalAddress();
-    if (address === undefined) return; // nothing but loopback to listen on
+  // Needs an address other machines could reach; skipped (and reported) without one.
+  test.skipIf(externalAddress() === undefined)("listens on loopback only unless a host is given", async () => {
+    const address = externalAddress()!;
 
     server = dev({ entry: htmlPath, port: 0 });
     expect(server.url).toStartWith("http://localhost:");

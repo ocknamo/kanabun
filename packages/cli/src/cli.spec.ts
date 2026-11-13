@@ -211,6 +211,37 @@ describe("run", () => {
     }
   });
 
+  test("serve and preview pass --host to the server", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "kanabun-serve-fix-"));
+    try {
+      await writeFile(join(dir, "ssr.ts"), `export default { render: () => "x" };\n`);
+      let served;
+      let previewed;
+      await capture(async () => {
+        served = await run(["serve", join(dir, "ssr.ts"), "--port", "0", "--host", "127.0.0.1"]);
+        previewed = await run([
+          "preview",
+          resolve(root, "examples/ssg/ssg.tsx"),
+          "--outdir",
+          join(dir, "site"),
+          "--port",
+          "0",
+          "--host",
+          "127.0.0.1",
+        ]);
+      });
+      try {
+        expect(served!.url).toStartWith("http://127.0.0.1:");
+        expect(previewed!.url).toStartWith("http://127.0.0.1:");
+      } finally {
+        served!.stop();
+        previewed!.stop();
+      }
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
   test("preview builds the SSG entry and serves it", async () => {
     const dir = await mkdtemp(join(tmpdir(), "kanabun-run-preview-"));
     try {

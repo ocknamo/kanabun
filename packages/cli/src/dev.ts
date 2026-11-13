@@ -11,10 +11,10 @@
  */
 import { realpathSync, watch } from "node:fs";
 import { realpath } from "node:fs/promises";
-import { dirname, extname, resolve, sep } from "node:path";
+import { dirname, extname, relative, resolve, sep } from "node:path";
 import type { ServerWebSocket } from "bun";
 import { errorMessages } from "./errors";
-import { resolveWithin } from "./paths";
+import { DEFAULT_DEV_HOST, resolveWithin } from "./paths";
 
 const LIVE_RELOAD_PATH = "/__kanabun_livereload";
 const MODULE_RE = /\.(tsx|ts|jsx|js)$/;
@@ -249,9 +249,6 @@ export function isHiddenPath(pathname: string): boolean {
     .some((segment) => segment.startsWith(".") && segment !== ".well-known");
 }
 
-/** Loopback only: a dev server hands out the project's source to whoever can reach it. */
-export const DEFAULT_DEV_HOST = "localhost";
-
 /**
  * The HTTP request handler, separated from the server so it can be tested
  * directly: HTML gets the live-reload snippet injected, module requests are
@@ -311,7 +308,10 @@ export function createDevHandler(
     const filePath = resolveWithin(root, pathname);
     if (filePath === undefined) return notFound();
     try {
-      if (escapesRoot(await realpath(filePath))) return notFound();
+      const real = await realpath(filePath);
+      if (escapesRoot(real)) return notFound();
+      // An ordinary name can still be a symlink to `.env` or into `.git/`.
+      if (isHiddenPath(relative(root, real))) return notFound();
     } catch {
       // Target doesn't exist: fall through (module → build error, static → 404).
     }

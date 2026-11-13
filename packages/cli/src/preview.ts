@@ -8,8 +8,8 @@
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { DEFAULT_DEV_HOST } from "./dev";
 import { generate } from "./generate";
+import { DEFAULT_DEV_HOST } from "./paths";
 import { defaultPort, serveFile, type SSRServer } from "./serve";
 
 export interface PreviewOptions {

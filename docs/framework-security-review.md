@@ -240,18 +240,19 @@ otherwise (it used to listen on every interface — Bun's default — which this
 review originally missed; fixed in #52). It is hardened beyond that:
 
 - **Dotfiles** — a path with a segment starting with `.` (`.env`, `.git/…`) is
-  answered with a 404; only `.well-known` is served. The served root is the
-  project directory, so this is what keeps secrets out of reach even when the
-  server is deliberately exposed with `--host 0.0.0.0`.
+  answered with a 404, and so is a symlink whose target is one; only
+  `.well-known` is served. Everything else under the project directory *is*
+  served — sources, and secrets not named with a dot (`*.pem`,
+  `credentials.json`) — so `--host 0.0.0.0` belongs on a network you trust.
 
-- **Path traversal** — `createDevHandler` (`dev.ts:246`) resolves the served root
+- **Path traversal** — `createDevHandler` resolves the served root
   with `realpathSync`, then applies *two* containment checks: a lexical one on the
   resolved path (blocks `../` and `%2e%2e%2f`, since `decodeURIComponent` runs
   first) **and** a `realpath` check that blocks a symlink *inside* the root that
-  points outside it (`dev.ts:295–297`). Both must pass or the request 404s.
+  points outside it. Both must pass or the request 404s.
 - **Malformed-escape crash** — `decodeURIComponent` is wrapped in `try/catch`
   returning a 404, so `/%ZZ` or a lone `%` can't throw out of the handler
-  (`dev.ts:281`). This was **S5**.
+  This was **S5**.
 - **Build-time route escape** — SSG's `generate` rejects a route whose file
   escapes `outdir` (`generate.ts:149`), a guardrail on build-time config.
 
@@ -315,12 +316,12 @@ untrusted input was found.
 | A6 Unsafe URL schemes | ✅ mitigated | S3 `<Link>` guard |
 | A7 Insecure deserialization | ✅ N/A | no RSC/RPC/deserializer |
 | A8 Server SSRF / DoS | ✅ N/A | no server framework |
-| A9 Dev-server traversal/crash | ✅ solid | S5 + dual containment |
+| A9 Dev-server traversal/crash | ✅ solid | S5 + dual containment; bind/dotfiles fixed in #52 |
 | A10 ReDoS | ✅ none | anchored, non-backtracking |
 | A11 Hydration-marker injection | ✅ N/A | marker-free hydration |
 | A12 Client memory exhaustion | ✅ solid | owner-tree disposal |
 
-**No new finding.** The dominant reason kanabun avoids these classes is
+**No new finding** beyond the dev-server exposure under A9 (#52). The dominant reason kanabun avoids these classes is
 *structural*: no HTML sanitizer to bypass (A1-Angular), no template evaluator
 (A4), no recursive prop-merge or nested query parser (A5), no server component /
 RPC / deserializer (A7), and no request-handling server framework (A8). The
