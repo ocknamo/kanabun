@@ -3,6 +3,14 @@
  */
 import { isAbsolute, join, relative } from "node:path";
 
+/**
+ * Where `dev` and `preview` listen unless told otherwise. Loopback only: they
+ * hand out the project's files to whoever can reach them. An address, not
+ * `localhost`: where that resolves to `::1` first, Bun binds IPv6 alone and a
+ * client trying `127.0.0.1` is refused. Browsers asked for `localhost` fall back.
+ */
+export const DEFAULT_DEV_HOST = "127.0.0.1";
+
 /** Normalize a base path to a single leading and trailing slash (`/` ⇒ `/`). */
 export function normalizeBase(base: string): string {
   const trimmed = base.replace(/^\/+|\/+$/g, "");

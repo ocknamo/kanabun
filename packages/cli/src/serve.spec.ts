@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { networkInterfaces } from "node:os";
 import { resolve } from "node:path";
 import { createSSRHandler, defaultPort, serve, serveFile } from "./serve";
 
@@ -173,6 +174,23 @@ describe("serve", () => {
       expect(page).toContain("<title>over http</title>");
     } finally {
       server.stop();
+    }
+  });
+
+  // Every interface by default, unlike dev: this is what a deployment runs.
+  // `server.url` says localhost either way, so only a request can tell.
+  const external = Object.values(networkInterfaces())
+    .flat()
+    .find((net) => net?.family === "IPv4" && !net.internal)?.address;
+  test.skipIf(external === undefined)("listens beyond loopback unless a host is given", async () => {
+    const open = await serve({ render: () => "x" }, { port: 0 });
+    const local = await serve({ render: () => "x" }, { port: 0, host: "127.0.0.1" });
+    try {
+      expect((await fetch(`http://${external}:${open.port}/`)).status).toBe(200);
+      await expect(fetch(`http://${external}:${local.port}/`)).rejects.toThrow();
+    } finally {
+      open.stop();
+      local.stop();
     }
   });
 });

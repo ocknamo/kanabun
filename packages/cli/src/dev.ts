@@ -11,10 +11,10 @@
  */
 import { realpathSync, watch } from "node:fs";
 import { realpath } from "node:fs/promises";
-import { dirname, extname, resolve, sep } from "node:path";
+import { dirname, extname, relative, resolve, sep } from "node:path";
 import type { ServerWebSocket } from "bun";
 import { errorMessages } from "./errors";
-import { resolveWithin } from "./paths";
+import { DEFAULT_DEV_HOST, resolveWithin } from "./paths";
 
 const LIVE_RELOAD_PATH = "/__kanabun_livereload";
 const MODULE_RE = /\.(tsx|ts|jsx|js)$/;
@@ -240,6 +240,16 @@ export interface DevHandlerOptions {
 }
 
 /**
+ * Whether a request path names a dotfile or goes through a dot-directory.
+ * `.well-known` is the one such directory meant to be served. Exported for testing.
+ */
+export function isHiddenPath(pathname: string): boolean {
+  return pathname
+    .split(/[\\/]/)
+    .some((segment) => segment.startsWith(".") && segment !== ".well-known");
+}
+
+/**
  * The HTTP request handler, separated from the server so it can be tested
  * directly: HTML gets the live-reload snippet injected, module requests are
  * bundled for the browser, other paths are served as static files (or 404).
@@ -287,6 +297,9 @@ export function createDevHandler(
 
     if (pathname === "/" || pathname === "/index.html") return serveHtml();
 
+    // The served root is the project directory, where `.env` and `.git/` live.
+    if (isHiddenPath(pathname)) return notFound();
+
     // Two containment checks must both pass:
     //  1. lexical (resolveWithin) — blocks `..` (incl. `%2e%2e%2f`, which
     //     decodeURIComponent turns back into `../`).
@@ -295,7 +308,10 @@ export function createDevHandler(
     const filePath = resolveWithin(root, pathname);
     if (filePath === undefined) return notFound();
     try {
-      if (escapesRoot(await realpath(filePath))) return notFound();
+      const real = await realpath(filePath);
+      if (escapesRoot(real)) return notFound();
+      // An ordinary name can still be a symlink to `.env` or into `.git/`.
+      if (isHiddenPath(relative(root, real))) return notFound();
     } catch {
       // Target doesn't exist: fall through (module → build error, static → 404).
     }
@@ -349,6 +365,11 @@ export interface DevOptions {
   entry?: string;
   /** Port to listen on. Defaults to 3000; use 0 for an ephemeral port. */
   port?: number;
+  /**
+   * Interface to listen on. Defaults to `127.0.0.1`; pass `0.0.0.0` to reach the
+   * server from other devices, on a network you trust.
+   */
+  host?: string;
 }
 
 export interface DevServer {
@@ -367,6 +388,7 @@ export function dev(options: DevOptions = {}): DevServer {
 
   const server = Bun.serve({
     port: options.port ?? 3000,
+    hostname: options.host ?? DEFAULT_DEV_HOST,
     async fetch(req, srv): Promise<Response | undefined> {
       if (new URL(req.url).pathname === LIVE_RELOAD_PATH) {
         return srv.upgrade(req)

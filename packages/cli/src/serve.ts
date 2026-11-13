@@ -58,6 +58,11 @@ export interface ServeOptions {
    * `process.env` themselves.
    */
   port?: number;
+  /**
+   * Interface to listen on. Unset means every interface: unlike `dev`, this is
+   * the server a deployment runs, and a container has to be reachable.
+   */
+  host?: string;
   /** Minify the client/island bundles. Defaults to `true`. */
   minify?: boolean;
   /** Public base path (overrides the config's `base`). See {@link SSRConfig.base}. */
@@ -197,6 +202,7 @@ export async function serve(
   const handler = await createSSRHandler(config, options);
   const server = Bun.serve({
     port: options.port ?? defaultPort(process.env.PORT),
+    ...(options.host === undefined ? {} : { hostname: options.host }),
     fetch: handler,
   });
   return {
