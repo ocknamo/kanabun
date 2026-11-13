@@ -26,7 +26,7 @@ export interface PreviewOptions {
   minify?: boolean;
   /** Public base path (the `--base` flag). See `SSGConfig.base`. */
   base?: string;
-  /** Interface to listen on. Defaults to `localhost`, as `dev` does. */
+  /** Interface to listen on. Defaults to `127.0.0.1`, as `dev` does. */
   host?: string;
 }
 

@@ -13,12 +13,12 @@ afterAll(async () => {
 });
 
 describe("preview", () => {
-  test("listens on localhost unless a host is given", async () => {
+  test("listens on loopback unless a host is given", async () => {
     const local = await preview({ entry, port: 0, minify: false });
-    const named = await preview({ entry, port: 0, minify: false, host: "127.0.0.1" });
+    const named = await preview({ entry, port: 0, minify: false, host: "localhost" });
     try {
-      expect(local.url).toStartWith("http://localhost:");
-      expect(named.url).toStartWith("http://127.0.0.1:");
+      expect(local.url).toStartWith("http://127.0.0.1:");
+      expect(named.url).toStartWith("http://localhost:");
     } finally {
       local.stop();
       named.stop();

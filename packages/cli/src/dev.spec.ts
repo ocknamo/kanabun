@@ -485,7 +485,9 @@ describe("dev server", () => {
     const address = externalAddress()!;
 
     server = dev({ entry: htmlPath, port: 0 });
-    expect(server.url).toStartWith("http://localhost:");
+    expect(server.url).toStartWith("http://127.0.0.1:");
+    // What browsers and tools open by default must still reach it.
+    expect((await fetch(`http://localhost:${server.port}/`)).status).toBe(200);
     expect((await fetch(server.url)).status).toBe(200);
     await expect(fetch(`http://${address}:${server.port}/`)).rejects.toThrow();
     server.stop();

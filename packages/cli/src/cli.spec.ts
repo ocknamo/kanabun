@@ -227,12 +227,12 @@ describe("run", () => {
           "--port",
           "0",
           "--host",
-          "127.0.0.1",
+          "localhost",
         ]);
       });
       try {
         expect(served!.url).toStartWith("http://127.0.0.1:");
-        expect(previewed!.url).toStartWith("http://127.0.0.1:");
+        expect(previewed!.url).toStartWith("http://localhost:");
       } finally {
         served!.stop();
         previewed!.stop();
@@ -311,12 +311,12 @@ describe("run", () => {
         "--port",
         "0",
         "--host",
-        "127.0.0.1",
+        "localhost",
       ]);
     } finally {
       console.log = original;
     }
-    expect(server!.url).toStartWith("http://127.0.0.1:");
+    expect(server!.url).toStartWith("http://localhost:");
     server!.stop();
   });
 });

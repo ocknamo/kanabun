@@ -366,7 +366,7 @@ export interface DevOptions {
   /** Port to listen on. Defaults to 3000; use 0 for an ephemeral port. */
   port?: number;
   /**
-   * Interface to listen on. Defaults to `localhost`; pass `0.0.0.0` to reach the
+   * Interface to listen on. Defaults to `127.0.0.1`; pass `0.0.0.0` to reach the
    * server from other devices, on a network you trust.
    */
   host?: string;

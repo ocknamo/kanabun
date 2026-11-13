@@ -23,13 +23,13 @@ kanabun generate                      # static site generation (SSG)
 ## Commands
 
 - **create** — scaffold a new kanabun app.
-- **dev** — dev server with full reload on change. Listens on `localhost`;
+- **dev** — dev server with full reload on change. Listens on loopback (`127.0.0.1`);
   pass `--host 0.0.0.0` to reach it from other devices on a network you trust.
   Dotfiles (`.env`, `.git/`) are never served.
 - **build** — bundle for the browser (`--no-sourcemap` skips the sourcemap).
 - **generate** — static site generation.
 - **preview** / **serve** — preview a built app, incl. SSR. `preview` listens on
-  `localhost` like `dev`; `serve` listens on every interface (it is what a
+  loopback like `dev`; `serve` listens on every interface (it is what a
   deployment runs). Both take `--host`.
 - **lint** — kanabun-aware linting.
 

@@ -235,7 +235,7 @@ entry point.
 
 ### A9 — Dev-server / build tooling: path traversal & crashes ✅ solid
 
-The dev server is dev-only and listens on `localhost` unless `--host` says
+The dev server is dev-only and listens on loopback (`127.0.0.1`) unless `--host` says
 otherwise (it used to listen on every interface — Bun's default — which this
 review originally missed; fixed in #52). It is hardened beyond that:
 

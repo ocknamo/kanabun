@@ -50,7 +50,7 @@ Options:
   --no-minify               disable minification for build
   --no-sourcemap            disable sourcemap generation for build
   --port <n>                server port (default: $PORT or 3000)
-  --host <name>             interface to listen on (default: localhost for
+  --host <name>             interface to listen on (default: 127.0.0.1 for
                             dev/preview, every interface for serve)
   -h, --help                show this help
   -v, --version             print the version
